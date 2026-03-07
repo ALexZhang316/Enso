@@ -1,0 +1,23 @@
+﻿[provider]
+model = "gpt-4o-mini"
+baseUrl = "https://api.openai.com/v1"
+apiKeyEnv = "OPENAI_API_KEY"
+temperature = 0.2
+
+[expression]
+style = "balanced"
+reducedQuestioning = true
+defaultAssumption = "pragmatic"
+
+[permissions]
+readOnlyDefault = true
+requireConfirmationForWrites = true
+requireDoubleConfirmationForExternal = true
+
+[modeDefaults]
+defaultMode = "deep-dialogue"
+
+[modeDefaults.retrievalByMode]
+"deep-dialogue" = false
+decision = true
+research = true

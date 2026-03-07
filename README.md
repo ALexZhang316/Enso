@@ -1,53 +1,67 @@
-# Personal Agent Handoff Pack
+﻿# Enso v0.1 MVP Skeleton
 
-This pack converts the planning docs into repo-friendly Markdown for coding agents.
+Enso is a local-first Windows desktop personal-agent MVP with a fixed three-panel main window and manual mode switching.
 
-## Included files
+## Implemented Scope (This Round)
 
-- `AGENTS.md` — primary implementation instructions for Codex / repo-aware agents
-- `CLAUDE.md` — project instructions for Claude Code
-- `docs/architecture.md`
-- `docs/windows-product-spec.md`
-- `docs/module-spec-table.md`
-- `docs/mvp-definition.md`
-- `docs/ui-layout.md`
-- `docs/execution-flow.md`
-- `docs/implementation-kickoff.md`
+- Electron desktop shell
+- React + TypeScript + Tailwind + shadcn-style UI
+- Fixed three-panel layout (left 20% / center 55% / right 25%)
+- Manual mode switching: Deep Dialogue / Decision / Research
+- Local config read/write foundations (TOML)
+- Local session/state/audit persistence foundations (SQLite via better-sqlite3)
+- File import entry for local knowledge ingestion
+- Minimal retrieval wiring from imported knowledge chunks
+- Single-request execution chain skeleton aligned to `docs/execution-flow.md`
+- Minimal tool abstraction: read / search / compute
 
-## Source-of-truth priority
-
-When documents conflict, use this order:
-
-1. `docs/mvp-definition.md`
-2. `docs/execution-flow.md`
-3. `docs/ui-layout.md`
-4. `docs/windows-product-spec.md`
-5. `docs/architecture.md`
-6. `docs/module-spec-table.md`
-
-## Project identity
-
-- Single-user Windows desktop app
-- Main chat window form factor
-- Local-first architecture
-- Default mode: Deep Dialogue
-- Secondary modes: Decision, Research
-- No automatic routing
-- No vibecoding mode
-
-
-## Locked implementation stack for v0.1
-
-The current handoff pack assumes the following fixed stack unless there is a hard blocker:
+## Locked Stack
 
 - Electron
 - React + TypeScript
-- Tailwind CSS + shadcn/ui
-- LangChain.js
-- better-sqlite3
-- SQLite
-- TOML
-- OpenAI-compatible provider abstraction
+- Tailwind CSS + shadcn-style component primitives
+- LangChain.js (integration helper only)
+- better-sqlite3 + SQLite
+- TOML config
 
-Node.js and Electron versions should be locked to stable releases for v0.1.
-LangChain.js is used as glue/orchestration only and must not override the execution-flow spec.
+## Project Structure
+
+- `src/main`: Electron main process, preload, IPC, execution/services
+- `src/renderer`: React UI app
+- `src/shared`: shared types, mode definitions, bridge contracts
+- `config/default.toml`: default user-editable config template
+- `docs/`: source-of-truth product and flow specs
+
+## Run
+
+1. Install Node.js 20.x LTS.
+2. Install dependencies:
+   - `npm install`
+3. Start dev mode:
+   - `npm run dev`
+4. Build:
+   - `npm run build`
+5. Launch built app:
+   - `npm run start`
+
+## Model Provider
+
+- Default provider config is in local TOML (`config.toml` copied to user data directory on first launch).
+- Set `OPENAI_API_KEY` in your environment for live model calls.
+- Without an API key, Enso returns a local stub draft response.
+
+## Data Location
+
+Local runtime files are stored in Electron `userData`:
+
+- `enso.sqlite` (sessions, state, audit, knowledge metadata/chunks)
+- `config.toml` (user-editable config)
+
+## MVP Boundaries Preserved
+
+- No auto-routing / no auto mode selection
+- No nonlinear conversation canvas/branching
+- No automatic long-term memory
+- No vibecoding mode
+- No multi-agent orchestration
+- Read-only default gate for action-adjacent requests

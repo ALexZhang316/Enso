@@ -1,0 +1,36 @@
+﻿@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: 214 38% 9%;
+  --foreground: 210 40% 98%;
+  --card: 214 29% 14%;
+  --card-foreground: 210 40% 98%;
+  --primary: 38 92% 57%;
+  --primary-foreground: 213 32% 12%;
+  --muted: 213 25% 20%;
+  --muted-foreground: 213 11% 72%;
+  --border: 214 21% 27%;
+  --accent: 197 78% 48%;
+  --accent-foreground: 213 32% 12%;
+}
+
+* {
+  border-color: hsl(var(--border));
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: "Segoe UI", "Noto Sans", sans-serif;
+  background: radial-gradient(circle at 80% -20%, rgba(56, 189, 248, 0.2), transparent 40%),
+    radial-gradient(circle at 20% 120%, rgba(251, 191, 36, 0.2), transparent 45%),
+    hsl(var(--background));
+  color: hsl(var(--foreground));
+}
