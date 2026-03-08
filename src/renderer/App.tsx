@@ -396,9 +396,9 @@ const App = (): JSX.Element => {
   };
 
   return (
-    <div className="h-full p-3">
+    <div className="h-full p-3" data-testid="layout-root">
       <div className="grid h-full grid-cols-[20%_55%_25%] gap-3">
-        <aside className="flex h-full min-h-0 flex-col gap-3">
+        <aside className="flex h-full min-h-0 flex-col gap-3" data-testid="left-rail">
           <Card className="min-h-0 flex-1">
             <CardHeader>
               <CardTitle>模式</CardTitle>
@@ -407,6 +407,7 @@ const App = (): JSX.Element => {
               {MODES.map((mode) => (
                 <Button
                   key={mode.id}
+                  data-testid={`mode-button-${mode.id}`}
                   className="w-full justify-start"
                   onClick={() => {
                     void handleModeSelect(mode.id);
@@ -425,6 +426,7 @@ const App = (): JSX.Element => {
               <div className="flex items-center justify-between">
                 <div className="text-xs font-medium uppercase text-muted-foreground">会话</div>
                 <Button
+                  data-testid="conversation-create-button"
                   onClick={() => {
                     void handleCreateConversation();
                   }}
@@ -439,6 +441,7 @@ const App = (): JSX.Element => {
                   {conversations.map((conversation) => (
                     <div
                       key={conversation.id}
+                      data-testid={`conversation-card-${conversation.id}`}
                       className={`rounded-md border p-2 text-sm transition ${
                         conversation.id === activeConversationId
                           ? "border-accent bg-accent/20"
@@ -490,6 +493,7 @@ const App = (): JSX.Element => {
             <CardContent className="space-y-2 pb-4">
               <div className="text-xs font-medium uppercase text-muted-foreground">全局</div>
               <Button
+                data-testid="nav-knowledge-button"
                 className="w-full justify-start"
                 variant={centerView === "knowledge" ? "default" : "ghost"}
                 onClick={() => toggleCenterView("knowledge")}
@@ -498,6 +502,7 @@ const App = (): JSX.Element => {
                 知识库
               </Button>
               <Button
+                data-testid="nav-settings-button"
                 className="w-full justify-start"
                 variant={centerView === "settings" ? "default" : "ghost"}
                 onClick={() => toggleCenterView("settings")}
@@ -506,6 +511,7 @@ const App = (): JSX.Element => {
                 设置
               </Button>
               <Button
+                data-testid="nav-audits-button"
                 className="w-full justify-start"
                 variant={centerView === "audits" ? "default" : "ghost"}
                 onClick={() => toggleCenterView("audits")}
@@ -517,12 +523,12 @@ const App = (): JSX.Element => {
           </Card>
         </aside>
 
-        <main className="flex h-full min-h-0 flex-col gap-3">
+        <main className="flex h-full min-h-0 flex-col gap-3" data-testid="center-pane">
           <Card>
             <CardHeader className="flex-row items-center justify-between space-y-0">
               <div className="space-y-1">
                 <CardTitle>主聊天窗口</CardTitle>
-                <div className="text-sm text-muted-foreground">
+                <div className="text-sm text-muted-foreground" data-testid="chat-header-mode">
                   模式：{modeLabel(activeMode)} | 会话：{activeConversation?.title ?? "--"}
                 </div>
                 <div className="text-xs text-muted-foreground">
@@ -541,7 +547,7 @@ const App = (): JSX.Element => {
               <Card className="min-h-0 flex-1">
                 <CardContent className="h-full p-0">
                   <ScrollArea className="h-full px-4 py-3">
-                    <div className="space-y-3">
+                    <div className="space-y-3" data-testid="chat-message-list">
                       {messages.length === 0 ? (
                         <div className="rounded-md border border-border bg-muted/40 p-3 text-sm text-muted-foreground">
                           还没有消息。在下方输入请求以运行 MVP 执行链。
@@ -609,6 +615,7 @@ const App = (): JSX.Element => {
               <Card>
                 <CardContent className="space-y-2 p-3">
                   <Textarea
+                    data-testid="composer-input"
                     placeholder="请输入你的请求..."
                     className="min-h-[120px]"
                     value={composerText}
@@ -618,6 +625,7 @@ const App = (): JSX.Element => {
                   <div className="flex items-center justify-between gap-2">
                     <label className="flex items-center gap-2 text-xs text-muted-foreground">
                       <input
+                        data-testid="composer-retrieval-toggle"
                         type="checkbox"
                         checked={enableRetrievalForTurn}
                         onChange={(event) => setEnableRetrievalForTurn(event.target.checked)}
@@ -627,6 +635,7 @@ const App = (): JSX.Element => {
                     </label>
                     <div className="flex gap-2">
                       <Button
+                        data-testid="composer-import-button"
                         onClick={() => {
                           void handleImportKnowledge();
                         }}
@@ -636,6 +645,7 @@ const App = (): JSX.Element => {
                         导入文件
                       </Button>
                       <Button
+                        data-testid="composer-send-button"
                         onClick={() => {
                           void handleSend();
                         }}
@@ -645,7 +655,7 @@ const App = (): JSX.Element => {
                       </Button>
                     </div>
                   </div>
-                  <div className="text-xs text-muted-foreground">
+                  <div className="text-xs text-muted-foreground" data-testid="composer-status">
                     {lastRunInfo || importStatus || "当前为手动模式切换，未启用自动路由。"}
                   </div>
                 </CardContent>
@@ -658,29 +668,38 @@ const App = (): JSX.Element => {
               <CardHeader className="flex-row items-center justify-between space-y-0">
                 <CardTitle>知识库</CardTitle>
                 <Button
+                  data-testid="knowledge-import-button"
                   onClick={() => {
                     void handleImportKnowledge();
                   }}
                   variant="outline"
                   disabled={isLoading || isSubmitting}
                 >
-                  导入文件s
+                  导入文件
                 </Button>
               </CardHeader>
               <CardContent className="h-full min-h-0 p-0">
                 <ScrollArea className="h-full px-4 pb-4">
-                  <div className="space-y-2 text-sm">
-                    <div className="text-xs text-muted-foreground">
+                  <div className="space-y-2 text-sm" data-testid="knowledge-view">
+                    <div className="text-xs text-muted-foreground" data-testid="knowledge-count">
                       已导入来源：{knowledgeSources.length}
                     </div>
-                    {importStatus && <div className="text-xs text-muted-foreground">{importStatus}</div>}
+                    {importStatus && (
+                      <div className="text-xs text-muted-foreground" data-testid="knowledge-import-status">
+                        {importStatus}
+                      </div>
+                    )}
                     {knowledgeSources.length === 0 ? (
                       <div className="rounded-md border border-border bg-muted/40 p-3 text-sm text-muted-foreground">
                         暂无本地知识文件。
                       </div>
                     ) : (
                       knowledgeSources.map((source) => (
-                        <div key={source.id} className="rounded-md border border-border bg-muted/30 p-3">
+                        <div
+                          key={source.id}
+                          data-testid={`knowledge-source-${source.id}`}
+                          className="rounded-md border border-border bg-muted/30 p-3"
+                        >
                           <div className="font-medium">{source.name}</div>
                           <div className="mt-1 break-all text-xs text-muted-foreground">{source.path}</div>
                           <div className="mt-1 text-xs text-muted-foreground">
@@ -701,6 +720,7 @@ const App = (): JSX.Element => {
                 <CardTitle>设置</CardTitle>
                 <div className="flex gap-2">
                   <Button
+                    data-testid="settings-reload-button"
                     variant="outline"
                     onClick={() => {
                       void handleReloadSettings();
@@ -710,6 +730,7 @@ const App = (): JSX.Element => {
                     重新加载
                   </Button>
                   <Button
+                    data-testid="settings-save-button"
                     onClick={() => {
                       void handleSaveSettings();
                     }}
@@ -794,6 +815,7 @@ const App = (): JSX.Element => {
                         <label className="space-y-1">
                           <div className="text-xs text-muted-foreground">风格</div>
                           <select
+                            data-testid="settings-style-select"
                             className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm"
                             value={settingsDraft.expression.style}
                             onChange={(event) =>
@@ -975,7 +997,7 @@ const App = (): JSX.Element => {
                         </div>
                       </div>
 
-                      <div className="text-xs text-muted-foreground">
+                      <div className="text-xs text-muted-foreground" data-testid="settings-status">
                         {settingsStatus || "修改会保存到 userData 下的本地 config.toml。"}
                       </div>
                     </div>
@@ -1014,14 +1036,18 @@ const App = (): JSX.Element => {
               </CardHeader>
               <CardContent className="h-full min-h-0 p-0">
                 <ScrollArea className="h-full px-4 pb-4">
-                  <div className="space-y-2 text-sm">
+                  <div className="space-y-2 text-sm" data-testid="audit-record-list">
                     {auditRecords.length === 0 ? (
                       <div className="rounded-md border border-border bg-muted/40 p-3 text-sm text-muted-foreground">
                         暂无审计记录。
                       </div>
                     ) : (
                       auditRecords.map((record) => (
-                        <div key={record.id} className="rounded-md border border-border bg-muted/30 p-3">
+                        <div
+                          key={record.id}
+                          data-testid={`audit-record-${record.id}`}
+                          className="rounded-md border border-border bg-muted/30 p-3"
+                        >
                           <div className="font-medium">
                             {modeLabel(record.mode)} | {resultTypeLabel(record.resultType)}
                           </div>
@@ -1046,12 +1072,12 @@ const App = (): JSX.Element => {
           )}
         </main>
 
-        <aside className="flex h-full min-h-0 flex-col gap-3">
+        <aside className="flex h-full min-h-0 flex-col gap-3" data-testid="right-rail">
           <Card className="min-h-0 flex-1">
             <CardHeader>
               <CardTitle>当前上下文</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-2 text-sm text-muted-foreground">
+            <CardContent className="space-y-2 text-sm text-muted-foreground" data-testid="context-panel">
               <div className="font-medium text-foreground">{modeLabel(activeMode)}</div>
               <div>{activeModeDescription}</div>
               <div>知识来源数：{knowledgeSources.length}</div>
@@ -1094,7 +1120,7 @@ const App = (): JSX.Element => {
             <CardHeader>
               <CardTitle>当前状态</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-2 text-sm text-muted-foreground">
+            <CardContent className="space-y-2 text-sm text-muted-foreground" data-testid="state-panel">
               <div>是否使用检索：{boolLabel(stateSnapshot.retrievalUsed)}</div>
               <div>已调用工具：{stateSnapshot.toolsCalled.length ? stateSnapshot.toolsCalled.join(", ") : "无"}</div>
               <div>最近工具结果：{stateSnapshot.latestToolResult || "--"}</div>
@@ -1102,6 +1128,7 @@ const App = (): JSX.Element => {
               <div>任务状态：{taskStatusLabel(stateSnapshot.taskStatus)}</div>
               {stateSnapshot.pendingConfirmation && (
                 <Button
+                  data-testid="resolve-confirmation-button"
                   size="sm"
                   onClick={() => {
                     void handleResolvePendingConfirmation();
@@ -1118,7 +1145,7 @@ const App = (): JSX.Element => {
             <CardHeader>
               <CardTitle>审计摘要</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-2 pb-4 text-sm text-muted-foreground">
+            <CardContent className="space-y-2 pb-4 text-sm text-muted-foreground" data-testid="audit-summary-panel">
               <div>模式：{auditSummary ? modeLabel(auditSummary.mode) : "--"}</div>
               <div>检索：{auditSummary ? boolLabel(auditSummary.retrievalUsed) : "--"}</div>
               <div>工具：{auditSummary ? (auditSummary.toolsUsed.length ? auditSummary.toolsUsed.join(", ") : "无") : "--"}</div>

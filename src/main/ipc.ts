@@ -1,4 +1,5 @@
 ﻿import { dialog, ipcMain } from "electron";
+import path from "node:path";
 import { DEFAULT_MODE, ModeId } from "../shared/modes";
 import { EnsoConfig, ExecutionInput, InitializationPayload } from "../shared/types";
 import { ExecutionFlow } from "./core/execution-flow";
@@ -113,16 +114,26 @@ export const registerIpcHandlers = ({
   ipcMain.handle("enso:config:save", (_event, config: EnsoConfig) => configService.save(config));
 
   ipcMain.handle("enso:file:import", async () => {
-    const result = await dialog.showOpenDialog({
-      title: "导入知识文件",
-      properties: ["openFile", "multiSelections"],
-      filters: [
-        { name: "文本文件", extensions: ["txt", "md", "markdown", "json", "csv"] },
-        { name: "所有文件", extensions: ["*"] }
-      ]
-    });
+    const scriptedImportPaths = process.env.ENSO_TEST_IMPORT_FILES
+      ?.split(path.delimiter)
+      .map((item) => item.trim())
+      .filter(Boolean);
 
-    if (result.canceled || result.filePaths.length === 0) {
+    const filePaths =
+      scriptedImportPaths && scriptedImportPaths.length > 0
+        ? scriptedImportPaths
+        : (
+            await dialog.showOpenDialog({
+              title: "导入知识文件",
+              properties: ["openFile", "multiSelections"],
+              filters: [
+                { name: "文本文件", extensions: ["txt", "md", "markdown", "json", "csv"] },
+                { name: "所有文件", extensions: ["*"] }
+              ]
+            })
+          ).filePaths;
+
+    if (filePaths.length === 0) {
       return {
         imported: [],
         skipped: [],
@@ -133,7 +144,7 @@ export const registerIpcHandlers = ({
     const imported = [];
     const skipped = [];
 
-    for (const filePath of result.filePaths) {
+    for (const filePath of filePaths) {
       try {
         const source = await knowledgeService.ingestFile(filePath);
         imported.push(source);

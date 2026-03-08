@@ -1,4 +1,5 @@
 ﻿import { app, BrowserWindow } from "electron";
+import fs from "node:fs";
 import path from "node:path";
 import { registerIpcHandlers } from "./ipc";
 import { ExecutionFlow } from "./core/execution-flow";
@@ -11,6 +12,12 @@ import { ToolService } from "./services/tool-service";
 let store: EnsoStore | null = null;
 const windows = new Set<BrowserWindow>();
 let creatingWindow = false;
+const testUserDataPath = process.env.ENSO_USER_DATA_DIR;
+
+if (testUserDataPath) {
+  fs.mkdirSync(testUserDataPath, { recursive: true });
+  app.setPath("userData", testUserDataPath);
+}
 
 const delay = async (ms: number): Promise<void> =>
   new Promise((resolve) => setTimeout(resolve, ms));
@@ -120,5 +127,6 @@ app.on("window-all-closed", () => {
 });
 
 app.on("before-quit", () => {
+  store?.close();
   store = null;
 });

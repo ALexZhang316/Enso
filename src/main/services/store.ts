@@ -508,6 +508,12 @@ export class EnsoStore {
       .sort((a: RetrievedSnippet, b: RetrievedSnippet) => b.score - a.score)
       .slice(0, limit);
   }
+
+  close(): void {
+    if (this.db.open) {
+      this.db.close();
+    }
+  }
 }
 
 

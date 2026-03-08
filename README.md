@@ -50,6 +50,21 @@ Enso is a local-first Windows desktop personal-agent MVP with a fixed three-pane
 5. Launch built app:
    - `npm run start`
 
+## Automated Tests
+
+- Run MVP integration checks:
+  - `npm run test:mvp`
+- Run MVP UI acceptance checks:
+  - `npm run test:mvp:ui`
+- Run all automated MVP checks:
+  - `npm run test:mvp:all`
+
+The script rebuilds the app and runs automated checks for local config, SQLite persistence,
+knowledge ingestion/retrieval, the single-request execution chain, and the read-only gate.
+The UI acceptance script launches Electron with isolated `userData`, drives the three-pane
+window through Playwright, and verifies mode switching, local file import, chat submission,
+gate confirmation, settings save, and audit display.
+
 If native module ABI mismatch occurs (e.g., `better-sqlite3` load error), run:
 - `npm run rebuild:native`
 

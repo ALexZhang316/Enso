@@ -10,33 +10,42 @@
    结果：`10.8.2`
 3. 构建检查：通过  
    命令：`npm run build`
-4. 启动烟测：通过  
-   命令：`npm run start`
+4. 核心集成测试：通过  
+   命令：`npm run test:mvp`
+5. Electron UI 验收：通过  
+   命令：`npm run test:mvp:ui`
+6. 全量自动验收：通过  
+   命令：`npm run test:mvp:all`
 
 ## 二、MVP 停止条件对照
 
-1. app launches：通过（自动验证）
-2. three-panel UI works：需手工确认
-3. modes switch：需手工确认
-4. requests can be submitted and answered：需手工确认
-5. state and audit summaries are visible：需手工确认
-6. file import + minimal retrieval are wired：需手工确认
-7. main single-request flow runs end-to-end：需手工确认
+1. app launches：通过（Electron UI 自动验收）
+2. three-panel UI works：通过（Playwright 验证左 / 中 / 右三栏）
+3. modes switch：通过（Playwright 验证深度对话 / 决策 / 研究）
+4. requests can be submitted and answered：通过（自动提交请求并校验助手回复）
+5. state and audit summaries are visible：通过（自动校验右栏状态与审计摘要）
+6. file import + minimal retrieval are wired：通过（自动导入知识文件并校验检索结果）
+7. main single-request flow runs end-to-end：通过（集成测试 + UI 验收）
 
-## 三、手工验收步骤
+## 三、自动验收覆盖内容
 
-1. 进入项目目录：`cd D:\Enso`
-2. 启动开发模式：`npm run dev`
-3. 检查三栏布局：左/中/右三栏是否固定存在
-4. 切换模式：点击“深度对话 / 决策 / 研究”，确认即时切换
-5. 新建会话并发送普通请求：确认收到助手回复
-6. 检查右栏“当前状态 / 审计摘要”：发送后是否更新
-7. 导入知识文件并提问“根据我导入的文件……”：确认出现检索证据
-8. 发送动作型请求（如“删除 xx”）：确认进入只读门控并可“确认并清除门控”
-9. 打开设置页修改并保存：确认显示“设置已保存”，重载后仍保留
-10. 关闭再启动应用：确认会话、消息、状态、审计、知识来源可恢复
+1. 本地配置创建、保存、重新加载
+2. SQLite 会话、消息、状态、审计持久化
+3. 知识导入、切块、最小检索链路
+4. 检索 + 计算主链
+5. 动作型请求只读门控
+6. Electron 三栏 UI 启动与渲染
+7. 模式切换、新建会话、发送请求
+8. 设置保存、审计记录展示、门控确认清除
 
-## 四、常见问题
+## 四、保留的人工复查项
+
+1. 系统原生文件选择器窗口本身未做点击级自动化，UI 验收走的是测试注入文件路径
+2. 若需人工复查，可执行：
+   - `npm run start`
+   - `npm run test:mvp:all`
+
+## 五、常见问题
 
 1. `better-sqlite3` 原生模块错误：执行 `npm run rebuild:native`
 2. 端口占用导致 `dev` 启动失败：执行  
