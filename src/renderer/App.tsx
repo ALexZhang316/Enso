@@ -2,6 +2,7 @@
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { MODES, ModeId } from "@shared/modes";
+import { PROVIDER_PRESETS, PROVIDER_PRESET_MAP, ProviderId } from "@shared/providers";
 import {
   AuditSummary,
   ChatMessage,
@@ -33,6 +34,7 @@ const modeLabel = (mode: ModeId): string => MODES.find((item) => item.id === mod
 const boolLabel = (value: boolean): string => (value ? "是" : "否");
 const styleLabel = (style: EnsoConfig["expression"]["style"]): string =>
   style === "direct" ? "直给" : "平衡";
+const providerLabel = (providerId: ProviderId): string => PROVIDER_PRESET_MAP[providerId].label;
 const taskStatusLabel = (status: StateSnapshot["taskStatus"]): string => {
   switch (status) {
     case "idle":
@@ -118,6 +120,9 @@ const App = (): JSX.Element => {
   const [centerView, setCenterView] = useState<CenterView>("chat");
   const [settingsDraft, setSettingsDraft] = useState<EnsoConfig | null>(null);
   const [settingsStatus, setSettingsStatus] = useState<string>("");
+  const [providerApiKeyDraft, setProviderApiKeyDraft] = useState<string>("");
+  const [hasStoredApiKey, setHasStoredApiKey] = useState<boolean>(false);
+  const [submitError, setSubmitError] = useState<string>("");
   const [auditFilterCurrentConversation, setAuditFilterCurrentConversation] = useState<boolean>(true);
 
   const activeConversation = useMemo(
@@ -172,6 +177,11 @@ const App = (): JSX.Element => {
     setAuditRecords(records);
   };
 
+  const refreshProviderApiKeyStatus = async (providerId: ProviderId): Promise<void> => {
+    const hasKey = await window.enso.hasProviderApiKey(providerId);
+    setHasStoredApiKey(hasKey);
+  };
+
   const toggleCenterView = (next: CenterView): void => {
     setCenterView((prev) => (prev === next ? "chat" : next));
   };
@@ -188,6 +198,7 @@ const App = (): JSX.Element => {
       setAuditSummary(payload.audit);
       setKnowledgeSources(payload.knowledgeSources);
       setSettingsDraft(payload.config);
+      await refreshProviderApiKeyStatus(payload.config.provider.provider);
 
       const activeConversationMode =
         payload.conversations.find((item) => item.id === payload.activeConversationId)?.mode ??
@@ -205,6 +216,7 @@ const App = (): JSX.Element => {
   useEffect(() => {
     if (config) {
       setSettingsDraft(config);
+      setProviderApiKeyDraft("");
     }
   }, [config]);
 
@@ -229,6 +241,7 @@ const App = (): JSX.Element => {
     setActiveMode("deep-dialogue");
     setComposerText("");
     setLastRunInfo("");
+    setSubmitError("");
     setCenterView("chat");
     await loadAuditRecords(payload.activeConversationId);
   };
@@ -240,6 +253,7 @@ const App = (): JSX.Element => {
     setStateSnapshot(payload.state);
     setAuditSummary(payload.audit);
     setLastRunInfo("");
+    setSubmitError("");
 
     if (payload.mode) {
       setActiveMode(payload.mode);
@@ -275,6 +289,7 @@ const App = (): JSX.Element => {
     setAuditSummary(payload.audit);
     setComposerText("");
     setLastRunInfo("");
+    setSubmitError("");
 
     if (payload.mode) {
       setActiveMode(payload.mode);
@@ -327,6 +342,7 @@ const App = (): JSX.Element => {
       return;
     }
 
+    setSubmitError("");
     setIsSubmitting(true);
     setStateSnapshot((prev) => ({
       ...prev,
@@ -357,6 +373,12 @@ const App = (): JSX.Element => {
         ? activeConversationId
         : undefined;
       await loadAuditRecords(targetConversationId);
+    } catch (error) {
+      const refreshed = await window.enso.selectConversation(activeConversationId);
+      setMessages(refreshed.messages);
+      setStateSnapshot(refreshed.state);
+      setAuditSummary(refreshed.audit);
+      setSubmitError(error instanceof Error ? error.message : "请求失败。");
     } finally {
       setIsSubmitting(false);
     }
@@ -382,16 +404,39 @@ const App = (): JSX.Element => {
       return;
     }
 
-    const saved = await window.enso.saveConfig(settingsDraft);
+    const saved = await window.enso.saveConfig({
+      ...settingsDraft,
+      provider: {
+        ...settingsDraft.provider,
+        apiKey: providerApiKeyDraft
+      }
+    });
     setConfig(saved);
     setSettingsDraft(saved);
-    setSettingsStatus("设置已保存。");
+    if (providerApiKeyDraft.trim()) {
+      setHasStoredApiKey(true);
+    }
+    setProviderApiKeyDraft("");
+    setSettingsStatus("设置已保存。若填写了 API Key，已写入本机安全存储。");
+  };
+
+  const handleClearProviderApiKey = async (): Promise<void> => {
+    if (!settingsDraft) {
+      return;
+    }
+
+    await window.enso.clearProviderApiKey(settingsDraft.provider.provider);
+    setProviderApiKeyDraft("");
+    setHasStoredApiKey(false);
+    setSettingsStatus("已清除本机保存的 API Key。");
   };
 
   const handleReloadSettings = async (): Promise<void> => {
     const latest = await window.enso.getConfig();
     setConfig(latest);
     setSettingsDraft(latest);
+    setProviderApiKeyDraft("");
+    await refreshProviderApiKeyStatus(latest.provider.provider);
     setSettingsStatus("已从本地配置重新加载。");
   };
 
@@ -656,7 +701,7 @@ const App = (): JSX.Element => {
                     </div>
                   </div>
                   <div className="text-xs text-muted-foreground" data-testid="composer-status">
-                    {lastRunInfo || importStatus || "当前为手动模式切换，未启用自动路由。"}
+                    {submitError || lastRunInfo || importStatus || "当前为手动模式切换，未启用自动路由。"}
                   </div>
                 </CardContent>
               </Card>
@@ -751,13 +796,52 @@ const App = (): JSX.Element => {
                       <div className="grid grid-cols-1 gap-2">
                         <div className="text-xs font-medium uppercase text-muted-foreground">模型配置</div>
                         <label className="space-y-1">
+                          <div className="text-xs text-muted-foreground">当前提供商</div>
+                          <select
+                            data-testid="settings-provider-select"
+                            className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm"
+                            value={settingsDraft.provider.provider}
+                            onChange={(event) => {
+                              const nextProvider = event.target.value as ProviderId;
+                              setSettingsDraft({
+                                ...settingsDraft,
+                                provider: {
+                                  ...settingsDraft.provider,
+                                  provider: nextProvider
+                                }
+                              });
+                              setProviderApiKeyDraft("");
+                              void refreshProviderApiKeyStatus(nextProvider);
+                            }}
+                          >
+                            {PROVIDER_PRESETS.map((provider) => (
+                              <option key={provider.id} value={provider.id}>
+                                {provider.label} / {provider.vendor}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        <div className="rounded-md border border-border bg-muted/30 p-3 text-xs text-muted-foreground">
+                          本轮仅接入 Kimi。provider 字段已保留，为后续扩展其他厂商预留接口。
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          API Key 不会写入 TOML 或 SQLite 明文；保存时会进入主进程安全存储。
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          当前是否已保存 API Key：{boolLabel(hasStoredApiKey)}
+                        </div>
+                        <label className="space-y-1">
                           <div className="text-xs text-muted-foreground">模型</div>
                           <Input
+                            data-testid="settings-provider-model-input"
                             value={settingsDraft.provider.model}
                             onChange={(event) =>
                               setSettingsDraft({
                                 ...settingsDraft,
-                                provider: { ...settingsDraft.provider, model: event.target.value }
+                                provider: {
+                                  ...settingsDraft.provider,
+                                  model: event.target.value
+                                }
                               })
                             }
                           />
@@ -765,47 +849,41 @@ const App = (): JSX.Element => {
                         <label className="space-y-1">
                           <div className="text-xs text-muted-foreground">基础 URL</div>
                           <Input
+                            data-testid="settings-provider-baseurl-input"
                             value={settingsDraft.provider.baseUrl}
                             onChange={(event) =>
                               setSettingsDraft({
                                 ...settingsDraft,
-                                provider: { ...settingsDraft.provider, baseUrl: event.target.value }
+                                provider: {
+                                  ...settingsDraft.provider,
+                                  baseUrl: event.target.value
+                                }
                               })
                             }
                           />
                         </label>
                         <label className="space-y-1">
-                          <div className="text-xs text-muted-foreground">API Key 环境变量</div>
+                          <div className="text-xs text-muted-foreground">本地 API Key</div>
                           <Input
-                            value={settingsDraft.provider.apiKeyEnv}
-                            onChange={(event) =>
-                              setSettingsDraft({
-                                ...settingsDraft,
-                                provider: { ...settingsDraft.provider, apiKeyEnv: event.target.value }
-                              })
-                            }
+                            data-testid="settings-provider-apikey-input"
+                            type="password"
+                            value={providerApiKeyDraft}
+                            onChange={(event) => setProviderApiKeyDraft(event.target.value)}
                           />
                         </label>
-                        <label className="space-y-1">
-                          <div className="text-xs text-muted-foreground">温度 (0-2)</div>
-                          <Input
-                            type="number"
-                            min={0}
-                            max={2}
-                            step={0.1}
-                            value={String(settingsDraft.provider.temperature)}
-                            onChange={(event) => {
-                              const nextTemperature = Number(event.target.value);
-                              if (!Number.isFinite(nextTemperature)) {
-                                return;
-                              }
-                              setSettingsDraft({
-                                ...settingsDraft,
-                                provider: { ...settingsDraft.provider, temperature: nextTemperature }
-                              });
+                        <div className="flex gap-2">
+                          <Button
+                            data-testid="settings-provider-clear-apikey-button"
+                            type="button"
+                            variant="outline"
+                            onClick={() => {
+                              void handleClearProviderApiKey();
                             }}
-                          />
-                        </label>
+                            disabled={isLoading || isSubmitting || !hasStoredApiKey}
+                          >
+                            清除已存 API Key
+                          </Button>
+                        </div>
                       </div>
 
                       <Separator />
@@ -1080,6 +1158,10 @@ const App = (): JSX.Element => {
             <CardContent className="space-y-2 text-sm text-muted-foreground" data-testid="context-panel">
               <div className="font-medium text-foreground">{modeLabel(activeMode)}</div>
               <div>{activeModeDescription}</div>
+              <div>
+                模型提供商：{config ? providerLabel(config.provider.provider) : "--"}
+              </div>
+              <div>当前模型：{config?.provider.model ?? "--"}</div>
               <div>知识来源数：{knowledgeSources.length}</div>
               <div>表达风格：{config ? styleLabel(config.expression.style) : "--"}</div>
               {knowledgeSources.length > 0 && (

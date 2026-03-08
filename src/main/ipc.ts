@@ -5,6 +5,7 @@ import { EnsoConfig, ExecutionInput, InitializationPayload } from "../shared/typ
 import { ExecutionFlow } from "./core/execution-flow";
 import { ConfigService } from "./services/config-service";
 import { KnowledgeService } from "./services/knowledge-service";
+import { SecretService } from "./services/secret-service";
 import { EnsoStore } from "./services/store";
 
 interface IpcDependencies {
@@ -12,6 +13,7 @@ interface IpcDependencies {
   configService: ConfigService;
   knowledgeService: KnowledgeService;
   executionFlow: ExecutionFlow;
+  secretService: SecretService;
 }
 
 const buildInitializationPayload = (store: EnsoStore, config: EnsoConfig): InitializationPayload => {
@@ -39,7 +41,8 @@ export const registerIpcHandlers = ({
   store,
   configService,
   knowledgeService,
-  executionFlow
+  executionFlow,
+  secretService
 }: IpcDependencies): void => {
   ipcMain.handle("enso:init", () => {
     const config = configService.load();
@@ -111,7 +114,29 @@ export const registerIpcHandlers = ({
 
   ipcMain.handle("enso:config:get", () => configService.load());
 
-  ipcMain.handle("enso:config:save", (_event, config: EnsoConfig) => configService.save(config));
+  ipcMain.handle("enso:config:save", (_event, config: EnsoConfig) => {
+    const apiKey = config.provider.apiKey?.trim();
+    if (apiKey) {
+      secretService.saveProviderApiKey(config.provider.provider, apiKey);
+    }
+
+    return configService.save({
+      ...config,
+      provider: {
+        ...config.provider,
+        apiKey: ""
+      }
+    });
+  });
+
+  ipcMain.handle("enso:provider:key:has", (_event, providerId: EnsoConfig["provider"]["provider"]) =>
+    secretService.hasProviderApiKey(providerId)
+  );
+
+  ipcMain.handle("enso:provider:key:clear", (_event, providerId: EnsoConfig["provider"]["provider"]) => {
+    secretService.clearProviderApiKey(providerId);
+    return true;
+  });
 
   ipcMain.handle("enso:file:import", async () => {
     const scriptedImportPaths = process.env.ENSO_TEST_IMPORT_FILES

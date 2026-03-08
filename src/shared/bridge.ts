@@ -51,6 +51,8 @@ export interface EnsoBridge {
   setMode: (conversationId: string, mode: ModeId) => Promise<Conversation | null>;
   getConfig: () => Promise<EnsoConfig>;
   saveConfig: (config: EnsoConfig) => Promise<EnsoConfig>;
+  hasProviderApiKey: (providerId: import("./providers").ProviderId) => Promise<boolean>;
+  clearProviderApiKey: (providerId: import("./providers").ProviderId) => Promise<boolean>;
   importKnowledgeFiles: () => Promise<ImportKnowledgePayload>;
   retrieveKnowledge: (query: string) => Promise<RetrievedSnippet[]>;
   listAudits: (conversationId?: string) => Promise<AuditSummary[]>;

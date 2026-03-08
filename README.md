@@ -10,6 +10,7 @@ Enso is a local-first Windows desktop personal-agent MVP with a fixed three-pane
 - Manual mode switching: Deep Dialogue / Decision / Research
 - Local config read/write foundations (TOML)
 - Basic settings panel wired to local TOML config
+- Provider-first real LLM chat scaffold with Kimi as the first provider
 - Risk-labeling preference in local config (`always` / `balanced-only` / `off`)
 - Local session/state/audit persistence foundations (SQLite via better-sqlite3)
 - File import entry for local knowledge ingestion
@@ -62,17 +63,23 @@ Enso is a local-first Windows desktop personal-agent MVP with a fixed three-pane
 The script rebuilds the app and runs automated checks for local config, SQLite persistence,
 knowledge ingestion/retrieval, the single-request execution chain, and the read-only gate.
 The UI acceptance script launches Electron with isolated `userData`, drives the three-pane
-window through Playwright, and verifies mode switching, local file import, chat submission,
-gate confirmation, settings save, and audit display.
+window through Playwright, and verifies mode switching, settings save, Kimi chat submission,
+conversation persistence, and audit display.
 
 If native module ABI mismatch occurs (e.g., `better-sqlite3` load error), run:
 - `npm run rebuild:native`
 
 ## Model Provider
 
+- This pass implements provider-first real chat with `Kimi` only.
 - Default provider config is in local TOML (`config.toml` copied to user data directory on first launch).
-- Set `OPENAI_API_KEY` in your environment for live model calls.
-- Without an API key, Enso returns a local stub draft response.
+- API requests are sent from Electron main process only.
+- The API key is not persisted to repo files, TOML, or SQLite plaintext.
+- The settings page lets the user edit:
+  - provider (`kimi`)
+  - base URL
+  - model
+  - API key input
 
 ## Data Location
 

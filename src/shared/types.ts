@@ -1,4 +1,5 @@
-﻿import { ModeId } from "./modes";
+import { ModeId } from "./modes";
+import { ProviderId } from "./providers";
 
 export type MessageRole = "user" | "assistant" | "system";
 
@@ -59,10 +60,10 @@ export interface RetrievedSnippet {
 }
 
 export interface ProviderConfig {
-  model: string;
+  provider: ProviderId;
   baseUrl: string;
-  apiKeyEnv: string;
-  temperature: number;
+  model: string;
+  apiKey: string;
 }
 
 export interface EnsoConfig {

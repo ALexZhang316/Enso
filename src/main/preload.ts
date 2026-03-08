@@ -18,6 +18,10 @@ const bridge: EnsoBridge = {
     ipcRenderer.invoke("enso:mode:set", { conversationId, mode }),
   getConfig: () => ipcRenderer.invoke("enso:config:get"),
   saveConfig: (config: EnsoConfig) => ipcRenderer.invoke("enso:config:save", config),
+  hasProviderApiKey: (providerId: import("../shared/providers").ProviderId) =>
+    ipcRenderer.invoke("enso:provider:key:has", providerId),
+  clearProviderApiKey: (providerId: import("../shared/providers").ProviderId) =>
+    ipcRenderer.invoke("enso:provider:key:clear", providerId),
   importKnowledgeFiles: () => ipcRenderer.invoke("enso:file:import"),
   retrieveKnowledge: (query: string) => ipcRenderer.invoke("enso:knowledge:retrieve", query),
   listAudits: (conversationId?: string) => ipcRenderer.invoke("enso:audit:list", conversationId),

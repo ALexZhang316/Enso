@@ -1,15 +1,22 @@
-﻿import * as TOML from "@iarna/toml";
+import * as TOML from "@iarna/toml";
 import fs from "node:fs";
 import path from "node:path";
 import { DEFAULT_MODE } from "../../shared/modes";
+import { DEFAULT_PROVIDER_ID, PROVIDER_PRESET_MAP } from "../../shared/providers";
 import { EnsoConfig } from "../../shared/types";
+
+type PartialConfig = Partial<EnsoConfig> & {
+  provider?: Partial<EnsoConfig["provider"]>;
+};
+
+const kimiPreset = PROVIDER_PRESET_MAP[DEFAULT_PROVIDER_ID];
 
 export const DEFAULT_ENSO_CONFIG: EnsoConfig = {
   provider: {
-    model: "gpt-4o-mini",
-    baseUrl: "https://api.openai.com/v1",
-    apiKeyEnv: "OPENAI_API_KEY",
-    temperature: 0.2
+    provider: DEFAULT_PROVIDER_ID,
+    baseUrl: kimiPreset.defaultBaseUrl,
+    model: kimiPreset.defaultModel,
+    apiKey: ""
   },
   expression: {
     style: "balanced",
@@ -32,10 +39,15 @@ export const DEFAULT_ENSO_CONFIG: EnsoConfig = {
   }
 };
 
-const mergeConfig = (partial: Partial<EnsoConfig>): EnsoConfig => ({
+const mergeConfig = (partial: PartialConfig): EnsoConfig => ({
   provider: {
-    ...DEFAULT_ENSO_CONFIG.provider,
-    ...(partial.provider ?? {})
+    provider:
+      partial.provider?.provider && partial.provider.provider in PROVIDER_PRESET_MAP
+        ? partial.provider.provider
+        : DEFAULT_ENSO_CONFIG.provider.provider,
+    baseUrl: partial.provider?.baseUrl ?? DEFAULT_ENSO_CONFIG.provider.baseUrl,
+    model: partial.provider?.model ?? DEFAULT_ENSO_CONFIG.provider.model,
+    apiKey: ""
   },
   expression: {
     ...DEFAULT_ENSO_CONFIG.expression,
@@ -51,6 +63,14 @@ const mergeConfig = (partial: Partial<EnsoConfig>): EnsoConfig => ({
       ...DEFAULT_ENSO_CONFIG.modeDefaults.retrievalByMode,
       ...(partial.modeDefaults?.retrievalByMode ?? {})
     }
+  }
+});
+
+const sanitizeForPersistence = (config: EnsoConfig): EnsoConfig => ({
+  ...config,
+  provider: {
+    ...config.provider,
+    apiKey: ""
   }
 });
 
@@ -73,7 +93,11 @@ export class ConfigService {
       return;
     }
 
-    fs.writeFileSync(this.configPath, TOML.stringify(DEFAULT_ENSO_CONFIG as any), "utf8");
+    fs.writeFileSync(
+      this.configPath,
+      TOML.stringify(sanitizeForPersistence(DEFAULT_ENSO_CONFIG) as any),
+      "utf8"
+    );
   }
 
   load(): EnsoConfig {
@@ -81,7 +105,7 @@ export class ConfigService {
 
     try {
       const raw = fs.readFileSync(this.configPath, "utf8");
-      const parsed = TOML.parse(raw) as Partial<EnsoConfig>;
+      const parsed = TOML.parse(raw) as PartialConfig;
       return mergeConfig(parsed);
     } catch {
       return DEFAULT_ENSO_CONFIG;
@@ -91,7 +115,11 @@ export class ConfigService {
   save(config: EnsoConfig): EnsoConfig {
     this.ensureConfigFile();
     const merged = mergeConfig(config);
-    fs.writeFileSync(this.configPath, TOML.stringify(merged as any), "utf8");
+    fs.writeFileSync(
+      this.configPath,
+      TOML.stringify(sanitizeForPersistence(merged) as any),
+      "utf8"
+    );
     return merged;
   }
 }

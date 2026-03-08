@@ -6,6 +6,7 @@ import { ExecutionFlow } from "./core/execution-flow";
 import { ConfigService } from "./services/config-service";
 import { KnowledgeService } from "./services/knowledge-service";
 import { ModelAdapter } from "./services/model-adapter";
+import { SecretService } from "./services/secret-service";
 import { EnsoStore } from "./services/store";
 import { ToolService } from "./services/tool-service";
 
@@ -92,12 +93,14 @@ const ensureMainWindow = async (): Promise<void> => {
 app.whenReady().then(async () => {
   const dbPath = path.join(app.getPath("userData"), "enso.sqlite");
   const configPath = path.join(app.getPath("userData"), "config.toml");
+  const secretPath = path.join(app.getPath("userData"), "secrets.json");
 
   store = new EnsoStore(dbPath);
   const configService = new ConfigService(configPath, app.getAppPath());
   const knowledgeService = new KnowledgeService(store);
   const toolService = new ToolService();
-  const modelAdapter = new ModelAdapter();
+  const secretService = new SecretService(secretPath);
+  const modelAdapter = new ModelAdapter(secretService);
   const executionFlow = new ExecutionFlow({
     store,
     configService,
@@ -110,7 +113,8 @@ app.whenReady().then(async () => {
     store,
     configService,
     knowledgeService,
-    executionFlow
+    executionFlow,
+    secretService
   });
 
   await ensureMainWindow();
