@@ -9,6 +9,15 @@ import { EnsoStore } from "./services/store";
 import { ToolService } from "./services/tool-service";
 
 let store: EnsoStore | null = null;
+const windows = new Set<BrowserWindow>();
+let creatingWindow = false;
+
+const delay = async (ms: number): Promise<void> =>
+  new Promise((resolve) => setTimeout(resolve, ms));
+
+process.on("unhandledRejection", (reason) => {
+  console.error("Unhandled promise rejection in main process:", reason);
+});
 
 const createMainWindow = async (): Promise<void> => {
   const window = new BrowserWindow({
@@ -24,14 +33,53 @@ const createMainWindow = async (): Promise<void> => {
       sandbox: true
     }
   });
+  windows.add(window);
+  window.on("closed", () => {
+    windows.delete(window);
+  });
+  window.webContents.on("did-fail-load", (_event, code, description, validatedUrl) => {
+    console.error("Main window failed to load:", { code, description, validatedUrl });
+  });
+  window.webContents.on("render-process-gone", (_event, details) => {
+    console.error("Renderer process gone:", details);
+  });
 
   const devServerUrl = process.env.VITE_DEV_SERVER_URL;
   if (devServerUrl) {
-    await window.loadURL(devServerUrl);
-    return;
+    let lastError: unknown = null;
+    for (let attempt = 1; attempt <= 12; attempt += 1) {
+      try {
+        await window.loadURL(devServerUrl);
+        return;
+      } catch (error) {
+        lastError = error;
+        await delay(250);
+      }
+    }
+
+    throw lastError instanceof Error
+      ? lastError
+      : new Error("Failed to connect to dev server URL.");
   }
 
   await window.loadFile(path.join(__dirname, "../renderer/index.html"));
+};
+
+const ensureMainWindow = async (): Promise<void> => {
+  if (creatingWindow || windows.size > 0) {
+    return;
+  }
+
+  creatingWindow = true;
+  try {
+    await createMainWindow();
+  } catch (error) {
+    console.error("Failed to create main window:", error);
+    app.quit();
+    return;
+  } finally {
+    creatingWindow = false;
+  }
 };
 
 app.whenReady().then(async () => {
@@ -58,12 +106,10 @@ app.whenReady().then(async () => {
     executionFlow
   });
 
-  await createMainWindow();
+  await ensureMainWindow();
 
   app.on("activate", async () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
-      await createMainWindow();
-    }
+    await ensureMainWindow();
   });
 });
 

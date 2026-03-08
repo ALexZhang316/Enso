@@ -8,6 +8,7 @@ temperature = 0.2
 style = "balanced"
 reducedQuestioning = true
 defaultAssumption = "pragmatic"
+riskLabeling = "balanced-only"
 
 [permissions]
 readOnlyDefault = true

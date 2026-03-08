@@ -1,6 +1,5 @@
 ﻿import fs from "node:fs";
 import path from "node:path";
-import { RecursiveCharacterTextSplitter } from "langchain/text_splitter";
 import { KnowledgeSource, RetrievedSnippet } from "../../shared/types";
 import { EnsoStore } from "./store";
 
@@ -20,6 +19,7 @@ export class KnowledgeService {
     const raw = fs.readFileSync(filePath, "utf8");
 
     const sourceId = this.store.addKnowledgeSource(sourceName, filePath);
+    const { RecursiveCharacterTextSplitter } = await import("langchain/text_splitter");
 
     const splitter = new RecursiveCharacterTextSplitter({
       chunkSize: 700,
@@ -54,3 +54,4 @@ export class KnowledgeService {
     return this.store.searchKnowledgeChunks(terms, limit);
   }
 }
+

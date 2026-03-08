@@ -35,6 +35,12 @@ export interface SubmitRequestPayload extends ExecutionResult {
   conversations: Conversation[];
 }
 
+export interface ResolveConfirmationPayload {
+  messages: ChatMessage[];
+  state: StateSnapshot;
+  audit: AuditSummary | null;
+}
+
 export interface EnsoBridge {
   initialize: () => Promise<InitializationPayload>;
   createConversation: (title?: string) => Promise<ConversationsPayload>;
@@ -47,6 +53,8 @@ export interface EnsoBridge {
   saveConfig: (config: EnsoConfig) => Promise<EnsoConfig>;
   importKnowledgeFiles: () => Promise<ImportKnowledgePayload>;
   retrieveKnowledge: (query: string) => Promise<RetrievedSnippet[]>;
+  listAudits: (conversationId?: string) => Promise<AuditSummary[]>;
+  resolvePendingConfirmation: (conversationId: string) => Promise<ResolveConfirmationPayload>;
   submitRequest: (input: ExecutionInput) => Promise<SubmitRequestPayload>;
   getAppInfo: () => { name: string; version: string };
 }

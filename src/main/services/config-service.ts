@@ -14,7 +14,8 @@ export const DEFAULT_ENSO_CONFIG: EnsoConfig = {
   expression: {
     style: "balanced",
     reducedQuestioning: true,
-    defaultAssumption: "pragmatic"
+    defaultAssumption: "pragmatic",
+    riskLabeling: "balanced-only"
   },
   permissions: {
     readOnlyDefault: true,

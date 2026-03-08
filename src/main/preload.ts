@@ -20,6 +20,9 @@ const bridge: EnsoBridge = {
   saveConfig: (config: EnsoConfig) => ipcRenderer.invoke("enso:config:save", config),
   importKnowledgeFiles: () => ipcRenderer.invoke("enso:file:import"),
   retrieveKnowledge: (query: string) => ipcRenderer.invoke("enso:knowledge:retrieve", query),
+  listAudits: (conversationId?: string) => ipcRenderer.invoke("enso:audit:list", conversationId),
+  resolvePendingConfirmation: (conversationId: string) =>
+    ipcRenderer.invoke("enso:confirmation:resolve", conversationId),
   submitRequest: (input: ExecutionInput) => ipcRenderer.invoke("enso:request:submit", input),
   getAppInfo: () => ({
     name: "Enso",

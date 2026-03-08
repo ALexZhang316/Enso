@@ -1,17 +1,19 @@
-﻿{
+{
   "name": "enso-desktop-agent",
   "version": "0.1.0",
   "description": "Enso local-first Windows desktop personal-agent MVP skeleton",
   "private": true,
   "main": "dist/main/main.js",
   "scripts": {
-    "dev:renderer": "vite",
+    "dev:renderer": "cross-env VITE_CJS_IGNORE_WARNING=true vite --host localhost --port 5173 --strictPort",
     "dev:main": "tsc -p tsconfig.node.json --watch",
-    "dev:electron": "wait-on tcp:5173 dist/main/main.js && cross-env VITE_DEV_SERVER_URL=http://127.0.0.1:5173 electron ./dist/main/main.js",
-    "dev": "concurrently -k \"npm:dev:renderer\" \"npm:dev:main\" \"npm:dev:electron\"",
-    "build:renderer": "vite build",
+    "dev:electron": "wait-on http-get://localhost:5173 dist/main/main.js && cross-env VITE_DEV_SERVER_URL=http://localhost:5173 electron ./dist/main/main.js",
+    "dev": "concurrently --kill-others-on-fail \"npm:dev:renderer\" \"npm:dev:main\" \"npm:dev:electron\"",
+    "dev:all-exit": "concurrently -k \"npm:dev:renderer\" \"npm:dev:main\" \"npm:dev:electron\"",
+    "build:renderer": "cross-env VITE_CJS_IGNORE_WARNING=true vite build",
     "build:main": "tsc -p tsconfig.node.json",
     "build": "npm run build:renderer && npm run build:main",
+    "rebuild:native": "electron-rebuild -f -w better-sqlite3",
     "start": "electron ./dist/main/main.js"
   },
   "engines": {
@@ -28,9 +30,13 @@
     "lucide-react": "^0.538.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1",
     "tailwind-merge": "^3.3.1"
   },
   "devDependencies": {
+    "@electron/rebuild": "^3.7.2",
+    "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^20.17.57",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",

@@ -8,7 +8,9 @@
     "outDir": "dist",
     "rootDir": "src",
     "noEmit": false,
-    "sourceMap": true
+    "sourceMap": true,
+    "incremental": true,
+    "tsBuildInfoFile": "dist/.tsbuildinfo-main"
   },
   "include": ["src/main/**/*", "src/shared/**/*"]
 }

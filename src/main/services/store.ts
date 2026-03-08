@@ -160,7 +160,7 @@ export class EnsoStore {
       return existing[0];
     }
 
-    return this.createConversation(DEFAULT_MODE, "New Conversation");
+    return this.createConversation(DEFAULT_MODE, "新会话");
   }
 
   listConversations(): Conversation[] {
@@ -176,7 +176,7 @@ export class EnsoStore {
     return row ? toConversation(row) : null;
   }
 
-  createConversation(mode: ModeId = DEFAULT_MODE, title = "New Conversation"): Conversation {
+  createConversation(mode: ModeId = DEFAULT_MODE, title = "新会话"): Conversation {
     const timestamp = now();
     const id = randomUUID();
 
@@ -314,12 +314,40 @@ export class EnsoStore {
     return this.getState(state.conversationId);
   }
 
+  resolvePendingConfirmation(conversationId: string): StateSnapshot {
+    const current = this.getState(conversationId);
+    return this.upsertState({
+      ...current,
+      pendingConfirmation: false,
+      taskStatus: "completed",
+      updatedAt: now()
+    });
+  }
+
   getLatestAudit(conversationId: string): AuditSummary | null {
     const row = this.db
       .prepare("SELECT * FROM audits WHERE conversation_id = ? ORDER BY created_at DESC LIMIT 1")
       .get(conversationId);
 
     return row ? toAudit(row) : null;
+  }
+
+  listAudits(limit = 80): AuditSummary[] {
+    const rows = this.db
+      .prepare("SELECT * FROM audits ORDER BY created_at DESC LIMIT ?")
+      .all(Math.max(1, limit));
+
+    return rows.map(toAudit);
+  }
+
+  listAuditsByConversation(conversationId: string, limit = 80): AuditSummary[] {
+    const rows = this.db
+      .prepare(
+        "SELECT * FROM audits WHERE conversation_id = ? ORDER BY created_at DESC LIMIT ?"
+      )
+      .all(conversationId, Math.max(1, limit));
+
+    return rows.map(toAudit);
   }
 
   addAudit(params: {
@@ -477,7 +505,7 @@ export class EnsoStore {
           score
         } satisfies RetrievedSnippet;
       })
-      .sort((a, b) => b.score - a.score)
+      .sort((a: RetrievedSnippet, b: RetrievedSnippet) => b.score - a.score)
       .slice(0, limit);
   }
 }

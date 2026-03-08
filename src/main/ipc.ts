@@ -46,7 +46,7 @@ export const registerIpcHandlers = ({
   });
 
   ipcMain.handle("enso:conversation:create", (_event, title?: string) => {
-    const conversation = store.createConversation(DEFAULT_MODE, title?.trim() || "New Conversation");
+    const conversation = store.createConversation(DEFAULT_MODE, title?.trim() || "新会话");
     store.setActiveConversationId(conversation.id);
 
     return {
@@ -61,7 +61,7 @@ export const registerIpcHandlers = ({
   ipcMain.handle("enso:conversation:select", (_event, conversationId: string) => {
     const conversation = store.getConversation(conversationId);
     if (!conversation) {
-      throw new Error("Conversation not found.");
+      throw new Error("未找到该会话。");
     }
 
     store.setActiveConversationId(conversationId);
@@ -114,11 +114,11 @@ export const registerIpcHandlers = ({
 
   ipcMain.handle("enso:file:import", async () => {
     const result = await dialog.showOpenDialog({
-      title: "Import knowledge files",
+      title: "导入知识文件",
       properties: ["openFile", "multiSelections"],
       filters: [
-        { name: "Text files", extensions: ["txt", "md", "markdown", "json", "csv"] },
-        { name: "All files", extensions: ["*"] }
+        { name: "文本文件", extensions: ["txt", "md", "markdown", "json", "csv"] },
+        { name: "所有文件", extensions: ["*"] }
       ]
     });
 
@@ -151,6 +151,35 @@ export const registerIpcHandlers = ({
 
   ipcMain.handle("enso:knowledge:retrieve", (_event, query: string) => {
     return knowledgeService.retrieve(query, 5);
+  });
+
+  ipcMain.handle("enso:audit:list", (_event, conversationId?: string) => {
+    if (conversationId) {
+      return store.listAuditsByConversation(conversationId, 120);
+    }
+
+    return store.listAudits(120);
+  });
+
+  ipcMain.handle("enso:confirmation:resolve", (_event, conversationId: string) => {
+    const conversation = store.getConversation(conversationId);
+    if (!conversation) {
+      throw new Error("未找到该会话。");
+    }
+
+    const nextState = store.resolvePendingConfirmation(conversationId);
+    store.addMessage(
+      conversationId,
+      "system",
+      "已确认并清除门控。提案已记录，未执行任何外部副作用。",
+      { confirmationResolved: true }
+    );
+
+    return {
+      messages: store.listMessages(conversationId),
+      state: nextState,
+      audit: store.getLatestAudit(conversationId)
+    };
   });
 
   ipcMain.handle("enso:request:submit", async (_event, input: ExecutionInput) => {

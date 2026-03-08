@@ -71,6 +71,7 @@ export interface EnsoConfig {
     style: "direct" | "balanced";
     reducedQuestioning: boolean;
     defaultAssumption: "conservative" | "pragmatic";
+    riskLabeling: "always" | "balanced-only" | "off";
   };
   permissions: {
     readOnlyDefault: boolean;

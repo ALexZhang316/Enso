@@ -1,6 +1,4 @@
-﻿import { HumanMessage, SystemMessage } from "@langchain/core/messages";
-import { ChatOpenAI } from "@langchain/openai";
-import { ModeId } from "../../shared/modes";
+﻿import { ModeId } from "../../shared/modes";
 import {
   ChatMessage,
   EnsoConfig,
@@ -25,6 +23,25 @@ interface GenerateDraftParams {
   classification: RequestClassification;
   config: EnsoConfig;
 }
+
+const modeLabelMap: Record<ModeId, string> = {
+  "deep-dialogue": "深度对话",
+  decision: "决策",
+  research: "研究"
+};
+
+const loadLangChainDeps = async (): Promise<{
+  ChatOpenAI: (typeof import("@langchain/openai"))["ChatOpenAI"];
+  HumanMessage: (typeof import("@langchain/core/messages"))["HumanMessage"];
+  SystemMessage: (typeof import("@langchain/core/messages"))["SystemMessage"];
+}> => {
+  const [{ ChatOpenAI }, { HumanMessage, SystemMessage }] = await Promise.all([
+    import("@langchain/openai"),
+    import("@langchain/core/messages")
+  ]);
+
+  return { ChatOpenAI, HumanMessage, SystemMessage };
+};
 
 const stringifyContent = (content: unknown): string => {
   if (typeof content === "string") {
@@ -84,13 +101,15 @@ export class ModelAdapter {
 
     if (!apiKey) {
       return {
-        answer: `Mode: ${params.mode}. ${params.userText}\n\nNo API key configured, so this is a local draft response stub.`,
-        riskNotes: params.classification.handlingClass === "action-adjacent" ? "Potential action intent detected." : "",
+        answer: `当前模式：${modeLabelMap[params.mode]}\n\n你的请求：${params.userText}\n\n未检测到 API Key，以下为本地草稿响应（Stub）。`,
+        riskNotes: params.classification.handlingClass === "action-adjacent" ? "检测到潜在动作意图。" : "",
         evidenceReferences: params.evidence.map((snippet) => snippet.sourceName),
         needsConfirmation: params.classification.handlingClass === "action-adjacent",
         resultType: params.classification.handlingClass === "action-adjacent" ? "proposal" : "answer"
       };
     }
+
+    const { ChatOpenAI, HumanMessage, SystemMessage } = await loadLangChainDeps();
 
     const model = new ChatOpenAI({
       apiKey,
@@ -102,15 +121,20 @@ export class ModelAdapter {
     });
 
     const systemPrompt = [
-      "You are Enso, a local-first desktop assistant.",
-      "Follow the selected mode exactly. Do not auto-route to another mode.",
-      "Output strictly valid JSON with keys:",
+      "你是 Enso，本地优先的桌面个人助手。",
+      "必须严格遵循用户手动选择的模式，不得自动切换模式。",
+      "默认使用简体中文回答，除非用户明确要求其他语言。",
+      "仅输出严格合法的 JSON，字段必须是：",
       "answer (string), riskNotes (string), evidenceReferences (string[]), needsConfirmation (boolean), resultType ('answer'|'proposal'|'dry_run')."
     ].join("\n");
 
     const historySummary = params.history
       .slice(-6)
-      .map((message) => `${message.role}: ${message.content}`)
+      .map((message) => {
+        const roleLabel =
+          message.role === "user" ? "用户" : message.role === "assistant" ? "助手" : "系统";
+        return `${roleLabel}: ${message.content}`;
+      })
       .join("\n");
 
     const evidenceSummary = params.evidence
@@ -118,12 +142,12 @@ export class ModelAdapter {
       .join("\n");
 
     const humanPrompt = [
-      `Mode: ${params.mode}`,
-      `Handling class: ${params.classification.handlingClass}`,
-      `User request: ${params.userText}`,
-      params.toolSummary ? `Tool summary: ${params.toolSummary}` : "Tool summary: none",
-      evidenceSummary ? `Evidence:\n${evidenceSummary}` : "Evidence: none",
-      historySummary ? `Recent history:\n${historySummary}` : "Recent history: none"
+      `模式：${modeLabelMap[params.mode]}`,
+      `处理分类：${params.classification.handlingClass}`,
+      `用户请求：${params.userText}`,
+      params.toolSummary ? `工具摘要：${params.toolSummary}` : "工具摘要：无",
+      evidenceSummary ? `证据：\n${evidenceSummary}` : "证据：无",
+      historySummary ? `最近对话：\n${historySummary}` : "最近对话：无"
     ].join("\n\n");
 
     const response = await model.invoke([
@@ -139,11 +163,12 @@ export class ModelAdapter {
     }
 
     return {
-      answer: raw || "Unable to parse model output, returning fallback response.",
-      riskNotes: "Model output was not structured JSON.",
+      answer: raw || "模型输出解析失败，已返回兜底响应。",
+      riskNotes: "模型输出不是结构化 JSON。",
       evidenceReferences: params.evidence.map((snippet) => snippet.sourceName),
       needsConfirmation: params.classification.handlingClass === "action-adjacent",
       resultType: params.classification.handlingClass === "action-adjacent" ? "proposal" : "answer"
     };
   }
 }
+

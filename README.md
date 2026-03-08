@@ -9,11 +9,17 @@ Enso is a local-first Windows desktop personal-agent MVP with a fixed three-pane
 - Fixed three-panel layout (left 20% / center 55% / right 25%)
 - Manual mode switching: Deep Dialogue / Decision / Research
 - Local config read/write foundations (TOML)
+- Basic settings panel wired to local TOML config
+- Risk-labeling preference in local config (`always` / `balanced-only` / `off`)
 - Local session/state/audit persistence foundations (SQLite via better-sqlite3)
 - File import entry for local knowledge ingestion
 - Minimal retrieval wiring from imported knowledge chunks
 - Single-request execution chain skeleton aligned to `docs/execution-flow.md`
 - Minimal tool abstraction: read / search / compute
+- Basic audit records view (current conversation or global)
+- Pending-confirmation acknowledgment action in UI (read-only gate remains in effect)
+- Retrieved evidence snippets surfaced in right context panel
+- Message rendering supports markdown headings, blockquotes, and code blocks
 
 ## Locked Stack
 
@@ -43,6 +49,9 @@ Enso is a local-first Windows desktop personal-agent MVP with a fixed three-pane
    - `npm run build`
 5. Launch built app:
    - `npm run start`
+
+If native module ABI mismatch occurs (e.g., `better-sqlite3` load error), run:
+- `npm run rebuild:native`
 
 ## Model Provider
 
