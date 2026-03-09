@@ -441,213 +441,233 @@ const App = (): JSX.Element => {
   };
 
   return (
-    <div className="h-full p-3" data-testid="layout-root">
-      <div className="grid h-full grid-cols-[20%_55%_25%] gap-3">
-        <aside className="flex h-full min-h-0 flex-col gap-3" data-testid="left-rail">
-          <Card className="min-h-0 flex-1">
-            <CardHeader>
-              <CardTitle>模式</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              {MODES.map((mode) => (
-                <Button
-                  key={mode.id}
-                  data-testid={`mode-button-${mode.id}`}
-                  className="w-full justify-start"
-                  onClick={() => {
-                    void handleModeSelect(mode.id);
-                  }}
-                  variant={activeMode === mode.id ? "default" : "outline"}
-                  disabled={isLoading || isSubmitting}
-                >
-                  {mode.label}
-                </Button>
-              ))}
+    <div className="h-full overflow-x-auto p-4" data-testid="layout-root">
+      <div className="grid h-full min-w-[960px] grid-cols-[200px_1fr_280px] gap-3">
+        <aside className="flex h-full min-h-0 flex-col gap-2.5" data-testid="left-rail">
+          {/* Mode selector - compact pill group */}
+          <Card className="shrink-0">
+            <CardContent className="p-3">
+              <div className="flex gap-0.5 rounded-[10px] bg-black/[0.05] p-[3px]">
+                {MODES.map((mode) => (
+                  <button
+                    key={mode.id}
+                    data-testid={`mode-button-${mode.id}`}
+                    className={`flex-1 rounded-lg px-2 py-[7px] text-[11px] font-medium transition-all duration-200 whitespace-nowrap ${
+                      activeMode === mode.id
+                        ? "bg-white text-foreground shadow-[0_0.5px_2px_rgba(0,0,0,0.1),0_0px_0.5px_rgba(0,0,0,0.06)]"
+                        : "text-muted-foreground/70 hover:text-foreground/60"
+                    }`}
+                    onClick={() => {
+                      void handleModeSelect(mode.id);
+                    }}
+                    disabled={isLoading || isSubmitting}
+                    type="button"
+                  >
+                    {mode.label}
+                  </button>
+                ))}
+              </div>
             </CardContent>
+          </Card>
 
-            <Separator className="my-1" />
-
-            <CardContent className="space-y-2">
-              <div className="flex items-center justify-between">
-                <div className="text-xs font-medium uppercase text-muted-foreground">会话</div>
-                <Button
+          {/* Conversations list */}
+          <Card className="min-h-0 flex-1">
+            <CardContent className="flex h-full flex-col p-0">
+              <div className="flex items-center justify-between px-4 pt-3 pb-1">
+                <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/70">会话</div>
+                <button
                   data-testid="conversation-create-button"
+                  className="text-[13px] font-medium text-primary hover:text-primary/80 transition-colors"
                   onClick={() => {
                     void handleCreateConversation();
                   }}
-                  size="sm"
-                  variant="ghost"
+                  type="button"
                 >
                   新建
-                </Button>
+                </button>
               </div>
-              <ScrollArea className="max-h-[280px]">
-                <div className="space-y-2 pr-1">
+              <ScrollArea className="flex-1 min-h-0 px-2 pb-2">
+                <div className="space-y-0.5">
                   {conversations.map((conversation) => (
                     <div
                       key={conversation.id}
                       data-testid={`conversation-card-${conversation.id}`}
-                      className={`rounded-md border p-2 text-sm transition ${
+                      className={`group rounded-xl px-3 py-2 text-[13px] transition-all duration-150 cursor-pointer ${
                         conversation.id === activeConversationId
-                          ? "border-accent bg-accent/20"
-                          : "border-border bg-muted/40 hover:bg-muted/60"
+                          ? "bg-primary text-white"
+                          : "text-foreground hover:bg-black/[0.04]"
                       }`}
+                      onClick={() => {
+                        void handleSelectConversation(conversation.id);
+                      }}
+                      onDoubleClick={() => {
+                        void handleRenameConversation(conversation);
+                      }}
                     >
-                      <button
-                        className="w-full cursor-pointer text-left text-sm"
-                        onClick={() => {
-                          void handleSelectConversation(conversation.id);
-                        }}
-                        onDoubleClick={() => {
-                          void handleRenameConversation(conversation);
-                        }}
-                        type="button"
-                      >
-                        {conversation.title}
-                      </button>
-                      <div className="mt-2 flex items-center gap-2">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => {
-                            void handleTogglePin(conversation.id);
-                          }}
-                          type="button"
-                        >
-                          {conversation.pinned ? "取消置顶" : "置顶"}
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => {
-                            void handleDeleteConversation(conversation.id);
-                          }}
-                          type="button"
-                        >
-                          删除
-                        </Button>
+                      <div className="flex items-center justify-between">
+                        <span className={`truncate ${conversation.pinned ? "font-medium" : ""}`}>
+                          {conversation.pinned ? "📌 " : ""}{conversation.title}
+                        </span>
+                        <div className={`flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity ${
+                          conversation.id === activeConversationId ? "opacity-100" : ""
+                        }`}>
+                          <button
+                            className={`rounded-md px-1.5 py-0.5 text-[10px] transition-colors ${
+                              conversation.id === activeConversationId
+                                ? "hover:bg-white/20 text-white/80"
+                                : "hover:bg-black/[0.06] text-muted-foreground"
+                            }`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              void handleTogglePin(conversation.id);
+                            }}
+                            type="button"
+                          >
+                            {conversation.pinned ? "取固" : "置顶"}
+                          </button>
+                          <button
+                            className={`rounded-md px-1.5 py-0.5 text-[10px] transition-colors ${
+                              conversation.id === activeConversationId
+                                ? "hover:bg-white/20 text-white/80"
+                                : "hover:bg-red-50 text-red-400"
+                            }`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              void handleDeleteConversation(conversation.id);
+                            }}
+                            type="button"
+                          >
+                            删除
+                          </button>
+                        </div>
                       </div>
                     </div>
                   ))}
                 </div>
               </ScrollArea>
             </CardContent>
+          </Card>
 
-            <Separator className="my-1" />
-
-            <CardContent className="space-y-2 pb-4">
-              <div className="text-xs font-medium uppercase text-muted-foreground">全局</div>
-              <Button
-                data-testid="nav-knowledge-button"
-                className="w-full justify-start"
-                variant={centerView === "knowledge" ? "default" : "ghost"}
-                onClick={() => toggleCenterView("knowledge")}
-                disabled={isLoading || isSubmitting}
-              >
-                知识库
-              </Button>
-              <Button
-                data-testid="nav-settings-button"
-                className="w-full justify-start"
-                variant={centerView === "settings" ? "default" : "ghost"}
-                onClick={() => toggleCenterView("settings")}
-                disabled={isLoading || isSubmitting}
-              >
-                设置
-              </Button>
-              <Button
-                data-testid="nav-audits-button"
-                className="w-full justify-start"
-                variant={centerView === "audits" ? "default" : "ghost"}
-                onClick={() => toggleCenterView("audits")}
-                disabled={isLoading || isSubmitting}
-              >
-                审计记录
-              </Button>
+          {/* Global nav */}
+          <Card className="shrink-0">
+            <CardContent className="p-2 space-y-0.5">
+              {([
+                { key: "knowledge" as CenterView, label: "知识库", testId: "nav-knowledge-button" },
+                { key: "settings" as CenterView, label: "设置", testId: "nav-settings-button" },
+                { key: "audits" as CenterView, label: "审计记录", testId: "nav-audits-button" }
+              ]).map((nav) => (
+                <button
+                  key={nav.key}
+                  data-testid={nav.testId}
+                  className={`w-full rounded-xl px-3 py-2.5 text-left text-[13px] transition-all duration-150 ${
+                    centerView === nav.key
+                      ? "bg-primary/10 text-primary font-medium"
+                      : "text-foreground/70 hover:bg-black/[0.04]"
+                  }`}
+                  onClick={() => toggleCenterView(nav.key)}
+                  disabled={isLoading || isSubmitting}
+                  type="button"
+                >
+                  {nav.label}
+                </button>
+              ))}
             </CardContent>
           </Card>
         </aside>
 
-        <main className="flex h-full min-h-0 flex-col gap-3" data-testid="center-pane">
-          <Card>
-            <CardHeader className="flex-row items-center justify-between space-y-0">
-              <div className="space-y-1">
-                <CardTitle>主聊天窗口</CardTitle>
-                <div className="text-sm text-muted-foreground" data-testid="chat-header-mode">
-                  模式：{modeLabel(activeMode)} | 会话：{activeConversation?.title ?? "--"}
+        <main className="flex h-full min-h-0 flex-col gap-2.5" data-testid="center-pane">
+          <Card className="shrink-0">
+            <div className="flex items-center justify-between px-4 py-2.5">
+              <div>
+                <div className="text-[15px] font-semibold text-foreground" data-testid="chat-header-mode">
+                  {activeConversation?.title ?? "Enso"}
                 </div>
-                <div className="text-xs text-muted-foreground">
-                  已附加知识：{boolLabel(knowledgeSources.length > 0)} | 未完成状态：{" "}
-                  {boolLabel(
-                    stateSnapshot.taskStatus === "processing" || stateSnapshot.pendingConfirmation
-                  )}
+                <div className="text-[11px] text-muted-foreground mt-0.5">
+                  {modeLabel(activeMode)} · {knowledgeSources.length > 0 ? "知识已附加" : "无附加知识"}
                 </div>
               </div>
-              <Badge variant="muted">{`${appInfo.name} ${appInfo.version}`}</Badge>
-            </CardHeader>
+              <Badge variant="muted">{`v${appInfo.version}`}</Badge>
+            </div>
           </Card>
 
           {centerView === "chat" && (
             <>
               <Card className="min-h-0 flex-1">
                 <CardContent className="h-full p-0">
-                  <ScrollArea className="h-full px-4 py-3">
-                    <div className="space-y-3" data-testid="chat-message-list">
+                  <ScrollArea className="h-full px-5 py-4">
+                    <div className="space-y-2.5" data-testid="chat-message-list">
                       {messages.length === 0 ? (
-                        <div className="rounded-md border border-border bg-muted/40 p-3 text-sm text-muted-foreground">
-                          还没有消息。在下方输入请求以运行 MVP 执行链。
+                        <div className="flex flex-col items-center justify-center h-40 text-muted-foreground/40">
+                          <div className="text-[32px] mb-2">💬</div>
+                          <div className="text-[13px]">在下方输入请求以开始对话</div>
                         </div>
                       ) : (
                         messages.map((message) => {
                           const metadata = (message.metadata ?? {}) as Record<string, unknown>;
                           const retrievalUsed = metadata.retrievalUsed === true;
                           const toolName = typeof metadata.toolName === "string" ? metadata.toolName : "";
+                          const isUser = message.role === "user";
+                          const isSystem = message.role === "system";
 
                           return (
                             <div
                               key={message.id}
-                              className={`rounded-md border p-3 text-sm ${
-                                message.role === "assistant"
-                                  ? "border-accent/40 bg-accent/10"
-                                  : "border-border bg-muted/40"
-                              }`}
+                              className={`flex ${isUser ? "justify-end" : "justify-start"}`}
                             >
-                              <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                                {roleLabel(message.role)}
-                              </div>
-                              <ReactMarkdown
-                                remarkPlugins={[remarkGfm]}
-                                components={{
-                                  p: ({ children }) => <p className="mb-2 whitespace-pre-wrap">{children}</p>,
-                                  h1: ({ children }) => <h1 className="mb-2 text-lg font-semibold">{children}</h1>,
-                                  h2: ({ children }) => <h2 className="mb-2 text-base font-semibold">{children}</h2>,
-                                  h3: ({ children }) => <h3 className="mb-2 text-sm font-semibold">{children}</h3>,
-                                  blockquote: ({ children }) => (
-                                    <blockquote className="my-2 border-l-2 border-border pl-3 text-muted-foreground">
-                                      {children}
-                                    </blockquote>
-                                  ),
-                                  pre: ({ children }) => (
-                                    <pre className="my-2 overflow-x-auto rounded-md bg-black/30 p-2 text-xs">
-                                      {children}
-                                    </pre>
-                                  ),
-                                  code: ({ inline, children }) =>
-                                    inline ? (
-                                      <code className="rounded bg-black/30 px-1 py-0.5 text-xs">{children}</code>
-                                    ) : (
-                                      <code className="text-xs">{children}</code>
-                                    )
-                                }}
+                              <div
+                                className={`rounded-2xl px-4 py-2.5 text-[13px] leading-relaxed ${
+                                  isUser
+                                    ? "bg-primary text-white max-w-[85%] rounded-br-md"
+                                    : isSystem
+                                      ? "bg-orange-50 text-orange-800 max-w-[90%] border border-orange-100"
+                                      : "bg-white shadow-[0_0.5px_2px_rgba(0,0,0,0.06)] max-w-[90%] rounded-bl-md"
+                                }`}
                               >
-                                {message.content}
-                              </ReactMarkdown>
-                              {(retrievalUsed || toolName) && (
-                                <div className="mt-2 text-xs text-muted-foreground">
-                                  {retrievalUsed ? "已使用检索" : "未使用检索"}
-                                  {toolName ? ` | 调用工具：${toolName}` : ""}
-                                </div>
-                              )}
+                                {!isUser && (
+                                  <div className={`mb-1 text-[10px] font-medium tracking-wide ${
+                                    isSystem ? "text-orange-500" : "text-muted-foreground/50"
+                                  }`}>
+                                    {roleLabel(message.role)}
+                                  </div>
+                                )}
+                                <ReactMarkdown
+                                  remarkPlugins={[remarkGfm]}
+                                  components={{
+                                    p: ({ children }) => <p className="mb-2 last:mb-0 whitespace-pre-wrap">{children}</p>,
+                                    h1: ({ children }) => <h1 className="mb-2 text-[15px] font-semibold">{children}</h1>,
+                                    h2: ({ children }) => <h2 className="mb-2 text-[14px] font-semibold">{children}</h2>,
+                                    h3: ({ children }) => <h3 className="mb-2 text-[13px] font-semibold">{children}</h3>,
+                                    ul: ({ children }) => <ul className="mb-2 ml-4 list-disc space-y-0.5">{children}</ul>,
+                                    ol: ({ children }) => <ol className="mb-2 ml-4 list-decimal space-y-0.5">{children}</ol>,
+                                    li: ({ children }) => <li className="text-[13px]">{children}</li>,
+                                    blockquote: ({ children }) => (
+                                      <blockquote className={`my-2 border-l-2 pl-3 ${isUser ? "border-white/40 text-white/80" : "border-primary/20 text-muted-foreground"}`}>
+                                        {children}
+                                      </blockquote>
+                                    ),
+                                    pre: ({ children }) => (
+                                      <pre className={`my-2 overflow-x-auto rounded-xl p-3 text-xs ${isUser ? "bg-white/10" : "bg-black/[0.03]"}`}>
+                                        {children}
+                                      </pre>
+                                    ),
+                                    code: ({ inline, children }) =>
+                                      inline ? (
+                                        <code className={`rounded-md px-1.5 py-0.5 text-xs font-mono ${isUser ? "bg-white/15" : "bg-black/[0.04]"}`}>{children}</code>
+                                      ) : (
+                                        <code className="text-xs font-mono">{children}</code>
+                                      ),
+                                    strong: ({ children }) => <strong className="font-semibold">{children}</strong>
+                                  }}
+                                >
+                                  {message.content}
+                                </ReactMarkdown>
+                                {(retrievalUsed || toolName) && (
+                                  <div className={`mt-1.5 text-[10px] ${isUser ? "text-white/50" : "text-muted-foreground/40"}`}>
+                                    {retrievalUsed ? "已使用检索" : ""}
+                                    {toolName ? `${retrievalUsed ? " · " : ""}${toolName}` : ""}
+                                  </div>
+                                )}
+                              </div>
                             </div>
                           );
                         })
@@ -657,18 +677,52 @@ const App = (): JSX.Element => {
                 </CardContent>
               </Card>
 
-              <Card>
-                <CardContent className="space-y-2 p-3">
-                  <Textarea
-                    data-testid="composer-input"
-                    placeholder="请输入你的请求..."
-                    className="min-h-[120px]"
-                    value={composerText}
-                    onChange={(event) => setComposerText(event.target.value)}
-                    disabled={isLoading || isSubmitting}
-                  />
-                  <div className="flex items-center justify-between gap-2">
-                    <label className="flex items-center gap-2 text-xs text-muted-foreground">
+              {/* Composer */}
+              <Card className="shrink-0">
+                <CardContent className="p-3">
+                  <div className="flex gap-2 items-end">
+                    <div className="flex-1">
+                      <Textarea
+                        data-testid="composer-input"
+                        placeholder="请输入你的请求..."
+                        className="min-h-[72px] max-h-[160px]"
+                        value={composerText}
+                        onChange={(event) => setComposerText(event.target.value)}
+                        disabled={isLoading || isSubmitting}
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <Button
+                        data-testid="composer-send-button"
+                        onClick={() => {
+                          void handleSend();
+                        }}
+                        size="icon"
+                        className="h-9 w-9 rounded-full"
+                        disabled={isLoading || isSubmitting || !composerText.trim()}
+                      >
+                        {isSubmitting ? (
+                          <span className="text-[10px]">···</span>
+                        ) : (
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                        )}
+                      </Button>
+                      <Button
+                        data-testid="composer-import-button"
+                        onClick={() => {
+                          void handleImportKnowledge();
+                        }}
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 rounded-full text-muted-foreground"
+                        disabled={isLoading || isSubmitting}
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg>
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between mt-2">
+                    <label className="flex items-center gap-2 text-[11px] text-muted-foreground select-none cursor-pointer">
                       <input
                         data-testid="composer-retrieval-toggle"
                         type="checkbox"
@@ -678,30 +732,11 @@ const App = (): JSX.Element => {
                       />
                       本轮启用检索
                     </label>
-                    <div className="flex gap-2">
-                      <Button
-                        data-testid="composer-import-button"
-                        onClick={() => {
-                          void handleImportKnowledge();
-                        }}
-                        variant="outline"
-                        disabled={isLoading || isSubmitting}
-                      >
-                        导入文件
-                      </Button>
-                      <Button
-                        data-testid="composer-send-button"
-                        onClick={() => {
-                          void handleSend();
-                        }}
-                        disabled={isLoading || isSubmitting || !composerText.trim()}
-                      >
-                        {isSubmitting ? "处理中..." : "发送"}
-                      </Button>
-                    </div>
-                  </div>
-                  <div className="text-xs text-muted-foreground" data-testid="composer-status">
-                    {submitError || lastRunInfo || importStatus || "当前为手动模式切换，未启用自动路由。"}
+                    {(submitError || lastRunInfo || importStatus) && (
+                      <div className="text-[10px] text-muted-foreground/60" data-testid="composer-status">
+                        {submitError || lastRunInfo || importStatus}
+                      </div>
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -718,6 +753,7 @@ const App = (): JSX.Element => {
                     void handleImportKnowledge();
                   }}
                   variant="outline"
+                  size="sm"
                   disabled={isLoading || isSubmitting}
                 >
                   导入文件
@@ -725,30 +761,30 @@ const App = (): JSX.Element => {
               </CardHeader>
               <CardContent className="h-full min-h-0 p-0">
                 <ScrollArea className="h-full px-4 pb-4">
-                  <div className="space-y-2 text-sm" data-testid="knowledge-view">
-                    <div className="text-xs text-muted-foreground" data-testid="knowledge-count">
-                      已导入来源：{knowledgeSources.length}
+                  <div className="space-y-2" data-testid="knowledge-view">
+                    <div className="text-[11px] text-muted-foreground" data-testid="knowledge-count">
+                      已导入 {knowledgeSources.length} 个来源
                     </div>
                     {importStatus && (
-                      <div className="text-xs text-muted-foreground" data-testid="knowledge-import-status">
+                      <div className="text-[11px] text-primary" data-testid="knowledge-import-status">
                         {importStatus}
                       </div>
                     )}
                     {knowledgeSources.length === 0 ? (
-                      <div className="rounded-md border border-border bg-muted/40 p-3 text-sm text-muted-foreground">
-                        暂无本地知识文件。
+                      <div className="flex items-center justify-center h-24 text-[13px] text-muted-foreground/50">
+                        暂无本地知识文件
                       </div>
                     ) : (
                       knowledgeSources.map((source) => (
                         <div
                           key={source.id}
                           data-testid={`knowledge-source-${source.id}`}
-                          className="rounded-md border border-border bg-muted/30 p-3"
+                          className="rounded-xl bg-black/[0.03] p-3"
                         >
-                          <div className="font-medium">{source.name}</div>
-                          <div className="mt-1 break-all text-xs text-muted-foreground">{source.path}</div>
-                          <div className="mt-1 text-xs text-muted-foreground">
-                            分块数：{source.chunkCount}
+                          <div className="text-[13px] font-medium text-foreground">{source.name}</div>
+                          <div className="mt-1 break-all text-[11px] text-muted-foreground">{source.path}</div>
+                          <div className="mt-1 text-[11px] text-muted-foreground">
+                            {source.chunkCount} 个分块
                           </div>
                         </div>
                       ))
@@ -788,18 +824,18 @@ const App = (): JSX.Element => {
               <CardContent className="h-full min-h-0 p-0">
                 <ScrollArea className="h-full px-4 pb-4">
                   {!settingsDraft ? (
-                    <div className="rounded-md border border-border bg-muted/40 p-3 text-sm text-muted-foreground">
+                    <div className="flex items-center justify-center h-24 text-[13px] text-muted-foreground/50">
                       设置不可用。
                     </div>
                   ) : (
                     <div className="space-y-4 text-sm">
                       <div className="grid grid-cols-1 gap-2">
-                        <div className="text-xs font-medium uppercase text-muted-foreground">模型配置</div>
+                        <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">模型配置</div>
                         <label className="space-y-1">
-                          <div className="text-xs text-muted-foreground">当前提供商</div>
+                          <div className="text-[12px] text-muted-foreground">当前提供商</div>
                           <select
                             data-testid="settings-provider-select"
-                            className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm"
+                            className="h-9 w-full rounded-[10px] bg-black/[0.04] px-3 text-[13px] text-foreground transition-colors focus:outline-none focus:ring-2 focus:ring-primary/30"
                             value={settingsDraft.provider.provider}
                             onChange={(event) => {
                               const nextProvider = event.target.value as ProviderId;
@@ -821,17 +857,17 @@ const App = (): JSX.Element => {
                             ))}
                           </select>
                         </label>
-                        <div className="rounded-md border border-border bg-muted/30 p-3 text-xs text-muted-foreground">
+                        <div className="rounded-xl bg-primary/[0.04] p-3 text-[11px] text-muted-foreground">
                           本轮仅接入 Kimi。provider 字段已保留，为后续扩展其他厂商预留接口。
                         </div>
-                        <div className="text-xs text-muted-foreground">
+                        <div className="text-[12px] text-muted-foreground">
                           API Key 不会写入 TOML 或 SQLite 明文；保存时会进入主进程安全存储。
                         </div>
-                        <div className="text-xs text-muted-foreground">
+                        <div className="text-[12px] text-muted-foreground">
                           当前是否已保存 API Key：{boolLabel(hasStoredApiKey)}
                         </div>
                         <label className="space-y-1">
-                          <div className="text-xs text-muted-foreground">模型</div>
+                          <div className="text-[12px] text-muted-foreground">模型</div>
                           <Input
                             data-testid="settings-provider-model-input"
                             value={settingsDraft.provider.model}
@@ -847,7 +883,7 @@ const App = (): JSX.Element => {
                           />
                         </label>
                         <label className="space-y-1">
-                          <div className="text-xs text-muted-foreground">基础 URL</div>
+                          <div className="text-[12px] text-muted-foreground">基础 URL</div>
                           <Input
                             data-testid="settings-provider-baseurl-input"
                             value={settingsDraft.provider.baseUrl}
@@ -863,7 +899,7 @@ const App = (): JSX.Element => {
                           />
                         </label>
                         <label className="space-y-1">
-                          <div className="text-xs text-muted-foreground">本地 API Key</div>
+                          <div className="text-[12px] text-muted-foreground">本地 API Key</div>
                           <Input
                             data-testid="settings-provider-apikey-input"
                             type="password"
@@ -889,12 +925,12 @@ const App = (): JSX.Element => {
                       <Separator />
 
                       <div className="space-y-2">
-                        <div className="text-xs font-medium uppercase text-muted-foreground">表达偏好</div>
+                        <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">表达偏好</div>
                         <label className="space-y-1">
-                          <div className="text-xs text-muted-foreground">风格</div>
+                          <div className="text-[12px] text-muted-foreground">风格</div>
                           <select
                             data-testid="settings-style-select"
-                            className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm"
+                            className="h-9 w-full rounded-[10px] bg-black/[0.04] px-3 text-[13px] text-foreground transition-colors focus:outline-none focus:ring-2 focus:ring-primary/30"
                             value={settingsDraft.expression.style}
                             onChange={(event) =>
                               setSettingsDraft({
@@ -910,7 +946,7 @@ const App = (): JSX.Element => {
                             <option value="balanced">平衡</option>
                           </select>
                         </label>
-                        <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <label className="flex items-center gap-2 text-[12px] text-muted-foreground">
                           <input
                             type="checkbox"
                             checked={settingsDraft.expression.reducedQuestioning}
@@ -927,9 +963,9 @@ const App = (): JSX.Element => {
                           减少追问
                         </label>
                         <label className="space-y-1">
-                          <div className="text-xs text-muted-foreground">默认假设</div>
+                          <div className="text-[12px] text-muted-foreground">默认假设</div>
                           <select
-                            className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm"
+                            className="h-9 w-full rounded-[10px] bg-black/[0.04] px-3 text-[13px] text-foreground transition-colors focus:outline-none focus:ring-2 focus:ring-primary/30"
                             value={settingsDraft.expression.defaultAssumption}
                             onChange={(event) =>
                               setSettingsDraft({
@@ -947,9 +983,9 @@ const App = (): JSX.Element => {
                           </select>
                         </label>
                         <label className="space-y-1">
-                          <div className="text-xs text-muted-foreground">风险标注</div>
+                          <div className="text-[12px] text-muted-foreground">风险标注</div>
                           <select
-                            className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm"
+                            className="h-9 w-full rounded-[10px] bg-black/[0.04] px-3 text-[13px] text-foreground transition-colors focus:outline-none focus:ring-2 focus:ring-primary/30"
                             value={settingsDraft.expression.riskLabeling}
                             onChange={(event) =>
                               setSettingsDraft({
@@ -972,8 +1008,8 @@ const App = (): JSX.Element => {
                       <Separator />
 
                       <div className="space-y-2">
-                        <div className="text-xs font-medium uppercase text-muted-foreground">权限</div>
-                        <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">权限</div>
+                        <label className="flex items-center gap-2 text-[12px] text-muted-foreground">
                           <input
                             type="checkbox"
                             checked={settingsDraft.permissions.readOnlyDefault}
@@ -989,7 +1025,7 @@ const App = (): JSX.Element => {
                           />
                           默认只读
                         </label>
-                        <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <label className="flex items-center gap-2 text-[12px] text-muted-foreground">
                           <input
                             type="checkbox"
                             checked={settingsDraft.permissions.requireConfirmationForWrites}
@@ -1005,7 +1041,7 @@ const App = (): JSX.Element => {
                           />
                           写入类动作前需确认
                         </label>
-                        <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <label className="flex items-center gap-2 text-[12px] text-muted-foreground">
                           <input
                             type="checkbox"
                             checked={settingsDraft.permissions.requireDoubleConfirmationForExternal}
@@ -1026,11 +1062,11 @@ const App = (): JSX.Element => {
                       <Separator />
 
                       <div className="space-y-2">
-                        <div className="text-xs font-medium uppercase text-muted-foreground">模式默认值</div>
+                        <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">模式默认值</div>
                         <label className="space-y-1">
-                          <div className="text-xs text-muted-foreground">默认模式</div>
+                          <div className="text-[12px] text-muted-foreground">默认模式</div>
                           <select
-                            className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm"
+                            className="h-9 w-full rounded-[10px] bg-black/[0.04] px-3 text-[13px] text-foreground transition-colors focus:outline-none focus:ring-2 focus:ring-primary/30"
                             value={settingsDraft.modeDefaults.defaultMode}
                             onChange={(event) =>
                               setSettingsDraft({
@@ -1050,9 +1086,9 @@ const App = (): JSX.Element => {
                           </select>
                         </label>
                         <div className="space-y-1">
-                          <div className="text-xs text-muted-foreground">按模式启用检索</div>
+                          <div className="text-[12px] text-muted-foreground">按模式启用检索</div>
                           {MODES.map((mode) => (
-                            <label key={mode.id} className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <label key={mode.id} className="flex items-center gap-2 text-[12px] text-muted-foreground">
                               <input
                                 type="checkbox"
                                 checked={settingsDraft.modeDefaults.retrievalByMode[mode.id]}
@@ -1075,7 +1111,7 @@ const App = (): JSX.Element => {
                         </div>
                       </div>
 
-                      <div className="text-xs text-muted-foreground" data-testid="settings-status">
+                      <div className="text-[12px] text-muted-foreground" data-testid="settings-status">
                         {settingsStatus || "修改会保存到 userData 下的本地 config.toml。"}
                       </div>
                     </div>
@@ -1089,7 +1125,7 @@ const App = (): JSX.Element => {
             <Card className="min-h-0 flex-1">
               <CardHeader className="flex-row items-center justify-between space-y-0">
                 <CardTitle>审计记录</CardTitle>
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <div className="flex items-center gap-2 text-[12px] text-muted-foreground">
                   <label className="flex items-center gap-2">
                     <input
                       type="checkbox"
@@ -1116,7 +1152,7 @@ const App = (): JSX.Element => {
                 <ScrollArea className="h-full px-4 pb-4">
                   <div className="space-y-2 text-sm" data-testid="audit-record-list">
                     {auditRecords.length === 0 ? (
-                      <div className="rounded-md border border-border bg-muted/40 p-3 text-sm text-muted-foreground">
+                      <div className="flex items-center justify-center h-24 text-[13px] text-muted-foreground/50">
                         暂无审计记录。
                       </div>
                     ) : (
@@ -1124,22 +1160,22 @@ const App = (): JSX.Element => {
                         <div
                           key={record.id}
                           data-testid={`audit-record-${record.id}`}
-                          className="rounded-md border border-border bg-muted/30 p-3"
+                          className="rounded-xl bg-black/[0.03] p-3"
                         >
                           <div className="font-medium">
                             {modeLabel(record.mode)} | {resultTypeLabel(record.resultType)}
                           </div>
-                          <div className="mt-1 break-all text-xs text-muted-foreground">
+                          <div className="mt-1 break-all text-[12px] text-muted-foreground">
                             会话：{record.conversationId}
                           </div>
-                          <div className="mt-1 text-xs text-muted-foreground">
+                          <div className="mt-1 text-[12px] text-muted-foreground">
                             检索：{boolLabel(record.retrievalUsed)} | 工具：{" "}
                             {record.toolsUsed.length > 0 ? record.toolsUsed.join(", ") : "无"}
                           </div>
-                          <div className="mt-1 text-xs text-muted-foreground">
+                          <div className="mt-1 text-[12px] text-muted-foreground">
                             风险：{record.riskNotes || "--"}
                           </div>
-                          <div className="mt-1 text-xs text-muted-foreground">{record.createdAt}</div>
+                          <div className="mt-1 text-[12px] text-muted-foreground">{record.createdAt}</div>
                         </div>
                       ))
                     )}
@@ -1150,89 +1186,126 @@ const App = (): JSX.Element => {
           )}
         </main>
 
-        <aside className="flex h-full min-h-0 flex-col gap-3" data-testid="right-rail">
-          <Card className="min-h-0 flex-1">
-            <CardHeader>
-              <CardTitle>当前上下文</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2 text-sm text-muted-foreground" data-testid="context-panel">
-              <div className="font-medium text-foreground">{modeLabel(activeMode)}</div>
-              <div>{activeModeDescription}</div>
+        <aside className="flex h-full min-h-0 flex-col gap-2.5 overflow-hidden" data-testid="right-rail">
+          {/* Context info */}
+          <Card className="shrink-0" data-testid="context-panel">
+            <CardContent className="p-3 space-y-3">
               <div>
-                模型提供商：{config ? providerLabel(config.provider.provider) : "--"}
+                <div className="text-[15px] font-semibold text-foreground">{modeLabel(activeMode)}</div>
+                <div className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">{activeModeDescription}</div>
               </div>
-              <div>当前模型：{config?.provider.model ?? "--"}</div>
-              <div>知识来源数：{knowledgeSources.length}</div>
-              <div>表达风格：{config ? styleLabel(config.expression.style) : "--"}</div>
-              {knowledgeSources.length > 0 && (
-                <div className="rounded-md border border-border bg-muted/30 p-2 text-xs">
-                  最新：{knowledgeSources[0].name}
-                </div>
-              )}
-              <div className="pt-1 text-xs font-medium uppercase text-muted-foreground">
-                已加载证据
-              </div>
-              {latestRetrievedSnippets.length === 0 ? (
-                <div className="rounded-md border border-border bg-muted/30 p-2 text-xs">
-                  最近一条助手回复未加载检索片段。
-                </div>
-              ) : (
-                latestRetrievedSnippets.slice(0, 3).map((snippet, index) => (
-                  <div key={`${snippet.sourcePath}:${index}`} className="rounded-md border border-border bg-muted/30 p-2 text-xs">
-                    <div className="font-medium text-foreground">{snippet.sourceName}</div>
-                    <div className="mt-1 break-all text-muted-foreground">{snippet.sourcePath}</div>
-                    <div className="mt-1 max-h-24 overflow-hidden whitespace-pre-wrap">{snippet.content}</div>
-                  </div>
-                ))
-              )}
-              <div className="pt-1 text-xs font-medium uppercase text-muted-foreground">
-                关键假设
-              </div>
-              <div className="space-y-1">
-                {keyAssumptions.map((item, index) => (
-                  <div key={index} className="text-xs">
-                    {item}
+              {/* iOS-style info rows */}
+              <div className="rounded-xl bg-black/[0.03] divide-y divide-black/[0.04] overflow-hidden">
+                {([
+                  ["提供商", config ? providerLabel(config.provider.provider) : "--"],
+                  ["模型", config?.provider.model ?? "--"],
+                  ["知识", `${knowledgeSources.length} 个来源`],
+                  ["风格", config ? styleLabel(config.expression.style) : "--"]
+                ] as const).map(([label, value]) => (
+                  <div key={label} className="flex items-center justify-between px-3 py-2 gap-2">
+                    <span className="text-[11px] text-muted-foreground shrink-0">{label}</span>
+                    <span className="text-[11px] text-foreground/70 truncate text-right">{value}</span>
                   </div>
                 ))}
               </div>
             </CardContent>
+          </Card>
 
-            <Separator className="my-1" />
+          {/* State + Evidence (scrollable) */}
+          <Card className="min-h-0 flex-1">
+            <CardContent className="h-full p-0">
+              <ScrollArea className="h-full">
+                <div className="p-3 space-y-3">
+                  {/* Evidence section */}
+                  <div>
+                    <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60 mb-1.5">
+                      证据
+                    </div>
+                    {latestRetrievedSnippets.length === 0 ? (
+                      <div className="text-[11px] text-muted-foreground/40">
+                        无检索片段
+                      </div>
+                    ) : (
+                      <div className="space-y-1.5">
+                        {latestRetrievedSnippets.slice(0, 3).map((snippet, index) => (
+                          <div key={`${snippet.sourcePath}:${index}`} className="rounded-xl bg-black/[0.03] p-2.5">
+                            <div className="text-[11px] font-medium text-foreground">{snippet.sourceName}</div>
+                            <div className="mt-0.5 text-[10px] text-muted-foreground/50 truncate">{snippet.sourcePath}</div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
 
-            <CardHeader>
-              <CardTitle>当前状态</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2 text-sm text-muted-foreground" data-testid="state-panel">
-              <div>是否使用检索：{boolLabel(stateSnapshot.retrievalUsed)}</div>
-              <div>已调用工具：{stateSnapshot.toolsCalled.length ? stateSnapshot.toolsCalled.join(", ") : "无"}</div>
-              <div>最近工具结果：{stateSnapshot.latestToolResult || "--"}</div>
-              <div>待确认：{boolLabel(stateSnapshot.pendingConfirmation)}</div>
-              <div>任务状态：{taskStatusLabel(stateSnapshot.taskStatus)}</div>
-              {stateSnapshot.pendingConfirmation && (
-                <Button
-                  data-testid="resolve-confirmation-button"
-                  size="sm"
-                  onClick={() => {
-                    void handleResolvePendingConfirmation();
-                  }}
-                  disabled={isLoading || isSubmitting}
-                >
-                  确认并清除门控
-                </Button>
-              )}
-            </CardContent>
+                  {/* Assumptions */}
+                  <div>
+                    <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60 mb-1.5">
+                      假设
+                    </div>
+                    <div className="space-y-1">
+                      {keyAssumptions.map((item, index) => (
+                        <div key={index} className="text-[11px] text-muted-foreground leading-relaxed">
+                          {item}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
 
-            <Separator className="my-1" />
+                  {/* State */}
+                  <div>
+                    <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60 mb-1.5">
+                      状态
+                    </div>
+                    <div className="rounded-xl bg-black/[0.03] divide-y divide-black/[0.04] overflow-hidden" data-testid="state-panel">
+                      {([
+                        ["检索", boolLabel(stateSnapshot.retrievalUsed)],
+                        ["工具", stateSnapshot.toolsCalled.length ? stateSnapshot.toolsCalled.join(", ") : "无"],
+                        ["待确认", boolLabel(stateSnapshot.pendingConfirmation)],
+                        ["任务", taskStatusLabel(stateSnapshot.taskStatus)]
+                      ] as const).map(([label, value]) => (
+                        <div key={label} className="flex items-center justify-between px-3 py-2">
+                          <span className="text-[11px] text-muted-foreground">{label}</span>
+                          <span className="text-[11px] text-foreground/70">{value}</span>
+                        </div>
+                      ))}
+                    </div>
+                    {stateSnapshot.pendingConfirmation && (
+                      <Button
+                        data-testid="resolve-confirmation-button"
+                        size="sm"
+                        className="w-full mt-2"
+                        onClick={() => {
+                          void handleResolvePendingConfirmation();
+                        }}
+                        disabled={isLoading || isSubmitting}
+                      >
+                        确认并清除门控
+                      </Button>
+                    )}
+                  </div>
 
-            <CardHeader>
-              <CardTitle>审计摘要</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2 pb-4 text-sm text-muted-foreground" data-testid="audit-summary-panel">
-              <div>模式：{auditSummary ? modeLabel(auditSummary.mode) : "--"}</div>
-              <div>检索：{auditSummary ? boolLabel(auditSummary.retrievalUsed) : "--"}</div>
-              <div>工具：{auditSummary ? (auditSummary.toolsUsed.length ? auditSummary.toolsUsed.join(", ") : "无") : "--"}</div>
-              <div>结果类型：{auditSummary ? resultTypeLabel(auditSummary.resultType) : "--"}</div>
-              <div>风险说明：{auditSummary?.riskNotes || "--"}</div>
+                  {/* Audit summary */}
+                  <div>
+                    <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60 mb-1.5">
+                      审计
+                    </div>
+                    <div className="rounded-xl bg-black/[0.03] divide-y divide-black/[0.04] overflow-hidden" data-testid="audit-summary-panel">
+                      {([
+                        ["模式", auditSummary ? modeLabel(auditSummary.mode) : "--"],
+                        ["检索", auditSummary ? boolLabel(auditSummary.retrievalUsed) : "--"],
+                        ["工具", auditSummary ? (auditSummary.toolsUsed.length ? auditSummary.toolsUsed.join(", ") : "无") : "--"],
+                        ["类型", auditSummary ? resultTypeLabel(auditSummary.resultType) : "--"],
+                        ["风险", auditSummary?.riskNotes || "--"]
+                      ] as const).map(([label, value]) => (
+                        <div key={label} className="flex items-center justify-between px-3 py-2">
+                          <span className="text-[11px] text-muted-foreground">{label}</span>
+                          <span className="text-[11px] text-foreground/70">{value}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </ScrollArea>
             </CardContent>
           </Card>
         </aside>
@@ -1242,6 +1315,5 @@ const App = (): JSX.Element => {
 };
 
 export default App;
-
 
 

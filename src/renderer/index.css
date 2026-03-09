@@ -1,19 +1,23 @@
-﻿@tailwind base;
+@tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  --background: 214 38% 9%;
-  --foreground: 210 40% 98%;
-  --card: 214 29% 14%;
-  --card-foreground: 210 40% 98%;
-  --primary: 38 92% 57%;
-  --primary-foreground: 213 32% 12%;
-  --muted: 213 25% 20%;
-  --muted-foreground: 213 11% 72%;
-  --border: 214 21% 27%;
-  --accent: 197 78% 48%;
-  --accent-foreground: 213 32% 12%;
+  /* iOS-inspired light palette */
+  --background: 240 6% 97%;          /* #F2F2F7 - iOS system gray 6 */
+  --foreground: 240 6% 10%;          /* #1C1C1E - iOS label */
+  --card: 0 0% 100%;                 /* #FFFFFF */
+  --card-foreground: 240 6% 10%;
+  --primary: 211 100% 50%;           /* #007AFF - iOS system blue */
+  --primary-foreground: 0 0% 100%;
+  --muted: 240 5% 92%;               /* #EBEBF0 */
+  --muted-foreground: 240 3% 46%;    /* #6E6E73 - iOS secondary label */
+  --border: 240 6% 90%;              /* subtle separator */
+  --accent: 211 100% 50%;            /* same as primary for iOS consistency */
+  --accent-foreground: 0 0% 100%;
+  --destructive: 0 84% 60%;          /* iOS system red */
+  --ring: 211 100% 50%;
+  --radius: 12px;
 }
 
 * {
@@ -28,9 +32,100 @@ body,
 
 body {
   margin: 0;
-  font-family: "Segoe UI", "Noto Sans", sans-serif;
-  background: radial-gradient(circle at 80% -20%, rgba(56, 189, 248, 0.2), transparent 40%),
-    radial-gradient(circle at 20% 120%, rgba(251, 191, 36, 0.2), transparent 45%),
-    hsl(var(--background));
+  font-family:
+    -apple-system,
+    "SF Pro Display",
+    "SF Pro Text",
+    "Helvetica Neue",
+    "Segoe UI",
+    "Noto Sans SC",
+    system-ui,
+    sans-serif;
+  background: hsl(var(--background));
   color: hsl(var(--foreground));
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* iOS frosted-glass utility */
+.glass {
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+}
+
+.glass-sidebar {
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+}
+
+/* iOS-style scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: hsl(240 3% 46% / 0.25);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(240 3% 46% / 0.4);
+}
+
+/* Selection color */
+::selection {
+  background: hsl(211 100% 50% / 0.2);
+}
+
+/* iOS-style checkbox */
+input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
+  border: 1.5px solid hsl(240 3% 46% / 0.3);
+  background: white;
+  cursor: pointer;
+  position: relative;
+  flex-shrink: 0;
+  transition: all 0.15s ease;
+}
+
+input[type="checkbox"]:checked {
+  background: hsl(211 100% 50%);
+  border-color: hsl(211 100% 50%);
+}
+
+input[type="checkbox"]:checked::after {
+  content: "";
+  position: absolute;
+  left: 5px;
+  top: 2px;
+  width: 5px;
+  height: 9px;
+  border: solid white;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+/* iOS-style select */
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%236E6E73' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  padding-right: 28px !important;
+}
+
+/* Smooth transitions for interactive elements */
+button, a, input, textarea, select {
+  transition: all 0.15s ease;
 }

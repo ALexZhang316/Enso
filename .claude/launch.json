@@ -1,0 +1,23 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "vite-renderer",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["node_modules/vite/bin/vite.js", "--host", "localhost", "--port", "5173", "--strictPort"],
+      "port": 5173
+    },
+    {
+      "name": "tsc-watch",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["node_modules/typescript/bin/tsc", "-p", "tsconfig.node.json", "--watch"],
+      "port": 0
+    },
+    {
+      "name": "electron-app",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["node_modules/electron/cli.js", "./dist/main/main.js"],
+      "port": 0
+    }
+  ]
+}
