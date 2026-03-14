@@ -57,26 +57,39 @@ export class ExecutionFlow {
     const priorState = this.deps.store.getState(input.conversationId);
     const history = this.deps.store.listRecentMessages(input.conversationId, 12);
     const classification = classifyRequest(input.text);
+    const retrievedSnippets = input.enableRetrievalForTurn
+      ? this.deps.knowledgeService.retrieve(input.text, 5)
+      : [];
+    const toolResult = this.deps.toolService.decideAndRun(input.text, retrievedSnippets);
+    const retrievalUsed = retrievedSnippets.length > 0;
+    const handlingClass: RequestClassification["handlingClass"] =
+      classification.handlingClass === "action-adjacent"
+        ? "action-adjacent"
+        : toolResult
+          ? "tool-assisted"
+          : retrievalUsed
+            ? "retrieval-enhanced"
+            : classification.handlingClass;
 
     this.deps.store.addMessage(input.conversationId, "user", input.text, {
       mode: input.mode,
-      handlingClass: classification.handlingClass,
-      retrievalEnabled: false
+      handlingClass,
+      retrievalEnabled: input.enableRetrievalForTurn
     });
 
     if (classification.handlingClass === "action-adjacent" && config.permissions.readOnlyDefault) {
       const proposalText = "检测到动作型请求。当前 MVP-1 仅支持基础文本对话，不执行动作请求。";
       const assistantMessage = this.deps.store.addMessage(input.conversationId, "assistant", proposalText, {
         mode: input.mode,
-        handlingClass: classification.handlingClass,
-        retrievalUsed: false,
-        toolName: null
+        handlingClass,
+        retrievalUsed,
+        toolName: toolResult?.toolName ?? null
       });
 
       const nextState: StateSnapshot = this.deps.store.upsertState({
         conversationId: input.conversationId,
-        retrievalUsed: false,
-        toolsCalled: [],
+        retrievalUsed,
+        toolsCalled: toolResult ? [toolResult.toolName] : [],
         latestToolResult: priorState.latestToolResult,
         pendingConfirmation: true,
         taskStatus: "awaiting_confirmation",
@@ -86,8 +99,8 @@ export class ExecutionFlow {
       const audit = this.deps.store.addAudit({
         conversationId: input.conversationId,
         mode: input.mode,
-        retrievalUsed: false,
-        toolsUsed: [],
+        retrievalUsed,
+        toolsUsed: toolResult ? [toolResult.toolName] : [],
         resultType: "proposal",
         riskNotes: "动作型请求被只读门控拦截。"
       });
@@ -96,30 +109,42 @@ export class ExecutionFlow {
         assistantMessage,
         state: nextState,
         audit,
-        classification,
-        retrievedSnippets: []
+        classification: {
+          ...classification,
+          handlingClass,
+          retrievalNeeded: input.enableRetrievalForTurn,
+          toolNeeded: Boolean(toolResult)
+        },
+        retrievedSnippets
       };
     }
 
     try {
+      const retrievalContext = retrievalUsed
+        ? `\n\n已检索到本地知识片段（仅供参考）：\n${retrievedSnippets
+            .map((item, index) => `${index + 1}. [${item.sourceName}] ${item.content}`)
+            .join("\n")}`
+        : "";
+      const toolContext = toolResult ? `\n\n工具结果：${toolResult.summary}` : "";
       const replyText = await this.deps.modelAdapter.generateReply({
         config,
         history,
-        userText: input.text
+        userText: `${input.text}${retrievalContext}${toolContext}`
       });
 
       const assistantMessage = this.deps.store.addMessage(input.conversationId, "assistant", replyText, {
         mode: input.mode,
-        handlingClass: classification.handlingClass,
-        retrievalUsed: false,
-        toolName: null
+        handlingClass,
+        retrievalUsed,
+        toolName: toolResult?.toolName ?? null,
+        retrievedSnippets
       });
 
       const nextState: StateSnapshot = this.deps.store.upsertState({
         conversationId: input.conversationId,
-        retrievalUsed: false,
-        toolsCalled: [],
-        latestToolResult: "",
+        retrievalUsed,
+        toolsCalled: toolResult ? [toolResult.toolName] : [],
+        latestToolResult: toolResult?.summary ?? "",
         pendingConfirmation: false,
         taskStatus: "completed",
         updatedAt: new Date().toISOString()
@@ -128,8 +153,8 @@ export class ExecutionFlow {
       const audit = this.deps.store.addAudit({
         conversationId: input.conversationId,
         mode: input.mode,
-        retrievalUsed: false,
-        toolsUsed: [],
+        retrievalUsed,
+        toolsUsed: toolResult ? [toolResult.toolName] : [],
         resultType: "answer",
         riskNotes: ""
       });
@@ -138,8 +163,13 @@ export class ExecutionFlow {
         assistantMessage,
         state: nextState,
         audit,
-        classification,
-        retrievedSnippets: []
+        classification: {
+          ...classification,
+          handlingClass,
+          retrievalNeeded: input.enableRetrievalForTurn,
+          toolNeeded: Boolean(toolResult)
+        },
+        retrievedSnippets
       };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "模型调用失败。";
@@ -149,18 +179,18 @@ export class ExecutionFlow {
         `本次请求失败：${errorMessage}`,
         {
           mode: input.mode,
-          handlingClass: classification.handlingClass,
-          retrievalUsed: false,
-          toolName: null,
+          handlingClass,
+          retrievalUsed,
+          toolName: toolResult?.toolName ?? null,
           providerError: true
         }
       );
 
       const nextState = this.deps.store.upsertState({
         conversationId: input.conversationId,
-        retrievalUsed: false,
-        toolsCalled: [],
-        latestToolResult: "",
+        retrievalUsed,
+        toolsCalled: toolResult ? [toolResult.toolName] : [],
+        latestToolResult: toolResult?.summary ?? "",
         pendingConfirmation: false,
         taskStatus: "completed",
         updatedAt: new Date().toISOString()
@@ -169,8 +199,8 @@ export class ExecutionFlow {
       const audit = this.deps.store.addAudit({
         conversationId: input.conversationId,
         mode: input.mode,
-        retrievalUsed: false,
-        toolsUsed: [],
+        retrievalUsed,
+        toolsUsed: toolResult ? [toolResult.toolName] : [],
         resultType: "answer",
         riskNotes: errorMessage
       });
@@ -179,8 +209,13 @@ export class ExecutionFlow {
         assistantMessage,
         state: nextState,
         audit,
-        classification,
-        retrievedSnippets: []
+        classification: {
+          ...classification,
+          handlingClass,
+          retrievalNeeded: input.enableRetrievalForTurn,
+          toolNeeded: Boolean(toolResult)
+        },
+        retrievedSnippets
       };
     }
   }

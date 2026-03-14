@@ -17,7 +17,7 @@ const { KimiProvider } = require(path.join(DIST_ROOT, "main/providers/kimi-provi
 const { ProviderError } = require(path.join(DIST_ROOT, "main/providers/types.js"));
 
 const createHarness = () => {
-  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "enso-mvp1-test-"));
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "enso-mvp-1-test-"));
   const dbPath = path.join(tempDir, "enso.sqlite");
   const configPath = path.join(tempDir, "config.toml");
   const secretPath = path.join(tempDir, "secrets.json");
@@ -43,6 +43,7 @@ const createHarness = () => {
     store,
     configService,
     secretService,
+    knowledgeService,
     executionFlow,
     cleanup() {
       store.close();
@@ -182,6 +183,65 @@ const tests = [
         assert.equal(messages[1].content, "这是来自 Kimi 的真实对话链路回复。");
         assert.equal(result.audit.resultType, "answer");
         assert.equal(result.state.taskStatus, "completed");
+      } finally {
+        global.fetch = originalFetch;
+        harness.cleanup();
+      }
+    }
+  },
+  {
+    name: "ExecutionFlow 在启用检索时会写入检索/工具状态并更新分类",
+    fn: async () => {
+      const harness = createHarness();
+      const originalFetch = global.fetch;
+      let capturedUserPrompt = "";
+
+      global.fetch = async (_url, options = {}) => {
+        const payload = JSON.parse(options.body);
+        const lastMessage = payload.messages[payload.messages.length - 1];
+        capturedUserPrompt = lastMessage.content;
+
+        return new Response(
+          JSON.stringify({
+            choices: [
+              {
+                message: {
+                  content: "我已结合检索和计算结果给出回答。"
+                }
+              }
+            ]
+          }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" }
+          }
+        );
+      };
+
+      try {
+        harness.secretService.saveProviderApiKey("kimi", "kimi-secret-123");
+        const conversation = harness.store.createConversation("research", "检索增强测试");
+
+        const sourcePath = path.join(harness.tempDir, "knowledge.txt");
+        fs.writeFileSync(sourcePath, "Apple is a common fruit rich in dietary fiber.\nEating it in moderation helps maintain a balanced diet.", "utf8");
+        await harness.knowledgeService.ingestFile(sourcePath);
+
+        const result = await harness.executionFlow.run({
+          conversationId: conversation.id,
+          mode: "research",
+          text: "search apple nutrition and calculate 2 + 3 * 4",
+          enableRetrievalForTurn: true
+        });
+
+        assert.equal(result.classification.handlingClass, "tool-assisted");
+        assert.equal(result.classification.retrievalNeeded, true);
+        assert.equal(result.classification.toolNeeded, true);
+        assert.equal(result.state.retrievalUsed, true);
+        assert.deepEqual(result.state.toolsCalled, ["compute"]);
+        assert.match(result.state.latestToolResult, /= 14$/);
+        assert.ok(result.retrievedSnippets.length > 0);
+        assert.match(capturedUserPrompt, /已检索到本地知识片段/);
+        assert.match(capturedUserPrompt, /工具结果：/);
       } finally {
         global.fetch = originalFetch;
         harness.cleanup();

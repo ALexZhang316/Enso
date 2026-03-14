@@ -62,9 +62,25 @@ Enso is a local-first Windows desktop personal-agent MVP with a fixed three-pane
 
 The script rebuilds the app and runs automated checks for local config, SQLite persistence,
 knowledge ingestion/retrieval, the single-request execution chain, and the read-only gate.
-The UI acceptance script launches Electron with isolated `userData`, drives the three-pane
+The UI acceptance script launches Electron with isolated `userData`, drives the three-panel
 window through Playwright, and verifies mode switching, settings save, Kimi chat submission,
 conversation persistence, and audit display.
+
+### Why `npm run test:mvp:ui` may fail in some environments (plain-language)
+
+If this command fails in a container/CI environment, it usually means the system is missing
+desktop runtime libraries required by Electron. This is an **environment setup issue**, not
+an app logic issue.
+
+For non-technical teammates, treat it like this:
+
+1. **Unit/integration checks pass but UI check fails**: the code may still be correct.
+2. **Ask infra/DevOps to install Electron Linux dependencies** in the CI image.
+3. **Or run UI checks on a prepared machine** (developer desktop or dedicated CI job).
+
+After dependencies are installed, rerun:
+
+- `npm run test:mvp:ui`
 
 If native module ABI mismatch occurs (e.g., `better-sqlite3` load error), run:
 - `npm run rebuild:native`
