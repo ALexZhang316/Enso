@@ -53,7 +53,6 @@ When docs conflict, use:
 
 For environment setup, native rebuild prerequisites, and GitHub initialization when `.git` is missing, use:
 - `docs/environment-and-github-bootstrap.md`
-- `npm run bootstrap:codex` is the repository shortcut for applying the packaged Codex desktop preferences on Windows
 
 ## Text encoding hygiene
 

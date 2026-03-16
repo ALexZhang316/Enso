@@ -162,27 +162,6 @@ If you need a different remote, override the script default:
 powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/bootstrap-git.ps1 -OriginUrl <your-repo-url>
 ```
 
-## Optional Codex desktop bootstrap
-
-If you want a new Windows device to reuse the same Codex desktop preferences stored in this repository, run:
-
-```powershell
-npm run bootstrap:codex
-```
-
-This applies:
-- desktop `Codex.lnk` -> launch as administrator
-- repository-packaged `config.toml` -> copied to `%USERPROFILE%\.codex\config.toml`
-- Enter behavior -> newline by default, with `Ctrl+Enter` to send
-
-Source files live in:
-- `scripts/codex-windows-setup/`
-
-Safety behavior:
-- existing shortcut/config/state files are backed up before overwrite
-- Codex should be launched once before running the script so the state file exists
-- if Codex is already open, fully restart it after running the script
-
 ## Recommended remote layout
 
 If you only need upstream read access:

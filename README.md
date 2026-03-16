@@ -95,7 +95,6 @@ This includes:
 
 Built-in shortcut:
 - `npm run bootstrap:git`
-- `npm run bootstrap:codex` for your Codex desktop shortcut, config, and Enter-key preferences
 
 Default Git binding:
 - `origin` is automatically set to `https://github.com/ALexZhang316/Enso.git`

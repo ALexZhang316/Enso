@@ -97,7 +97,6 @@ If uncertainty remains:
 
 Operational bootstrap:
 - use `docs/environment-and-github-bootstrap.md` for environment setup, native rebuild prerequisites, and GitHub initialization when `.git` is missing
-- use `npm run bootstrap:codex` if you want the repository's packaged Codex desktop shortcut/config/Enter-key setup on a Windows machine
 
 ## Text encoding hygiene
 
