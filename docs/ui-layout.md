@@ -1,43 +1,46 @@
-# Windows UI Layout Spec v0.1
+# Windows UI Layout Spec v0.3.1
 
 ## Goal
 
 Define a first Windows desktop UI that is:
 - desktop-open and ready
-- centered on a main chat window
+- centered on a main chat control surface
 - clearly split into three panels
 - low complexity
 - suitable for long-term personal use
+- optimized for local task execution and inspection
 
-This is a personal cognitive workstation, not a flashy consumer chat app.
+This is a personal execution workbench, not a flashy consumer chat app.
 
 ## Principles
 
 - Simplicity first
 - Main chat first
 - Fixed three-panel division
-- No automatic routing
-- Focus on thinking and work
+- No automatic mode routing
+- Focus on thinking, execution, and inspection
 
 ## Overall layout
 
 Fixed three-column layout:
 
-- left rail: mode / conversations / global entry points
+- left rail: mode / conversations / workspace / global entry points
 - center pane: main chat + input
-- right rail: context / state / audit
+- right rail: context / plan / state / execution / audit
 
 ## Left rail
 
 ### Top: mode switching
-Buttons:
+Buttons or segmented control:
+- Default
 - Deep Dialogue
 - Decision
 - Research
 
 Requirements:
 - always show active mode
-- click to switch
+- exactly one active mode at a time
+- Default should be selectable as the neutral return state
 - no auto-detection
 - do not force a new window on switch
 
@@ -50,6 +53,7 @@ Requirements:
 - pin favorites
 
 ### Bottom: global entries
+- Workspace
 - Knowledge Base
 - Settings
 - Audit Records
@@ -60,6 +64,7 @@ Requirements:
 Show:
 - current mode
 - conversation title
+- active workspace root
 - whether a knowledge source is attached
 - whether there is unfinished state
 
@@ -69,15 +74,17 @@ Requirements:
 - support long text
 - support code blocks / quotes / headings
 - support file-reference hints
-- support system summary blocks like “retrieval used” / “tool called”
+- support system summary blocks like `retrieval used`, `tool called`, `verification passed`
+- support bounded plan blocks
 
 ### Input area
 At minimum:
 - text input
 - send button
 - file upload button
-- optional “attach to context” button
-- optional “enable retrieval for this turn” toggle
+- optional `attach to context` button
+- optional `enable retrieval for this turn` toggle
+- optional `allow workspace write for this turn` toggle
 
 Input should prioritize a large composition box.
 
@@ -87,16 +94,24 @@ Input should prioritize a large composition box.
 Show:
 - mode description
 - active knowledge sources
-- loaded background material
+- active workspace root
 - key assumptions for this turn
+- active tool policy summary
 
-### Current state
+### Current plan
+Show:
+- current goal
+- current substeps
+- verification target
+
+### Current state / execution
 Show:
 - whether retrieval ran
 - whether tools were called
 - latest tool result summary
 - whether confirmation is pending
-- task status: processing / completed / awaiting confirmation
+- verification status
+- task status: planning / processing / completed / awaiting confirmation / failed
 
 ### Audit summary
 Show:
@@ -104,6 +119,7 @@ Show:
 - retrieval use
 - tools used
 - result type
+- verification result
 - risk notes
 
 ## Layout ratio
@@ -125,12 +141,13 @@ Left and right can be collapsible, but default to open.
 - complex tagging/project management
 - auto-popup recommendation panels
 - rich animation / visual decoration
+- social channel inboxes
 
 ## Default startup state
 
 On launch:
 - open the last conversation or a new empty one
-- default mode = Deep Dialogue
+- active mode = Default
 - input should be immediately usable
 - right rail should show current context and config summary
 

@@ -5,6 +5,9 @@
   "private": true,
   "main": "dist/main/main.js",
   "scripts": {
+    "bootstrap:git": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/bootstrap-git.ps1",
+    "bootstrap:git:commit": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/bootstrap-git.ps1 -InitialCommit",
+    "bootstrap:codex": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/codex-windows-setup/Setup-Codex-Windows.ps1",
     "dev:renderer": "cross-env VITE_CJS_IGNORE_WARNING=true vite --host localhost --port 5173 --strictPort",
     "dev:main": "tsc -p tsconfig.node.json --watch",
     "dev:electron": "wait-on http-get://localhost:5173 dist/main/main.js && cross-env VITE_DEV_SERVER_URL=http://localhost:5173 electron ./dist/main/main.js",
