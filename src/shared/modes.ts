@@ -1,4 +1,9 @@
-﻿export const MODES = [
+export const MODES = [
+  {
+    id: "default",
+    label: "默认",
+    description: "平衡回答、轻量检索与轻量工具使用的日常模式。"
+  },
   {
     id: "deep-dialogue",
     label: "深度对话",
@@ -18,4 +23,4 @@
 
 export type ModeId = (typeof MODES)[number]["id"];
 
-export const DEFAULT_MODE: ModeId = "deep-dialogue";
+export const DEFAULT_MODE: ModeId = "default";

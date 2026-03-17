@@ -176,3 +176,23 @@ Write:
 - No uncontrolled multi-tool loops at the current stage
 - No silent skipping of audit writeback
 - No success claim without verification or explicit non-verification notice
+
+## Current-stage minimum implementation rule
+
+The current implementation must expose a concrete runnable skeleton for:
+- plan drafting
+- retrieval decision
+- tool decision
+- bounded execution
+- verification
+- gate check
+- trace persistence
+
+At this stage:
+- retrieval may remain lightweight and local
+- tool scope may remain small and typed
+- workspace-write and host exec may stay blocked behind proposals
+- verification may be simple, but it must be explicit
+- the UI must show plan / execution trace / verification separately from the final answer
+
+A turn should no longer collapse into "call model directly" except for pure dialogue cases.

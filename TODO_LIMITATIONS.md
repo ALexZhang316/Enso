@@ -6,6 +6,7 @@
 - Retrieval uses lightweight keyword matching over local chunks (no production vector search yet).
 - Tool abstraction is intentionally minimal (single-tool, no cascades).
 - Gate checks use conservative heuristic detection for action-adjacent turns.
+- Plan / trace / verification are not yet persisted as first-class task-run records.
 - No packaging/installers included in this skeleton round.
 - Confirmation acknowledgment is local state-only; no write/external execution chain is implemented.
 
@@ -20,8 +21,9 @@
 
 ## Near-Term Next Implementation Targets
 
-- Add validation/error messaging for settings edits.
-- Improve retrieval quality (embeddings/vector index) while keeping local-first control.
-- Persist richer retrieved-evidence context across sessions as first-class state instead of message metadata only.
-- Expand audit viewer with richer filtering and conversation title grouping.
-- Add targeted tests for store, execution flow ordering, and gate behavior.
+- Replace the direct-answer path with an explicit execution skeleton.
+- Persist first-class plan / trace / verification for each turn.
+- Wire retrieval into the main request flow.
+- Wire typed tools into the main request flow with bounded depth.
+- Keep write / exec actions proposal-only until the safe execution boundary is implemented.
+- Add targeted tests for trace persistence, verification states, and gate behavior.

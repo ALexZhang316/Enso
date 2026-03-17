@@ -106,7 +106,9 @@
 
 | 决策内容 | 选择了什么 | 为什么 | 哪一轮做的决定 |
 |---------|-----------|-------|-------------|
-| （示例）LangChain 链的构建方式 | 手动组装 chain，不用 AgentExecutor | 避免框架接管控制流 | Codex 第一轮 |
+| 模式系统默认态 | 保留独立 `default` 模式，不再用 `deep-dialogue` 兼任默认值 | 对齐产品硬约束，避免“默认模式”和“深度对话模式”语义混淆 | Codex 本轮 |
+| OpenClaw 借鉴范围 | 借鉴执行骨架与权限边界，不借鉴产品外形 | 保持 Enso 是本地单用户执行工作台 | Codex 本轮 |
+| 高权限动作当前策略 | 先输出 proposal / blocked result，不执行真实 host exec | 先补齐可见主链与验证，再扩执行能力 | Codex 本轮 |
 
 ---
 
@@ -114,7 +116,10 @@
 
 | 问题描述 | 严重程度 | 属于哪个模块 | 哪一轮发现的 |
 |---------|---------|------------|------------|
-| （由每轮完成开发的模型填写） | | | |
+| `ExecutionFlow` 仍是 MVP 骨架，尚未把 retrieval / tool / verifier 真正串入主链 | 高 | ExecutionFlow | Codex 本轮 |
+| retrieval / tool service 尚未真正接入主执行流 | 高 | ExecutionFlow / Tool / Knowledge | Codex 本轮 |
+| 右栏仍缺少文档要求的显式 current plan / execution trace / verification 结果视图 | 中 | Renderer UI | Codex 本轮 |
+| 高权限动作仍只有门控拦截，没有完整 proposal-to-execution 安全链 | 中 | IPC / Permission Gate | Codex 本轮 |
 
 ---
 

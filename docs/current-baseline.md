@@ -96,6 +96,14 @@ Every substantial iteration should improve one or more of:
 - permission boundary clarity
 - custom workflow fit for the user
 
+Current implementation priority for the next stage:
+- make the single-request chain explicit and inspectable
+- connect retrieval and typed tools into the main execution path
+- store and render plan / execution trace / verification as first-class state
+- keep high-permission actions gated as proposals until the safe execution boundary is ready
+
+A change is not on-direction if it only improves chat fluency while leaving execution, verification, and traceability weak.
+
 ## Current non-goals
 
 - pretending to be a general SaaS platform

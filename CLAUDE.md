@@ -75,6 +75,30 @@ For environment setup, native rebuild prerequisites, and GitHub initialization w
 - Keep execution flow explicit and inspectable
 - Keep tool access bounded and user-legible
 
+## OpenClaw-aligned execution rule
+
+Enso should borrow OpenClaw at the architecture level, not the product-shape level.
+
+Must borrow:
+- local control-plane thinking
+- typed first-class tools
+- workspace-centered execution
+- explicit permission gate and approval boundary
+- visible execution trace and verification
+- strict config validation
+
+Must not borrow:
+- messaging-channel expansion
+- companion persona framing
+- social-surface product strategy
+- omnipresence as product value
+- multi-agent product identity for the current stage
+
+Implementation consequence:
+- prefer strengthening `planner -> executor -> verifier` over adding more chat polish
+- prefer explicit tool policy over vague agent-like improvisation
+- prefer proposal / dry-run / blocked result over hidden side effects
+
 ## What to optimize for
 
 - reliability over charm

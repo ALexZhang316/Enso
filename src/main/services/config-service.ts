@@ -32,6 +32,7 @@ export const DEFAULT_ENSO_CONFIG: EnsoConfig = {
   modeDefaults: {
     defaultMode: DEFAULT_MODE,
     retrievalByMode: {
+      default: false,
       "deep-dialogue": false,
       decision: true,
       research: true

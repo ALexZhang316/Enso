@@ -1,7 +1,7 @@
 ﻿import { useEffect, useMemo, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { MODES, ModeId } from "@shared/modes";
+import { DEFAULT_MODE, MODES, ModeId } from "@shared/modes";
 import { PROVIDER_PRESETS, PROVIDER_PRESET_MAP, ProviderId } from "@shared/providers";
 import {
   AuditSummary,
@@ -107,7 +107,7 @@ const App = (): JSX.Element => {
   const [config, setConfig] = useState<EnsoConfig | null>(null);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeConversationId, setActiveConversationId] = useState<string>("");
-  const [activeMode, setActiveMode] = useState<ModeId>("deep-dialogue");
+  const [activeMode, setActiveMode] = useState<ModeId>(DEFAULT_MODE);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [stateSnapshot, setStateSnapshot] = useState<StateSnapshot>(defaultState(""));
   const [auditSummary, setAuditSummary] = useState<AuditSummary | null>(null);
@@ -238,7 +238,7 @@ const App = (): JSX.Element => {
     setMessages(payload.messages);
     setStateSnapshot(payload.state);
     setAuditSummary(payload.audit);
-    setActiveMode("deep-dialogue");
+    setActiveMode(DEFAULT_MODE);
     setComposerText("");
     setLastRunInfo("");
     setSubmitError("");
@@ -1315,5 +1315,4 @@ const App = (): JSX.Element => {
 };
 
 export default App;
-
 

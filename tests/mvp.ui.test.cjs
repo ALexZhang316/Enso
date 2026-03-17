@@ -47,6 +47,7 @@ const run = async () => {
     }));
 
     await firstPage.getByTestId("layout-root").waitFor();
+    await firstPage.getByTestId("mode-button-default").waitFor();
     await firstPage.getByTestId("nav-settings-button").click();
     await firstPage.getByTestId("settings-provider-select").waitFor();
     await firstPage.getByTestId("settings-provider-model-input").fill("moonshot-v1-8k");

@@ -76,6 +76,30 @@ You may not change:
 - requirement for visible state and auditability
 - default mode + mutually exclusive optional mode behavior
 
+## OpenClaw-aligned execution rule
+
+Enso should borrow OpenClaw at the architecture level, not the product-shape level.
+
+Must borrow:
+- local control-plane thinking
+- typed first-class tools
+- workspace-centered execution
+- explicit permission gate and approval boundary
+- visible execution trace and verification
+- strict config validation
+
+Must not borrow:
+- messaging-channel expansion
+- companion persona framing
+- social-surface product strategy
+- omnipresence as product value
+- multi-agent product identity for the current stage
+
+Implementation consequence:
+- prefer strengthening `planner -> executor -> verifier` over adding more chat polish
+- prefer explicit tool policy over vague agent-like improvisation
+- prefer proposal / dry-run / blocked result over hidden side effects
+
 ## Source documents
 
 Use these files as the source of truth:

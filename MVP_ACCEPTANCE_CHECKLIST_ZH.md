@@ -50,3 +50,12 @@
 1. `better-sqlite3` 原生模块错误：执行 `npm run rebuild:native`
 2. 端口占用导致 `dev` 启动失败：执行  
    `Get-Process electron,node -ErrorAction SilentlyContinue | Stop-Process -Force`
+
+## 六、下一阶段新增验收门槛（待补齐）
+
+1. 右栏可见当前计划（goal / steps / verification target）
+2. 右栏可见执行轨迹（retrieval / tool / gate / verification 阶段）
+3. 右栏可见验证结果，并明确区分 passed / skipped / blocked / failed
+4. 检索请求会真正命中本地知识，并把证据写入本轮执行记录
+5. 工具辅助请求会真正记录 tool summary，而不是只显示最终回答
+6. 动作型请求不会静默执行，而是转换为 proposal 或 blocked 结果

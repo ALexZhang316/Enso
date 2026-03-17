@@ -13,6 +13,7 @@ const { ModelAdapter } = require(path.join(DIST_ROOT, "main/services/model-adapt
 const { SecretService } = require(path.join(DIST_ROOT, "main/services/secret-service.js"));
 const { EnsoStore } = require(path.join(DIST_ROOT, "main/services/store.js"));
 const { ToolService } = require(path.join(DIST_ROOT, "main/services/tool-service.js"));
+const { DEFAULT_MODE } = require(path.join(DIST_ROOT, "shared/modes.js"));
 const { KimiProvider } = require(path.join(DIST_ROOT, "main/providers/kimi-provider.js"));
 const { ProviderError } = require(path.join(DIST_ROOT, "main/providers/types.js"));
 
@@ -66,6 +67,24 @@ const runTest = async (name, fn) => {
 };
 
 const tests = [
+  {
+    name: "Default mode is used as the standalone neutral mode",
+    fn: async () => {
+      const harness = createHarness();
+
+      try {
+        const config = harness.configService.load();
+        const conversation = harness.store.ensureDefaultConversation();
+
+        assert.equal(DEFAULT_MODE, "default");
+        assert.equal(config.modeDefaults.defaultMode, "default");
+        assert.equal(config.modeDefaults.retrievalByMode.default, false);
+        assert.equal(conversation.mode, "default");
+      } finally {
+        harness.cleanup();
+      }
+    }
+  },
   {
     name: "ConfigService 仅持久化 provider/baseUrl/model，不落明文 API key",
     fn: async () => {

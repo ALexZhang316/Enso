@@ -15,9 +15,10 @@ requireConfirmationForWrites = true
 requireDoubleConfirmationForExternal = true
 
 [modeDefaults]
-defaultMode = "deep-dialogue"
+defaultMode = "default"
 
 [modeDefaults.retrievalByMode]
+default = false
 "deep-dialogue" = false
 decision = true
 research = true
