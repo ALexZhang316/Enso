@@ -159,6 +159,44 @@ A change is not acceptable unless all are true:
 - bounded tool execution runs end-to-end
 - verifier can confirm basic artifact/result existence
 
+## Dev workflow protocol
+
+Every coding session must follow this lifecycle:
+
+```
+PREFLIGHT -> PLAN -> EXECUTE -> VERIFY -> POSTFLIGHT -> DONE
+```
+
+### Phase details
+
+1. **PREFLIGHT**: Read onboarding docs (AGENTS.md, current-baseline, execution-flow, codebase-contract). Run `npm run preflight`. Confirm understanding to user. Do not write code until preflight passes.
+2. **PLAN**: Define scope and acceptance criteria. If a task file exists in `tasks/`, fill in the fields. If not, state the plan verbally or create a task file.
+3. **EXECUTE**: Implement changes.
+4. **VERIFY**: Run `npm run verify`. Check each acceptance criterion.
+5. **POSTFLIGHT**: Update the three mandatory docs (see below). Run `npm run postflight` and address any warnings. Review `git diff` for unintended changes.
+6. **DONE**: All checklists complete. Task file status set to `done` if applicable.
+
+### Mandatory post-flight document updates
+
+After ANY code change, you MUST update these three files before reporting completion:
+
+- `CHANGELOG.md` -- what changed and why
+- `TODO_LIMITATIONS.md` -- any new limitations or resolved items
+- `docs/codebase-contract.md` -- directory structure, module registry, schema, known issues, decisions
+
+Failure to update these documents is a defect equivalent to a broken build.
+
+### Task files
+
+Task definitions live in `tasks/`. Use `tasks/TEMPLATE.md` as the starting point.
+The task index is `tasks/INDEX.md`.
+
+### When in doubt
+
+1. Check `tasks/INDEX.md` for the current backlog
+2. If no task is assigned, ask the user
+3. Do not start coding without a clear objective and acceptance criteria
+
 ## Fixed tech stack for the current stage
 
 Unless there is a hard blocker, do not change the default stack.

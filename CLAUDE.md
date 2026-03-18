@@ -36,6 +36,18 @@ The product is intentionally narrow. It is not:
 - a companion persona shell
 - a SaaS shell
 
+## Dev workflow enforcement
+
+Before writing any code:
+- Run `npm run preflight` and confirm it passes.
+
+After finishing code changes:
+- Run `npm run postflight` and address any warnings.
+- If postflight warns about un-updated docs, update them before considering the task done.
+- The three mandatory docs are: CHANGELOG.md, TODO_LIMITATIONS.md, docs/codebase-contract.md.
+
+Task lifecycle and detailed rules are in the "Dev workflow protocol" section of AGENTS.md.
+
 ## Implementation rules
 
 Follow the markdown docs under `docs/`.

@@ -1,4 +1,55 @@
-# CHANGELOG — 从旧交接包到计划书 1.0
+# CHANGELOG
+
+## 2026-03-18 — 建立规范化开发流程
+
+### 本轮完成了什么
+
+1. **tasks/ 目录** — 新增任务模板 (TEMPLATE.md)、任务索引 (INDEX.md)、第一个真实任务文件 (0001-dev-workflow-system.md)
+2. **scripts/check-docs-updated.cjs** — 收尾阶段自动检查三个必更新文档是否已修改
+3. **npm scripts** — 新增 preflight (预检)、verify (验证)、postflight (收尾) 三个命令
+4. **AGENTS.md** — 新增 "Dev workflow protocol" 节，定义六步开发生命周期
+5. **CLAUDE.md** — 新增 "Dev workflow enforcement" 节，要求 Claude 执行预检和收尾
+6. **codebase-contract.md** — 交接清单新增任务文件和 postflight 检查项
+
+### 解决的问题
+
+上一轮代码写完后忘记更新 CHANGELOG、TODO_LIMITATIONS、codebase-contract，直到用户追问才补。现在这三个文档的更新被纳入强制收尾流程。
+
+---
+
+## 2026-03-18 — 执行主链路接通
+
+### 本轮完成了什么
+
+1. **检索接入主链路。** execution-flow 在分类为 retrieval-enhanced 或 Research/Decision 模式时，自动调用 knowledgeService.retrieve()，并将检索到的证据作为上下文注入模型调用。
+2. **工具接入主链路。** execution-flow 在分类为 tool-assisted 时，调用 toolService.decideAndRun()，将工具结果纳入回复上下文，并在消息元数据中记录工具名和结果摘要。
+3. **请求分类器升级。** classifyRequest 现在能正确识别 retrieval-enhanced 和 tool-assisted 两种处理类别，不再把所有非 action-adjacent 请求一律当作 pure-dialogue。
+4. **计划/轨迹/验证成为一等公民。** 新增 ExecutionPlan、TraceEntry、VerificationResult 类型定义；execution-flow 每个阶段写入轨迹条目；验证阶段检查检索/工具/模型结果的完整性。
+5. **持久化。** state_snapshots 表新增 plan_json、trace_json、verification_json 三列；upsertState/getState 完整读写这些字段。
+6. **右侧面板 UI 更新。** 新增计划、执行轨迹、验证结果三个独立区域，与证据/状态/审计并列显示。
+7. **消息气泡增强。** 助手消息底部显示检索片段数量、工具名称和工具结果摘要。
+8. **修复两个 TypeScript 类型错误。** provider.vendor -> provider.id；ReactMarkdown code 组件 inline prop 兼容性修复。
+
+### 之前 CHANGELOG 中提到的差距，现在消除了几个
+
+| 差距 | 状态 |
+|------|------|
+| execution-flow.ts 只有两条路径 | 已消除 — 现在有 classify -> plan -> retrieval -> tool -> model -> verification -> gate -> persist 完整链路 |
+| tool-service.ts 未接入主链路 | 已消除 |
+| 检索未接入执行流 | 已消除 |
+| 右栏缺少 plan/trace/verification 视图 | 已消除 |
+| plan/trace/verification 未持久化 | 已消除 |
+
+### 仍未消除的差距
+
+| 差距 | 说明 |
+|------|------|
+| 只有 Kimi 一个 provider 有实际实现 | 不在本轮范围内，优先级低于执行核心 |
+| 高权限动作只有门控拦截，没有完整 proposal-to-execution 安全链 | 按设计文档要求先拦截、后执行，当前仅实现拦截阶段 |
+
+---
+
+## 初始交接 — 从旧交接包到计划书 1.0
 
 ## 阅读顺序
 
