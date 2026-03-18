@@ -7,9 +7,12 @@ import {
   AuditSummary,
   ChatMessage,
   Conversation,
+  ExecutionPlan,
   KnowledgeSource,
   RetrievedSnippet,
-  StateSnapshot
+  StateSnapshot,
+  TraceEntry,
+  VerificationResult
 } from "../../shared/types";
 
 const now = (): string => new Date().toISOString();
@@ -39,7 +42,10 @@ const toState = (row: any): StateSnapshot => ({
   latestToolResult: row.latest_tool_result,
   pendingConfirmation: Boolean(row.pending_confirmation),
   taskStatus: row.task_status,
-  updatedAt: row.updated_at
+  updatedAt: row.updated_at,
+  plan: row.plan_json ? JSON.parse(row.plan_json) : null,
+  trace: row.trace_json ? JSON.parse(row.trace_json) : [],
+  verification: row.verification_json ? JSON.parse(row.verification_json) : null
 });
 
 const toAudit = (row: any): AuditSummary => ({
@@ -152,6 +158,19 @@ export class EnsoStore {
       CREATE INDEX IF NOT EXISTS idx_audits_conversation ON audits(conversation_id, created_at DESC);
       CREATE INDEX IF NOT EXISTS idx_knowledge_chunks_source ON knowledge_chunks(source_id, chunk_index);
     `);
+
+    // migrate: add plan/trace/verification columns to state_snapshots
+    const stateColumns = this.db.pragma("table_info(state_snapshots)") as Array<{ name: string }>;
+    const colNames = new Set(stateColumns.map((c) => c.name));
+    if (!colNames.has("plan_json")) {
+      this.db.exec("ALTER TABLE state_snapshots ADD COLUMN plan_json TEXT NOT NULL DEFAULT 'null'");
+    }
+    if (!colNames.has("trace_json")) {
+      this.db.exec("ALTER TABLE state_snapshots ADD COLUMN trace_json TEXT NOT NULL DEFAULT '[]'");
+    }
+    if (!colNames.has("verification_json")) {
+      this.db.exec("ALTER TABLE state_snapshots ADD COLUMN verification_json TEXT NOT NULL DEFAULT 'null'");
+    }
   }
 
   ensureDefaultConversation(): Conversation {
@@ -269,7 +288,10 @@ export class EnsoStore {
         latestToolResult: "",
         pendingConfirmation: false,
         taskStatus: "idle",
-        updatedAt: now()
+        updatedAt: now(),
+        plan: null,
+        trace: [],
+        verification: null
       };
     }
 
@@ -289,8 +311,11 @@ export class EnsoStore {
             latest_tool_result,
             pending_confirmation,
             task_status,
-            updated_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?)
+            updated_at,
+            plan_json,
+            trace_json,
+            verification_json
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           ON CONFLICT(conversation_id)
           DO UPDATE SET
             retrieval_used = excluded.retrieval_used,
@@ -298,7 +323,10 @@ export class EnsoStore {
             latest_tool_result = excluded.latest_tool_result,
             pending_confirmation = excluded.pending_confirmation,
             task_status = excluded.task_status,
-            updated_at = excluded.updated_at
+            updated_at = excluded.updated_at,
+            plan_json = excluded.plan_json,
+            trace_json = excluded.trace_json,
+            verification_json = excluded.verification_json
         `
       )
       .run(
@@ -308,7 +336,10 @@ export class EnsoStore {
         state.latestToolResult,
         state.pendingConfirmation ? 1 : 0,
         state.taskStatus,
-        timestamp
+        timestamp,
+        JSON.stringify(state.plan ?? null),
+        JSON.stringify(state.trace ?? []),
+        JSON.stringify(state.verification ?? null)
       );
 
     return this.getState(state.conversationId);
@@ -320,7 +351,10 @@ export class EnsoStore {
       ...current,
       pendingConfirmation: false,
       taskStatus: "completed",
-      updatedAt: now()
+      updatedAt: now(),
+      plan: current.plan,
+      trace: current.trace,
+      verification: current.verification
     });
   }
 

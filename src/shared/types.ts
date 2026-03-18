@@ -29,6 +29,9 @@ export interface StateSnapshot {
   pendingConfirmation: boolean;
   taskStatus: "idle" | "processing" | "completed" | "awaiting_confirmation";
   updatedAt: string;
+  plan: ExecutionPlan | null;
+  trace: TraceEntry[];
+  verification: VerificationResult | null;
 }
 
 export interface AuditSummary {
@@ -91,6 +94,36 @@ export interface RequestClassification {
   toolNeeded: boolean;
 }
 
+export interface ExecutionPlan {
+  goal: string;
+  steps: string[];
+  likelyTools: string[];
+  verificationTarget: string;
+}
+
+export type TracePhase =
+  | "classify"
+  | "plan"
+  | "retrieval"
+  | "tool"
+  | "model"
+  | "verification"
+  | "gate"
+  | "persist";
+
+export interface TraceEntry {
+  phase: TracePhase;
+  summary: string;
+  timestamp: string;
+}
+
+export type VerificationStatus = "passed" | "skipped" | "blocked" | "failed";
+
+export interface VerificationResult {
+  status: VerificationStatus;
+  detail: string;
+}
+
 export interface ExecutionInput {
   conversationId: string;
   mode: ModeId;
@@ -104,6 +137,9 @@ export interface ExecutionResult {
   audit: AuditSummary;
   classification: RequestClassification;
   retrievedSnippets: RetrievedSnippet[];
+  plan: ExecutionPlan | null;
+  trace: TraceEntry[];
+  verification: VerificationResult | null;
 }
 
 export interface InitializationPayload {

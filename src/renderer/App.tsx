@@ -8,9 +8,12 @@ import {
   ChatMessage,
   Conversation,
   EnsoConfig,
+  ExecutionPlan,
   RetrievedSnippet,
   StateSnapshot,
-  KnowledgeSource
+  KnowledgeSource,
+  TraceEntry,
+  VerificationResult
 } from "@shared/types";
 import { Badge } from "@renderer/components/ui/badge";
 import { Button } from "@renderer/components/ui/button";
@@ -27,8 +30,45 @@ const defaultState = (conversationId: string): StateSnapshot => ({
   latestToolResult: "",
   pendingConfirmation: false,
   taskStatus: "idle",
-  updatedAt: new Date().toISOString()
+  updatedAt: new Date().toISOString(),
+  plan: null,
+  trace: [],
+  verification: null
 });
+
+const verificationStatusLabel = (status: VerificationResult["status"]): string => {
+  switch (status) {
+    case "passed": return "通过";
+    case "skipped": return "跳过";
+    case "blocked": return "被拦截";
+    case "failed": return "失败";
+    default: return status;
+  }
+};
+
+const verificationStatusColor = (status: VerificationResult["status"]): string => {
+  switch (status) {
+    case "passed": return "text-green-600";
+    case "skipped": return "text-yellow-600";
+    case "blocked": return "text-orange-600";
+    case "failed": return "text-red-600";
+    default: return "text-muted-foreground";
+  }
+};
+
+const tracePhaseLabel = (phase: TraceEntry["phase"]): string => {
+  switch (phase) {
+    case "classify": return "分类";
+    case "plan": return "计划";
+    case "retrieval": return "检索";
+    case "tool": return "工具";
+    case "model": return "模型";
+    case "verification": return "验证";
+    case "gate": return "门控";
+    case "persist": return "持久化";
+    default: return phase;
+  }
+};
 
 const modeLabel = (mode: ModeId): string => MODES.find((item) => item.id === mode)?.label ?? mode;
 const boolLabel = (value: boolean): string => (value ? "是" : "否");
@@ -606,6 +646,8 @@ const App = (): JSX.Element => {
                           const metadata = (message.metadata ?? {}) as Record<string, unknown>;
                           const retrievalUsed = metadata.retrievalUsed === true;
                           const toolName = typeof metadata.toolName === "string" ? metadata.toolName : "";
+                          const toolSummary = typeof metadata.toolSummary === "string" ? metadata.toolSummary : "";
+                          const retrievalSnippetCount = typeof metadata.retrievalSnippetCount === "number" ? metadata.retrievalSnippetCount : 0;
                           const isUser = message.role === "user";
                           const isSystem = message.role === "system";
 
@@ -650,11 +692,11 @@ const App = (): JSX.Element => {
                                         {children}
                                       </pre>
                                     ),
-                                    code: ({ inline, children }) =>
-                                      inline ? (
-                                        <code className={`rounded-md px-1.5 py-0.5 text-xs font-mono ${isUser ? "bg-white/15" : "bg-black/[0.04]"}`}>{children}</code>
-                                      ) : (
+                                    code: ({ className, children }) =>
+                                      className ? (
                                         <code className="text-xs font-mono">{children}</code>
+                                      ) : (
+                                        <code className={`rounded-md px-1.5 py-0.5 text-xs font-mono ${isUser ? "bg-white/15" : "bg-black/[0.04]"}`}>{children}</code>
                                       ),
                                     strong: ({ children }) => <strong className="font-semibold">{children}</strong>
                                   }}
@@ -663,8 +705,9 @@ const App = (): JSX.Element => {
                                 </ReactMarkdown>
                                 {(retrievalUsed || toolName) && (
                                   <div className={`mt-1.5 text-[10px] ${isUser ? "text-white/50" : "text-muted-foreground/40"}`}>
-                                    {retrievalUsed ? "已使用检索" : ""}
-                                    {toolName ? `${retrievalUsed ? " · " : ""}${toolName}` : ""}
+                                    {retrievalUsed ? `已检索 ${retrievalSnippetCount} 条证据` : ""}
+                                    {toolName ? `${retrievalUsed ? " · " : ""}工具: ${toolName}` : ""}
+                                    {toolSummary ? ` (${toolSummary})` : ""}
                                   </div>
                                 )}
                               </div>
@@ -852,7 +895,7 @@ const App = (): JSX.Element => {
                           >
                             {PROVIDER_PRESETS.map((provider) => (
                               <option key={provider.id} value={provider.id}>
-                                {provider.label} / {provider.vendor}
+                                {provider.label} / {provider.id}
                               </option>
                             ))}
                           </select>
@@ -1211,11 +1254,80 @@ const App = (): JSX.Element => {
             </CardContent>
           </Card>
 
-          {/* State + Evidence (scrollable) */}
+          {/* State + Plan + Trace + Verification (scrollable) */}
           <Card className="min-h-0 flex-1">
             <CardContent className="h-full p-0">
               <ScrollArea className="h-full">
                 <div className="p-3 space-y-3">
+
+                  {/* Plan section */}
+                  <div data-testid="plan-panel">
+                    <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60 mb-1.5">
+                      计划
+                    </div>
+                    {stateSnapshot.plan ? (
+                      <div className="rounded-xl bg-black/[0.03] p-2.5 space-y-1.5">
+                        <div className="text-[11px] font-medium text-foreground">{stateSnapshot.plan.goal}</div>
+                        <div className="space-y-0.5">
+                          {stateSnapshot.plan.steps.map((step, i) => (
+                            <div key={i} className="text-[10px] text-muted-foreground leading-relaxed">
+                              {i + 1}. {step}
+                            </div>
+                          ))}
+                        </div>
+                        {stateSnapshot.plan.likelyTools.length > 0 && (
+                          <div className="text-[10px] text-muted-foreground/60">
+                            工具: {stateSnapshot.plan.likelyTools.join(", ")}
+                          </div>
+                        )}
+                        <div className="text-[10px] text-muted-foreground/60">
+                          验证目标: {stateSnapshot.plan.verificationTarget}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-[11px] text-muted-foreground/40">无计划 (纯对话)</div>
+                    )}
+                  </div>
+
+                  {/* Execution trace section */}
+                  <div data-testid="trace-panel">
+                    <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60 mb-1.5">
+                      执行轨迹
+                    </div>
+                    {stateSnapshot.trace.length === 0 ? (
+                      <div className="text-[11px] text-muted-foreground/40">无轨迹</div>
+                    ) : (
+                      <div className="rounded-xl bg-black/[0.03] divide-y divide-black/[0.04] overflow-hidden">
+                        {stateSnapshot.trace.map((entry, i) => (
+                          <div key={i} className="px-3 py-1.5">
+                            <div className="flex items-center justify-between">
+                              <Badge variant="outline" className="text-[9px] px-1.5 py-0">{tracePhaseLabel(entry.phase)}</Badge>
+                              <span className="text-[9px] text-muted-foreground/40">{entry.timestamp.slice(11, 19)}</span>
+                            </div>
+                            <div className="text-[10px] text-muted-foreground mt-0.5 leading-relaxed break-all">{entry.summary}</div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Verification section */}
+                  <div data-testid="verification-panel">
+                    <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60 mb-1.5">
+                      验证结果
+                    </div>
+                    {stateSnapshot.verification ? (
+                      <div className="rounded-xl bg-black/[0.03] p-2.5">
+                        <div className={`text-[12px] font-semibold ${verificationStatusColor(stateSnapshot.verification.status)}`}>
+                          {verificationStatusLabel(stateSnapshot.verification.status)}
+                        </div>
+                        <div className="text-[10px] text-muted-foreground mt-0.5 leading-relaxed">{stateSnapshot.verification.detail}</div>
+                      </div>
+                    ) : (
+                      <div className="text-[11px] text-muted-foreground/40">无验证结果</div>
+                    )}
+                  </div>
+
                   {/* Evidence section */}
                   <div>
                     <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60 mb-1.5">
@@ -1235,20 +1347,6 @@ const App = (): JSX.Element => {
                         ))}
                       </div>
                     )}
-                  </div>
-
-                  {/* Assumptions */}
-                  <div>
-                    <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60 mb-1.5">
-                      假设
-                    </div>
-                    <div className="space-y-1">
-                      {keyAssumptions.map((item, index) => (
-                        <div key={index} className="text-[11px] text-muted-foreground leading-relaxed">
-                          {item}
-                        </div>
-                      ))}
-                    </div>
                   </div>
 
                   {/* State */}
