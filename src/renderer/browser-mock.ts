@@ -71,8 +71,12 @@ const mockState = {
   toolsCalled: [] as string[],
   latestToolResult: "",
   pendingConfirmation: false,
+  pendingAction: null,
   taskStatus: "idle" as const,
-  updatedAt: NOW
+  updatedAt: NOW,
+  plan: null,
+  trace: [] as Array<{ phase: string; summary: string; timestamp: string }>,
+  verification: null
 };
 
 const mockAudit = {
@@ -94,14 +98,16 @@ export const mockBridge: EnsoBridge = {
     messages: mockMessages,
     state: mockState,
     audit: mockAudit,
-    knowledgeSources: []
+    knowledgeSources: [],
+    workspaceRoot: "C:\\Mock\\Enso\\workspace"
   }),
   createConversation: async () => ({
     conversations: [mockConversation],
     activeConversationId: CONV_ID,
     messages: [],
     state: mockState,
-    audit: null
+    audit: null,
+    mode: DEFAULT_MODE
   }),
   selectConversation: async () => ({
     activeConversationId: CONV_ID,
@@ -145,6 +151,9 @@ export const mockBridge: EnsoBridge = {
       toolNeeded: false
     },
     retrievedSnippets: [],
+    plan: null,
+    trace: [],
+    verification: null,
     messages: mockMessages,
     conversations: [mockConversation]
   }),

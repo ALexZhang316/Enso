@@ -1,5 +1,21 @@
 # Codebase Contract v0.3.1
 
+## 2026-03-18 Runtime Wiring Update
+
+- `ExecutionFlow` now honors persisted `modeDefaults.retrievalByMode` settings together with the per-turn `enableRetrievalForTurn` override.
+- Assistant message metadata now persists `retrievedSnippets`, `retrievalSnippetCount`, and `retrievalSources` for the right-panel evidence view.
+- Verification now fails when a retrieval/tool-required turn is missing evidence or tool output.
+- Conversation bootstrap and new-conversation creation now use the configured `defaultMode` instead of a hardcoded fallback.
+- Regression coverage now includes retrieval wiring, verification failure semantics, snippet persistence, and configured default-mode behavior.
+
+## 2026-03-18 Proposal-To-Execution Update
+
+- Added `WorkspaceService` as the bounded workspace layer under `userData/workspace`.
+- `StateSnapshot` now persists `pendingAction` so gated write proposals survive the confirmation boundary.
+- `ExecutionFlow.resolvePendingAction()` now executes confirmed workspace writes, verifies file existence, and writes a follow-up audit entry.
+- The renderer now shows the active workspace root and the current pending action summary.
+- Host exec, external side effects, and destructive actions remain blocked; only workspace writes participate in the confirmation-to-execution chain.
+
 ## 本文件的作用
 
 产品文档描述"Enso 应该是什么"。
@@ -158,6 +174,7 @@ CREATE TABLE state_snapshots (
   tools_called_json TEXT NOT NULL DEFAULT '[]',
   latest_tool_result TEXT NOT NULL DEFAULT '',
   pending_confirmation INTEGER NOT NULL DEFAULT 0,
+  pending_action_json TEXT NOT NULL DEFAULT 'null', -- 2026-03-18 added
   task_status TEXT NOT NULL DEFAULT 'idle',
   updated_at TEXT NOT NULL,
   plan_json TEXT NOT NULL DEFAULT 'null',       -- 2026-03-18 新增
@@ -192,9 +209,9 @@ CREATE TABLE knowledge_chunks (
   created_at TEXT NOT NULL
 );
 
-CREATE TABLE app_meta (
+CREATE TABLE app_state (
   key TEXT PRIMARY KEY,
-  value TEXT NOT NULL
+  value_json TEXT NOT NULL
 );
 ```
 

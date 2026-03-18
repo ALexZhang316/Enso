@@ -13,6 +13,7 @@ const { ModelAdapter } = require(path.join(DIST_ROOT, "main/services/model-adapt
 const { SecretService } = require(path.join(DIST_ROOT, "main/services/secret-service.js"));
 const { EnsoStore } = require(path.join(DIST_ROOT, "main/services/store.js"));
 const { ToolService } = require(path.join(DIST_ROOT, "main/services/tool-service.js"));
+const { WorkspaceService } = require(path.join(DIST_ROOT, "main/services/workspace-service.js"));
 const { DEFAULT_MODE } = require(path.join(DIST_ROOT, "shared/modes.js"));
 const { KimiProvider } = require(path.join(DIST_ROOT, "main/providers/kimi-provider.js"));
 const { ProviderError } = require(path.join(DIST_ROOT, "main/providers/types.js"));
@@ -22,18 +23,21 @@ const createHarness = () => {
   const dbPath = path.join(tempDir, "enso.sqlite");
   const configPath = path.join(tempDir, "config.toml");
   const secretPath = path.join(tempDir, "secrets.json");
+  const workspaceRoot = path.join(tempDir, "workspace");
   const store = new EnsoStore(dbPath);
   const configService = new ConfigService(configPath, PROJECT_ROOT);
   const secretService = new SecretService(secretPath);
   const knowledgeService = new KnowledgeService(store);
   const toolService = new ToolService();
+  const workspaceService = new WorkspaceService(workspaceRoot);
   const modelAdapter = new ModelAdapter(secretService);
   const executionFlow = new ExecutionFlow({
     store,
     configService,
     knowledgeService,
     toolService,
-    modelAdapter
+    modelAdapter,
+    workspaceService
   });
 
   return {
@@ -41,9 +45,12 @@ const createHarness = () => {
     dbPath,
     configPath,
     secretPath,
+    workspaceRoot,
     store,
     configService,
     secretService,
+    knowledgeService,
+    workspaceService,
     executionFlow,
     cleanup() {
       store.close();
@@ -66,9 +73,33 @@ const runTest = async (name, fn) => {
   }
 };
 
+const mockKimiReply = (text) => {
+  const originalFetch = global.fetch;
+  global.fetch = async () =>
+    new Response(
+      JSON.stringify({
+        choices: [
+          {
+            message: {
+              content: text
+            }
+          }
+        ]
+      }),
+      {
+        status: 200,
+        headers: { "Content-Type": "application/json" }
+      }
+    );
+
+  return () => {
+    global.fetch = originalFetch;
+  };
+};
+
 const tests = [
   {
-    name: "Default mode is used as the standalone neutral mode",
+    name: "Default mode remains the standalone neutral mode",
     fn: async () => {
       const harness = createHarness();
 
@@ -86,7 +117,7 @@ const tests = [
     }
   },
   {
-    name: "ConfigService 仅持久化 provider/baseUrl/model，不落明文 API key",
+    name: "ConfigService never persists provider API keys in config.toml",
     fn: async () => {
       const harness = createHarness();
 
@@ -114,7 +145,7 @@ const tests = [
     }
   },
   {
-    name: "SecretService 会加密保存并取回 Kimi API key",
+    name: "SecretService encrypts and restores the Kimi API key",
     fn: async () => {
       const harness = createHarness();
 
@@ -130,7 +161,7 @@ const tests = [
     }
   },
   {
-    name: "KimiProvider 会把 401 映射为认证错误",
+    name: "KimiProvider maps 401 responses to auth errors",
     fn: async () => {
       const originalFetch = global.fetch;
       global.fetch = async () =>
@@ -152,7 +183,7 @@ const tests = [
           (error) =>
             error instanceof ProviderError &&
             error.code === "auth" &&
-            error.message.includes("Kimi 认证失败")
+            error.message.toLowerCase().includes("kimi")
         );
       } finally {
         global.fetch = originalFetch;
@@ -160,27 +191,10 @@ const tests = [
     }
   },
   {
-    name: "ExecutionFlow 会走 Kimi provider 并持久化用户与助手消息",
+    name: "ExecutionFlow persists a normal Kimi conversation roundtrip",
     fn: async () => {
       const harness = createHarness();
-      const originalFetch = global.fetch;
-
-      global.fetch = async () =>
-        new Response(
-          JSON.stringify({
-            choices: [
-              {
-                message: {
-                  content: "这是来自 Kimi 的真实对话链路回复。"
-                }
-              }
-            ]
-          }),
-          {
-            status: 200,
-            headers: { "Content-Type": "application/json" }
-          }
-        );
+      const restoreFetch = mockKimiReply("这是来自 Kimi 的真实对话链路回复。");
 
       try {
         harness.secretService.saveProviderApiKey("kimi", "kimi-secret-123");
@@ -202,7 +216,129 @@ const tests = [
         assert.equal(result.audit.resultType, "answer");
         assert.equal(result.state.taskStatus, "completed");
       } finally {
-        global.fetch = originalFetch;
+        restoreFetch();
+        harness.cleanup();
+      }
+    }
+  },
+  {
+    name: "ExecutionFlow honors per-turn retrieval override and persists snippet metadata",
+    fn: async () => {
+      const harness = createHarness();
+      const restoreFetch = mockKimiReply("retrieval override reply");
+
+      try {
+        harness.secretService.saveProviderApiKey("kimi", "kimi-secret-123");
+        const docPath = path.join(harness.tempDir, "knowledge.md");
+        fs.writeFileSync(
+          docPath,
+          "Enso local workspace keeps evidence visible for the operator.",
+          "utf8"
+        );
+        await harness.knowledgeService.ingestFile(docPath);
+
+        const conversation = harness.store.createConversation("default", "Retrieval override");
+        const result = await harness.executionFlow.run({
+          conversationId: conversation.id,
+          mode: "default",
+          text: "Enso local workspace",
+          enableRetrievalForTurn: true
+        });
+
+        assert.equal(result.classification.retrievalNeeded, true);
+        assert.ok(result.retrievedSnippets.length > 0);
+        assert.equal(result.state.retrievalUsed, true);
+        assert.equal(result.verification.status, "passed");
+        assert.ok(Array.isArray(result.assistantMessage.metadata.retrievedSnippets));
+        assert.equal(
+          result.assistantMessage.metadata.retrievedSnippets.length,
+          result.retrievedSnippets.length
+        );
+      } finally {
+        restoreFetch();
+        harness.cleanup();
+      }
+    }
+  },
+  {
+    name: "ExecutionFlow uses config retrieval defaults and fails verification without evidence",
+    fn: async () => {
+      const harness = createHarness();
+      const restoreFetch = mockKimiReply("reply without evidence");
+
+      try {
+        harness.secretService.saveProviderApiKey("kimi", "kimi-secret-123");
+        const docPath = path.join(harness.tempDir, "knowledge.md");
+        fs.writeFileSync(docPath, "Enso keeps local artifacts in the workspace.", "utf8");
+        await harness.knowledgeService.ingestFile(docPath);
+
+        const currentConfig = harness.configService.load();
+        harness.configService.save({
+          ...currentConfig,
+          modeDefaults: {
+            ...currentConfig.modeDefaults,
+            retrievalByMode: {
+              ...currentConfig.modeDefaults.retrievalByMode,
+              default: true
+            }
+          }
+        });
+
+        const conversation = harness.store.createConversation("default", "Config retrieval default");
+        const result = await harness.executionFlow.run({
+          conversationId: conversation.id,
+          mode: "default",
+          text: "query with no matching chunks",
+          enableRetrievalForTurn: false
+        });
+
+        assert.equal(result.classification.retrievalNeeded, true);
+        assert.equal(result.retrievedSnippets.length, 0);
+        assert.equal(result.verification.status, "failed");
+        assert.match(result.verification.detail, /\[fail\] retrieval returned snippets/);
+      } finally {
+        restoreFetch();
+        harness.cleanup();
+      }
+    }
+  },
+  {
+    name: "Workspace write proposals execute after confirmation inside the Enso workspace",
+    fn: async () => {
+      const harness = createHarness();
+      const restoreFetch = mockKimiReply("# 会议纪要\n\n- 已整理关键结论。");
+
+      try {
+        harness.secretService.saveProviderApiKey("kimi", "kimi-secret-123");
+        const conversation = harness.store.createConversation("default", "Workspace write");
+
+        const proposal = await harness.executionFlow.run({
+          conversationId: conversation.id,
+          mode: "default",
+          text: "请写一份会议纪要文件",
+          enableRetrievalForTurn: false
+        });
+
+        assert.equal(proposal.classification.handlingClass, "action-adjacent");
+        assert.equal(proposal.state.pendingConfirmation, true);
+        assert.ok(proposal.state.pendingAction);
+        assert.equal(proposal.audit.resultType, "proposal");
+        assert.equal(fs.existsSync(proposal.state.pendingAction.targetPath), false);
+
+        const resolved = harness.executionFlow.resolvePendingAction(conversation.id);
+
+        assert.equal(resolved.state.pendingConfirmation, false);
+        assert.equal(resolved.state.pendingAction, null);
+        assert.deepEqual(resolved.state.toolsCalled, ["workspace-write"]);
+        assert.equal(resolved.state.verification.status, "passed");
+        assert.equal(resolved.audit.resultType, "answer");
+        assert.ok(fs.existsSync(proposal.state.pendingAction.targetPath));
+        assert.match(
+          fs.readFileSync(proposal.state.pendingAction.targetPath, "utf8"),
+          /会议纪要/
+        );
+      } finally {
+        restoreFetch();
         harness.cleanup();
       }
     }

@@ -41,6 +41,7 @@ const toState = (row: any): StateSnapshot => ({
   toolsCalled: row.tools_called_json ? JSON.parse(row.tools_called_json) : [],
   latestToolResult: row.latest_tool_result,
   pendingConfirmation: Boolean(row.pending_confirmation),
+  pendingAction: row.pending_action_json ? JSON.parse(row.pending_action_json) : null,
   taskStatus: row.task_status,
   updatedAt: row.updated_at,
   plan: row.plan_json ? JSON.parse(row.plan_json) : null,
@@ -114,6 +115,7 @@ export class EnsoStore {
         tools_called_json TEXT NOT NULL DEFAULT '[]',
         latest_tool_result TEXT NOT NULL DEFAULT '',
         pending_confirmation INTEGER NOT NULL DEFAULT 0,
+        pending_action_json TEXT NOT NULL DEFAULT 'null',
         task_status TEXT NOT NULL DEFAULT 'idle',
         updated_at TEXT NOT NULL,
         FOREIGN KEY(conversation_id) REFERENCES conversations(id) ON DELETE CASCADE
@@ -171,15 +173,18 @@ export class EnsoStore {
     if (!colNames.has("verification_json")) {
       this.db.exec("ALTER TABLE state_snapshots ADD COLUMN verification_json TEXT NOT NULL DEFAULT 'null'");
     }
+    if (!colNames.has("pending_action_json")) {
+      this.db.exec("ALTER TABLE state_snapshots ADD COLUMN pending_action_json TEXT NOT NULL DEFAULT 'null'");
+    }
   }
 
-  ensureDefaultConversation(): Conversation {
+  ensureDefaultConversation(defaultMode: ModeId = DEFAULT_MODE): Conversation {
     const existing = this.listConversations();
     if (existing.length > 0) {
       return existing[0];
     }
 
-    return this.createConversation(DEFAULT_MODE, "新会话");
+    return this.createConversation(defaultMode, "新会话");
   }
 
   listConversations(): Conversation[] {
@@ -287,6 +292,7 @@ export class EnsoStore {
         toolsCalled: [],
         latestToolResult: "",
         pendingConfirmation: false,
+        pendingAction: null,
         taskStatus: "idle",
         updatedAt: now(),
         plan: null,
@@ -310,18 +316,20 @@ export class EnsoStore {
             tools_called_json,
             latest_tool_result,
             pending_confirmation,
+            pending_action_json,
             task_status,
             updated_at,
             plan_json,
             trace_json,
             verification_json
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           ON CONFLICT(conversation_id)
           DO UPDATE SET
             retrieval_used = excluded.retrieval_used,
             tools_called_json = excluded.tools_called_json,
             latest_tool_result = excluded.latest_tool_result,
             pending_confirmation = excluded.pending_confirmation,
+            pending_action_json = excluded.pending_action_json,
             task_status = excluded.task_status,
             updated_at = excluded.updated_at,
             plan_json = excluded.plan_json,
@@ -335,6 +343,7 @@ export class EnsoStore {
         JSON.stringify(state.toolsCalled),
         state.latestToolResult,
         state.pendingConfirmation ? 1 : 0,
+        JSON.stringify(state.pendingAction ?? null),
         state.taskStatus,
         timestamp,
         JSON.stringify(state.plan ?? null),
@@ -350,6 +359,7 @@ export class EnsoStore {
     return this.upsertState({
       ...current,
       pendingConfirmation: false,
+      pendingAction: null,
       taskStatus: "completed",
       updatedAt: now(),
       plan: current.plan,
@@ -549,5 +559,3 @@ export class EnsoStore {
     }
   }
 }
-
-

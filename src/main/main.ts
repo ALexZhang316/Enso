@@ -9,6 +9,7 @@ import { ModelAdapter } from "./services/model-adapter";
 import { SecretService } from "./services/secret-service";
 import { EnsoStore } from "./services/store";
 import { ToolService } from "./services/tool-service";
+import { WorkspaceService } from "./services/workspace-service";
 
 let store: EnsoStore | null = null;
 const windows = new Set<BrowserWindow>();
@@ -94,19 +95,22 @@ app.whenReady().then(async () => {
   const dbPath = path.join(app.getPath("userData"), "enso.sqlite");
   const configPath = path.join(app.getPath("userData"), "config.toml");
   const secretPath = path.join(app.getPath("userData"), "secrets.json");
+  const workspaceRoot = path.join(app.getPath("userData"), "workspace");
 
   store = new EnsoStore(dbPath);
   const configService = new ConfigService(configPath, app.getAppPath());
   const knowledgeService = new KnowledgeService(store);
   const toolService = new ToolService();
   const secretService = new SecretService(secretPath);
+  const workspaceService = new WorkspaceService(workspaceRoot);
   const modelAdapter = new ModelAdapter(secretService);
   const executionFlow = new ExecutionFlow({
     store,
     configService,
     knowledgeService,
     toolService,
-    modelAdapter
+    modelAdapter,
+    workspaceService
   });
 
   registerIpcHandlers({
@@ -114,7 +118,8 @@ app.whenReady().then(async () => {
     configService,
     knowledgeService,
     executionFlow,
-    secretService
+    secretService,
+    workspaceService
   });
 
   await ensureMainWindow();

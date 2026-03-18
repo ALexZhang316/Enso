@@ -1,12 +1,13 @@
 ﻿import { dialog, ipcMain } from "electron";
 import path from "node:path";
-import { DEFAULT_MODE, ModeId } from "../shared/modes";
+import { ModeId } from "../shared/modes";
 import { EnsoConfig, ExecutionInput, InitializationPayload } from "../shared/types";
 import { ExecutionFlow } from "./core/execution-flow";
 import { ConfigService } from "./services/config-service";
 import { KnowledgeService } from "./services/knowledge-service";
 import { SecretService } from "./services/secret-service";
 import { EnsoStore } from "./services/store";
+import { WorkspaceService } from "./services/workspace-service";
 
 interface IpcDependencies {
   store: EnsoStore;
@@ -14,11 +15,19 @@ interface IpcDependencies {
   knowledgeService: KnowledgeService;
   executionFlow: ExecutionFlow;
   secretService: SecretService;
+  workspaceService: WorkspaceService;
 }
 
-const buildInitializationPayload = (store: EnsoStore, config: EnsoConfig): InitializationPayload => {
+const buildInitializationPayload = (
+  store: EnsoStore,
+  config: EnsoConfig,
+  workspaceService: WorkspaceService
+): InitializationPayload => {
   const currentList = store.listConversations();
-  const ensured = currentList.length > 0 ? currentList[0] : store.ensureDefaultConversation();
+  const ensured =
+    currentList.length > 0
+      ? currentList[0]
+      : store.ensureDefaultConversation(config.modeDefaults.defaultMode);
 
   const maybeActiveConversationId = store.getActiveConversationId();
   const activeConversation =
@@ -33,7 +42,8 @@ const buildInitializationPayload = (store: EnsoStore, config: EnsoConfig): Initi
     messages: store.listMessages(activeConversation.id),
     state: store.getState(activeConversation.id),
     audit: store.getLatestAudit(activeConversation.id),
-    knowledgeSources: store.listKnowledgeSources()
+    knowledgeSources: store.listKnowledgeSources(),
+    workspaceRoot: workspaceService.getRootPath()
   };
 };
 
@@ -42,15 +52,20 @@ export const registerIpcHandlers = ({
   configService,
   knowledgeService,
   executionFlow,
-  secretService
+  secretService,
+  workspaceService
 }: IpcDependencies): void => {
   ipcMain.handle("enso:init", () => {
     const config = configService.load();
-    return buildInitializationPayload(store, config);
+    return buildInitializationPayload(store, config, workspaceService);
   });
 
   ipcMain.handle("enso:conversation:create", (_event, title?: string) => {
-    const conversation = store.createConversation(DEFAULT_MODE, title?.trim() || "新会话");
+    const config = configService.load();
+    const conversation = store.createConversation(
+      config.modeDefaults.defaultMode,
+      title?.trim() || "新会话"
+    );
     store.setActiveConversationId(conversation.id);
 
     return {
@@ -58,7 +73,8 @@ export const registerIpcHandlers = ({
       activeConversationId: conversation.id,
       messages: store.listMessages(conversation.id),
       state: store.getState(conversation.id),
-      audit: store.getLatestAudit(conversation.id)
+      audit: store.getLatestAudit(conversation.id),
+      mode: conversation.mode
     };
   });
 
@@ -88,7 +104,11 @@ export const registerIpcHandlers = ({
     store.deleteConversation(conversationId);
 
     const remaining = store.listConversations();
-    const nextConversation = remaining.length > 0 ? remaining[0] : store.ensureDefaultConversation();
+    const config = configService.load();
+    const nextConversation =
+      remaining.length > 0
+        ? remaining[0]
+        : store.ensureDefaultConversation(config.modeDefaults.defaultMode);
 
     store.setActiveConversationId(nextConversation.id);
 
@@ -203,18 +223,12 @@ export const registerIpcHandlers = ({
       throw new Error("未找到该会话。");
     }
 
-    const nextState = store.resolvePendingConfirmation(conversationId);
-    store.addMessage(
-      conversationId,
-      "system",
-      "已确认并清除门控。提案已记录，未执行任何外部副作用。",
-      { confirmationResolved: true }
-    );
+    const result = executionFlow.resolvePendingAction(conversationId);
 
     return {
       messages: store.listMessages(conversationId),
-      state: nextState,
-      audit: store.getLatestAudit(conversationId)
+      state: result.state,
+      audit: result.audit
     };
   });
 

@@ -21,12 +21,22 @@ export interface ChatMessage {
   createdAt: string;
 }
 
+export interface PendingAction {
+  kind: "workspace_write";
+  summary: string;
+  targetPath: string;
+  content: string;
+  sourceRequestText: string;
+  requestedAt: string;
+}
+
 export interface StateSnapshot {
   conversationId: string;
   retrievalUsed: boolean;
   toolsCalled: string[];
   latestToolResult: string;
   pendingConfirmation: boolean;
+  pendingAction: PendingAction | null;
   taskStatus: "idle" | "processing" | "completed" | "awaiting_confirmation";
   updatedAt: string;
   plan: ExecutionPlan | null;
@@ -150,4 +160,5 @@ export interface InitializationPayload {
   state: StateSnapshot;
   audit: AuditSummary | null;
   knowledgeSources: KnowledgeSource[];
+  workspaceRoot: string;
 }

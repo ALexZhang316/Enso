@@ -30,6 +30,12 @@ const runSession = async (envOverrides) => {
   return { electronApp, page };
 };
 
+const expectActiveMode = async (page, modeId) => {
+  await page.getByTestId(`mode-button-${modeId}`).waitFor();
+  const active = await page.getByTestId(`mode-button-${modeId}`).getAttribute("aria-pressed");
+  assert.equal(active, "true");
+};
+
 const run = async () => {
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "enso-ui-kimi-"));
   const userDataDir = path.join(tempRoot, "user-data");
@@ -43,7 +49,7 @@ const run = async () => {
   try {
     ({ electronApp: firstApp, page: firstPage } = await runSession({
       ENSO_USER_DATA_DIR: userDataDir,
-      ENSO_TEST_KIMI_RESPONSE: "这是一条来自 Kimi 的测试回复。"
+      ENSO_TEST_KIMI_RESPONSE: "# 自动草稿\n\n- 这是一次工作区写入测试。"
     }));
 
     await firstPage.getByTestId("layout-root").waitFor();
@@ -53,28 +59,37 @@ const run = async () => {
     await firstPage.getByTestId("settings-provider-model-input").fill("moonshot-v1-8k");
     await firstPage.getByTestId("settings-provider-baseurl-input").fill("https://api.moonshot.cn/v1");
     await firstPage.getByTestId("settings-provider-apikey-input").fill("kimi-ui-test-key");
+    await firstPage.getByTestId("settings-default-mode-select").selectOption("research");
     await firstPage.getByTestId("settings-save-button").click();
     await firstPage.getByTestId("settings-status").getByText("设置已保存").waitFor();
 
     await firstPage.getByTestId("nav-settings-button").click();
-    await firstPage.getByTestId("composer-input").waitFor();
-    await firstPage.getByTestId("composer-input").fill("你好，Kimi。");
+    await firstPage.getByTestId("conversation-create-button").click();
+    await expectActiveMode(firstPage, "research");
+
+    await firstPage.getByTestId("composer-input").fill("请写一份测试纪要文件");
     await firstPage.getByTestId("composer-send-button").click();
-    await firstPage.getByText("这是一条来自 Kimi 的测试回复。").waitFor();
+    await firstPage.getByText("检测到工作区写入请求").waitFor();
+    await firstPage.getByTestId("resolve-confirmation-button").click();
+    await firstPage.getByText("已根据确认执行工作区写入").waitFor();
+
+    const outputsDir = path.join(userDataDir, "workspace", "outputs");
+    const outputFiles = fs.readdirSync(outputsDir);
+    assert.equal(outputFiles.length > 0, true);
+    const latestOutput = path.join(outputsDir, outputFiles[0]);
+    const outputContent = fs.readFileSync(latestOutput, "utf8");
+    assert.equal(outputContent.includes("自动草稿"), true);
 
     await firstApp.close();
 
     ({ electronApp: secondApp, page: secondPage } = await runSession({
       ENSO_USER_DATA_DIR: userDataDir,
-      ENSO_TEST_KIMI_RESPONSE: "第二次启动后的 Kimi 回复。"
+      ENSO_TEST_KIMI_RESPONSE: "# 第二轮草稿\n\n- 持久化检查。"
     }));
 
     await secondPage.getByTestId("layout-root").waitFor();
-    await secondPage.getByText("你好，Kimi。").waitFor();
-    await secondPage.getByText("这是一条来自 Kimi 的测试回复。").waitFor();
-    await secondPage.getByTestId("composer-input").fill("请继续。");
-    await secondPage.getByTestId("composer-send-button").click();
-    await secondPage.getByText("第二次启动后的 Kimi 回复。").waitFor();
+    await secondPage.getByTestId("conversation-create-button").click();
+    await expectActiveMode(secondPage, "research");
 
     await secondPage.screenshot({
       path: path.join(ARTIFACT_DIR, "mvp-ui-success.png"),

@@ -1,5 +1,30 @@
 # CHANGELOG
 
+## 2026-03-18 - Workspace proposal-to-execution chain
+### What changed
+1. Added a minimal `workspace-write` execution path: action-adjacent write requests can now become a visible proposal and, after confirmation, write a file into the Enso workspace.
+2. Added `WorkspaceService` to manage the local workspace root and bounded writes under `userData/workspace`.
+3. Persisted `pendingAction` in state so confirmation is now a real continuation of execution instead of a state-only acknowledgment.
+4. Extended the renderer to show the active workspace root, pending action summary, and a confirmation button that executes the queued workspace write.
+5. Added regression coverage for proposal creation, confirmation-driven execution, workspace artifact verification, and end-to-end UI file creation.
+
+### Why it changed
+- The previous confirmation flow only cleared the gate state and never executed anything.
+- Enso needed a minimal but real proposal -> confirmation -> execution loop without opening host-exec or external side effects.
+
+## 2026-03-18 - Runtime wiring and verification fixes
+### What changed
+1. Wired `ExecutionFlow` to respect persisted `modeDefaults.retrievalByMode` settings and the per-turn `enableRetrievalForTurn` override.
+2. Persisted `retrievedSnippets` into assistant message metadata so the right-panel evidence view can render the latest real snippets.
+3. Tightened verification semantics so retrieval/tool turns fail verification when required evidence or tool output is missing.
+4. Updated conversation bootstrap/create fallback to use the configured `defaultMode`, and returned that mode to the renderer for new conversations.
+5. Added regression coverage in `tests/mvp.integration.test.cjs` and `tests/mvp.ui.test.cjs` for retrieval wiring, verification failure semantics, snippet persistence, and configured default-mode behavior.
+
+### Why it changed
+- The UI exposed retrieval/default-mode controls that were not fully connected to runtime behavior.
+- The evidence panel had no reliable persisted source after real retrieval runs.
+- Verification could incorrectly show success when required evidence was missing.
+
 ## 2026-03-18 — 建立规范化开发流程
 
 ### 本轮完成了什么

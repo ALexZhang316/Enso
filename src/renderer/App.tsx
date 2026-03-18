@@ -8,7 +8,6 @@ import {
   ChatMessage,
   Conversation,
   EnsoConfig,
-  ExecutionPlan,
   RetrievedSnippet,
   StateSnapshot,
   KnowledgeSource,
@@ -29,6 +28,7 @@ const defaultState = (conversationId: string): StateSnapshot => ({
   toolsCalled: [],
   latestToolResult: "",
   pendingConfirmation: false,
+  pendingAction: null,
   taskStatus: "idle",
   updatedAt: new Date().toISOString(),
   plan: null,
@@ -152,6 +152,7 @@ const App = (): JSX.Element => {
   const [stateSnapshot, setStateSnapshot] = useState<StateSnapshot>(defaultState(""));
   const [auditSummary, setAuditSummary] = useState<AuditSummary | null>(null);
   const [knowledgeSources, setKnowledgeSources] = useState<KnowledgeSource[]>([]);
+  const [workspaceRoot, setWorkspaceRoot] = useState<string>("");
   const [auditRecords, setAuditRecords] = useState<AuditSummary[]>([]);
   const [importStatus, setImportStatus] = useState<string>("");
   const [composerText, setComposerText] = useState<string>("");
@@ -183,13 +184,12 @@ const App = (): JSX.Element => {
       }
 
       const raw = (message.metadata as Record<string, unknown>).retrievedSnippets;
-      if (!Array.isArray(raw)) {
-        continue;
+      if (Array.isArray(raw)) {
+        return raw.filter(isRetrievedSnippet);
       }
 
-      const snippets = raw.filter(isRetrievedSnippet);
-      if (snippets.length > 0) {
-        return snippets;
+      if ((message.metadata as Record<string, unknown>).retrievalUsed === true) {
+        return [] as RetrievedSnippet[];
       }
     }
 
@@ -237,6 +237,7 @@ const App = (): JSX.Element => {
       setStateSnapshot(payload.state);
       setAuditSummary(payload.audit);
       setKnowledgeSources(payload.knowledgeSources);
+      setWorkspaceRoot(payload.workspaceRoot);
       setSettingsDraft(payload.config);
       await refreshProviderApiKeyStatus(payload.config.provider.provider);
 
@@ -278,7 +279,7 @@ const App = (): JSX.Element => {
     setMessages(payload.messages);
     setStateSnapshot(payload.state);
     setAuditSummary(payload.audit);
-    setActiveMode(DEFAULT_MODE);
+    setActiveMode(payload.mode ?? config?.modeDefaults.defaultMode ?? DEFAULT_MODE);
     setComposerText("");
     setLastRunInfo("");
     setSubmitError("");
@@ -433,7 +434,11 @@ const App = (): JSX.Element => {
     setMessages(result.messages);
     setStateSnapshot(result.state);
     setAuditSummary(result.audit);
-    setLastRunInfo("已确认待处理门控。未执行任何外部副作用。");
+    setLastRunInfo(
+      stateSnapshot.pendingAction?.kind === "workspace_write"
+        ? "已执行工作区写入。"
+        : "已处理待确认动作。"
+    );
 
     const targetConversationId = auditFilterCurrentConversation ? activeConversationId : undefined;
     await loadAuditRecords(targetConversationId);
@@ -492,6 +497,7 @@ const App = (): JSX.Element => {
                   <button
                     key={mode.id}
                     data-testid={`mode-button-${mode.id}`}
+                    aria-pressed={activeMode === mode.id}
                     className={`flex-1 rounded-lg px-2 py-[7px] text-[11px] font-medium transition-all duration-200 whitespace-nowrap ${
                       activeMode === mode.id
                         ? "bg-white text-foreground shadow-[0_0.5px_2px_rgba(0,0,0,0.1),0_0px_0.5px_rgba(0,0,0,0.06)]"
@@ -1109,6 +1115,7 @@ const App = (): JSX.Element => {
                         <label className="space-y-1">
                           <div className="text-[12px] text-muted-foreground">默认模式</div>
                           <select
+                            data-testid="settings-default-mode-select"
                             className="h-9 w-full rounded-[10px] bg-black/[0.04] px-3 text-[13px] text-foreground transition-colors focus:outline-none focus:ring-2 focus:ring-primary/30"
                             value={settingsDraft.modeDefaults.defaultMode}
                             onChange={(event) =>
@@ -1243,6 +1250,7 @@ const App = (): JSX.Element => {
                   ["提供商", config ? providerLabel(config.provider.provider) : "--"],
                   ["模型", config?.provider.model ?? "--"],
                   ["知识", `${knowledgeSources.length} 个来源`],
+                  ["工作区", workspaceRoot || "--"],
                   ["风格", config ? styleLabel(config.expression.style) : "--"]
                 ] as const).map(([label, value]) => (
                   <div key={label} className="flex items-center justify-between px-3 py-2 gap-2">
@@ -1329,7 +1337,7 @@ const App = (): JSX.Element => {
                   </div>
 
                   {/* Evidence section */}
-                  <div>
+                  <div data-testid="evidence-panel">
                     <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60 mb-1.5">
                       证据
                     </div>
@@ -1346,6 +1354,25 @@ const App = (): JSX.Element => {
                           </div>
                         ))}
                       </div>
+                    )}
+                  </div>
+
+                  {/* Pending action */}
+                  <div data-testid="pending-action-panel">
+                    <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60 mb-1.5">
+                      待确认动作
+                    </div>
+                    {stateSnapshot.pendingAction ? (
+                      <div className="rounded-xl bg-black/[0.03] p-2.5 space-y-1">
+                        <div className="text-[11px] font-medium text-foreground">
+                          {stateSnapshot.pendingAction.summary}
+                        </div>
+                        <div className="text-[10px] text-muted-foreground/70 break-all">
+                          {stateSnapshot.pendingAction.targetPath}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-[11px] text-muted-foreground/40">无待确认动作</div>
                     )}
                   </div>
 
@@ -1377,7 +1404,9 @@ const App = (): JSX.Element => {
                         }}
                         disabled={isLoading || isSubmitting}
                       >
-                        确认并清除门控
+                        {stateSnapshot.pendingAction?.kind === "workspace_write"
+                          ? "确认并执行工作区写入"
+                          : "确认并清除门控"}
                       </Button>
                     )}
                   </div>
@@ -1413,4 +1442,3 @@ const App = (): JSX.Element => {
 };
 
 export default App;
-
