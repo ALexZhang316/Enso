@@ -4,6 +4,7 @@ import path from "node:path";
 import { registerIpcHandlers } from "./ipc";
 import { ExecutionFlow } from "./core/execution-flow";
 import { ConfigService } from "./services/config-service";
+import { HostExecService } from "./services/host-exec-service";
 import { KnowledgeService } from "./services/knowledge-service";
 import { ModelAdapter } from "./services/model-adapter";
 import { SecretService } from "./services/secret-service";
@@ -103,6 +104,7 @@ app.whenReady().then(async () => {
   const toolService = new ToolService();
   const secretService = new SecretService(secretPath);
   const workspaceService = new WorkspaceService(workspaceRoot);
+  const hostExecService = new HostExecService(workspaceRoot);
   const modelAdapter = new ModelAdapter(secretService);
   const executionFlow = new ExecutionFlow({
     store,
@@ -110,7 +112,8 @@ app.whenReady().then(async () => {
     knowledgeService,
     toolService,
     modelAdapter,
-    workspaceService
+    workspaceService,
+    hostExecService
   });
 
   registerIpcHandlers({

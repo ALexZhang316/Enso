@@ -51,7 +51,6 @@ export class KnowledgeService {
       return [];
     }
 
-    return this.store.searchKnowledgeChunks(terms, limit);
+    return this.store.searchKnowledgeChunks(query, terms, limit);
   }
 }
-

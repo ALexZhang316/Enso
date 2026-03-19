@@ -1,5 +1,37 @@
 # Codebase Contract v0.3.1
 
+## 2026-03-19 Host Exec Proposal Update
+
+- Added `HostExecService` as a bounded execution layer for read-only PowerShell commands inside the Enso workspace.
+- `PendingAction` is now a union type covering both `workspace_write` and `host_exec`.
+- `ExecutionFlow.resolvePendingAction()` now dispatches confirmed actions by kind, including verified host exec runs.
+- The renderer pending-action panel and confirmation button now adapt to both workspace writes and host exec proposals.
+- Regression coverage now includes safe host exec confirmation/execution, destructive host exec blocking, and visible UI confirmation for host commands.
+
+## 2026-03-19 Core Correctness Update
+
+- `ConfigService` now validates runtime config values explicitly and raises `ConfigValidationError` with the `config.toml` path and failing field instead of silently returning defaults.
+- Renderer bootstrap now surfaces init-time config failures as a blocking error card with a reload action.
+- `ExecutionFlow` action detection now distinguishes informational prompts from real side-effect requests more narrowly; workspace-write proposals still gate explicit artifact-writing requests.
+- `preflight` and `verify` now run `test:mvp:all`, so the formal acceptance path includes both integration and UI automation.
+- Regression coverage now includes invalid config semantics, config-error recovery in the UI, and informational prompts that should stay on the dialogue path.
+
+## 2026-03-19 Gate Regression Update
+
+- Integration coverage now asserts unsupported-action requests stay blocked, persist the blocked trace phases, and write proposal-style audit entries without opening confirmation state.
+- UI automation now verifies blocked-action rendering in the right rail, including verification status, trace text, audit summary, and the absence of a confirmation button.
+
+## 2026-03-19 Retrieval Quality Update
+
+- `EnsoStore` now maintains a local `knowledge_chunks_fts` SQLite virtual table for full-text retrieval over knowledge chunks.
+- Retrieval prefers FTS ranking and falls back to the older `LIKE`-based keyword path when the FTS index is unavailable.
+- Regression coverage now includes phrase-ranking behavior so exact phrase matches beat looser keyword-only hits.
+
+## 2026-03-19 Repository Cleanup Update
+
+- Removed the unreferenced root file `MVP_ACCEPTANCE_CHECKLIST_ZH.md`.
+- Acceptance remains defined by `AGENTS.md` stop conditions together with the scripted verification flow (`verify`, `test:mvp`, `test:mvp:ui`).
+
 ## 2026-03-18 Runtime Wiring Update
 
 - `ExecutionFlow` now honors persisted `modeDefaults.retrievalByMode` settings together with the per-turn `enableRetrievalForTurn` override.
@@ -14,7 +46,7 @@
 - `StateSnapshot` now persists `pendingAction` so gated write proposals survive the confirmation boundary.
 - `ExecutionFlow.resolvePendingAction()` now executes confirmed workspace writes, verifies file existence, and writes a follow-up audit entry.
 - The renderer now shows the active workspace root and the current pending action summary.
-- Host exec, external side effects, and destructive actions remain blocked; only workspace writes participate in the confirmation-to-execution chain.
+- External side effects, destructive actions, and broader host exec remain blocked; bounded workspace writes and read-only workspace host exec now participate in the confirmation-to-execution chain.
 
 ## 本文件的作用
 
@@ -86,11 +118,12 @@ src/
       types.ts                 # provider 接口定义
     services/
       config-service.ts        # TOML 配置读写
+      host-exec-service.ts     # 工作区内只读主机命令 proposal/执行/验证
       knowledge-service.ts     # 知识库导入/分块/检索
       model-adapter.ts         # 模型调用适配层
       secret-service.ts        # 密钥加密存储 (safeStorage)
       store.ts                 # SQLite 持久化 (会话/消息/状态/审计/知识)
-      tool-service.ts          # 工具决策与执行 (compute/search/read)
+      tool-service.ts          # 工具决策与执行 (compute/search/read/exec metadata)
     ipc.ts                     # Electron IPC handler 注册
     main.ts                    # Electron 主进程入口
     preload.ts                 # preload bridge
@@ -114,9 +147,10 @@ src/
 
 | 模块名 | 主文件路径 | 对外暴露的函数/类 | 依赖哪些其他模块 | 当前状态 |
 |--------|-----------|------------------|----------------|---------|
-| ExecutionFlow | src/main/core/execution-flow.ts | ExecutionFlow.run() | ConfigService, KnowledgeService, ToolService, ModelAdapter, EnsoStore | 可运行，已集成完整链路 |
+| ExecutionFlow | src/main/core/execution-flow.ts | ExecutionFlow.run() | ConfigService, KnowledgeService, ToolService, ModelAdapter, EnsoStore, WorkspaceService, HostExecService | 可运行，已集成完整链路 |
 | EnsoStore | src/main/services/store.ts | EnsoStore (class) | better-sqlite3 | 可运行，含 plan/trace/verification 持久化 |
 | ConfigService | src/main/services/config-service.ts | ConfigService (class) | @iarna/toml | 可运行 |
+| HostExecService | src/main/services/host-exec-service.ts | HostExecService (class) | child_process, workspace boundary | 可运行，支持工作区内只读命令 |
 | KnowledgeService | src/main/services/knowledge-service.ts | KnowledgeService (class) | EnsoStore | 可运行，已接入执行流 |
 | ToolService | src/main/services/tool-service.ts | ToolService.decideAndRun() | -- | 可运行，已接入执行流 |
 | ModelAdapter | src/main/services/model-adapter.ts | ModelAdapter.generateReply() | ProviderFactory | 可运行 |
@@ -206,7 +240,14 @@ CREATE TABLE knowledge_chunks (
   source_id TEXT NOT NULL,
   chunk_index INTEGER NOT NULL,
   content TEXT NOT NULL,
-  created_at TEXT NOT NULL
+  metadata_json TEXT NOT NULL DEFAULT '{}'
+);
+
+CREATE VIRTUAL TABLE knowledge_chunks_fts USING fts5(
+  chunk_id UNINDEXED,
+  source_id UNINDEXED,
+  content,
+  tokenize = 'unicode61 remove_diacritics 2'
 );
 
 CREATE TABLE app_state (
@@ -225,7 +266,8 @@ CREATE TABLE app_state (
 |---------|-----------|-------|-------------|
 | 模式系统默认态 | 保留独立 `default` 模式，不再用 `deep-dialogue` 兼任默认值 | 对齐产品硬约束，避免”默认模式”和”深度对话模式”语义混淆 | Codex 本轮 |
 | OpenClaw 借鉴范围 | 借鉴执行骨架与权限边界，不借鉴产品外形 | 保持 Enso 是本地单用户执行工作台 | Codex 本轮 |
-| 高权限动作当前策略 | 先输出 proposal / blocked result，不执行真实 host exec | 先补齐可见主链与验证，再扩执行能力 | Codex 本轮 |
+| 高权限动作当前策略 | workspace_write 与只读 workspace host exec 走 proposal -> confirmation -> execution；外部/破坏性动作继续 blocked | 先把可验证、可见、低风险的执行链做实，再扩到更高风险动作 | Codex 2026-03-19 |
+| 主机命令执行策略 | 仅允许工作区内只读 PowerShell 命令走 proposal -> confirmation -> execution | 在不打开破坏性或外部副作用的前提下，先把 `exec` 安全链做实 | Codex 2026-03-19 |
 | 检索触发策略 | 关键词匹配 + 模式偏置 (decision/research 自动检索) | 简单可控，避免过度检索 | Claude 2026-03-18 |
 | 工具触发策略 | 关键词匹配 (compute/read 类关键词) | 与现有 ToolService 能力对齐 | Claude 2026-03-18 |
 | plan/trace/verification 持久化方式 | JSON 字段存入 state_snapshots 表 (plan_json/trace_json/verification_json) | 避免新增表，保持 schema 简洁 | Claude 2026-03-18 |
@@ -240,7 +282,7 @@ CREATE TABLE app_state (
 | `ExecutionFlow` 仍是 MVP 骨架，尚未把 retrieval / tool / verifier 真正串入主链 | 高 | ExecutionFlow | Codex 初始轮 | 已解决 2026-03-18 |
 | retrieval / tool service 尚未真正接入主执行流 | 高 | ExecutionFlow / Tool / Knowledge | Codex 初始轮 | 已解决 2026-03-18 |
 | 右栏仍缺少文档要求的显式 current plan / execution trace / verification 结果视图 | 中 | Renderer UI | Codex 初始轮 | 已解决 2026-03-18 |
-| 高权限动作仍只有门控拦截，没有完整 proposal-to-execution 安全链 | 中 | IPC / Permission Gate | Codex 初始轮 | 未解决 - 按计划延后 |
+| 外部动作、破坏性命令和更广泛的 host exec 仍没有完整 proposal-to-execution 安全链 | 中 | IPC / Permission Gate | Codex 初始轮 | 部分解决 2026-03-19 |
 | 只有 Kimi 一个 provider 有实际实现 | 低 | Providers | Codex 初始轮 | 未解决 - 不阻塞核心链路 |
 | 检索质量依赖关键词匹配，无向量语义搜索 | 低 | KnowledgeService | Claude 2026-03-18 | 未解决 - 后续增强 |
 

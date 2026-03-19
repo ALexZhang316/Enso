@@ -139,10 +139,14 @@ const isRetrievedSnippet = (value: unknown): value is RetrievedSnippet =>
       typeof (value as { score?: unknown }).score === "number"
   );
 
+const toErrorMessage = (error: unknown, fallback: string): string =>
+  error instanceof Error ? error.message : fallback;
+
 const App = (): JSX.Element => {
   const appInfo = window.enso.getAppInfo();
 
   const [isLoading, setIsLoading] = useState(true);
+  const [initializationError, setInitializationError] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [config, setConfig] = useState<EnsoConfig | null>(null);
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -228,28 +232,35 @@ const App = (): JSX.Element => {
 
   useEffect(() => {
     const bootstrap = async (): Promise<void> => {
-      const payload = await window.enso.initialize();
+      try {
+        const payload = await window.enso.initialize();
 
-      setConfig(payload.config);
-      setConversations(payload.conversations);
-      setActiveConversationId(payload.activeConversationId);
-      setMessages(payload.messages);
-      setStateSnapshot(payload.state);
-      setAuditSummary(payload.audit);
-      setKnowledgeSources(payload.knowledgeSources);
-      setWorkspaceRoot(payload.workspaceRoot);
-      setSettingsDraft(payload.config);
-      await refreshProviderApiKeyStatus(payload.config.provider.provider);
+        setInitializationError("");
+        setConfig(payload.config);
+        setConversations(payload.conversations);
+        setActiveConversationId(payload.activeConversationId);
+        setMessages(payload.messages);
+        setStateSnapshot(payload.state);
+        setAuditSummary(payload.audit);
+        setKnowledgeSources(payload.knowledgeSources);
+        setWorkspaceRoot(payload.workspaceRoot);
+        setSettingsDraft(payload.config);
+        await refreshProviderApiKeyStatus(payload.config.provider.provider);
 
-      const activeConversationMode =
-        payload.conversations.find((item) => item.id === payload.activeConversationId)?.mode ??
-        payload.config.modeDefaults.defaultMode;
-      setActiveMode(activeConversationMode);
-      await loadAuditRecords(payload.activeConversationId);
-      setIsLoading(false);
+        const activeConversationMode =
+          payload.conversations.find((item) => item.id === payload.activeConversationId)?.mode ??
+          payload.config.modeDefaults.defaultMode;
+        setActiveMode(activeConversationMode);
+        await loadAuditRecords(payload.activeConversationId);
+      } catch (error) {
+        setInitializationError(toErrorMessage(error, "初始化失败。"));
+      } finally {
+        setIsLoading(false);
+      }
     };
 
     bootstrap().catch(() => {
+      setInitializationError("初始化失败。");
       setIsLoading(false);
     });
   }, []);
@@ -437,7 +448,9 @@ const App = (): JSX.Element => {
     setLastRunInfo(
       stateSnapshot.pendingAction?.kind === "workspace_write"
         ? "已执行工作区写入。"
-        : "已处理待确认动作。"
+        : stateSnapshot.pendingAction?.kind === "host_exec"
+          ? "已执行工作区命令。"
+          : "已处理待确认动作。"
     );
 
     const targetConversationId = auditFilterCurrentConversation ? activeConversationId : undefined;
@@ -449,20 +462,24 @@ const App = (): JSX.Element => {
       return;
     }
 
-    const saved = await window.enso.saveConfig({
-      ...settingsDraft,
-      provider: {
-        ...settingsDraft.provider,
-        apiKey: providerApiKeyDraft
+    try {
+      const saved = await window.enso.saveConfig({
+        ...settingsDraft,
+        provider: {
+          ...settingsDraft.provider,
+          apiKey: providerApiKeyDraft
+        }
+      });
+      setConfig(saved);
+      setSettingsDraft(saved);
+      if (providerApiKeyDraft.trim()) {
+        setHasStoredApiKey(true);
       }
-    });
-    setConfig(saved);
-    setSettingsDraft(saved);
-    if (providerApiKeyDraft.trim()) {
-      setHasStoredApiKey(true);
+      setProviderApiKeyDraft("");
+      setSettingsStatus("设置已保存。若填写了 API Key，已写入本机安全存储。");
+    } catch (error) {
+      setSettingsStatus(toErrorMessage(error, "设置保存失败。"));
     }
-    setProviderApiKeyDraft("");
-    setSettingsStatus("设置已保存。若填写了 API Key，已写入本机安全存储。");
   };
 
   const handleClearProviderApiKey = async (): Promise<void> => {
@@ -477,13 +494,46 @@ const App = (): JSX.Element => {
   };
 
   const handleReloadSettings = async (): Promise<void> => {
-    const latest = await window.enso.getConfig();
-    setConfig(latest);
-    setSettingsDraft(latest);
-    setProviderApiKeyDraft("");
-    await refreshProviderApiKeyStatus(latest.provider.provider);
-    setSettingsStatus("已从本地配置重新加载。");
+    try {
+      const latest = await window.enso.getConfig();
+      setConfig(latest);
+      setSettingsDraft(latest);
+      setProviderApiKeyDraft("");
+      await refreshProviderApiKeyStatus(latest.provider.provider);
+      setSettingsStatus("已从本地配置重新加载。");
+    } catch (error) {
+      setSettingsStatus(toErrorMessage(error, "重新加载配置失败。"));
+    }
   };
+
+  if (initializationError) {
+    return (
+      <div className="flex h-full items-center justify-center p-6" data-testid="init-error-view">
+        <Card className="w-full max-w-2xl shadow-[0_18px_60px_rgba(15,23,42,0.12)]" data-testid="init-error-card">
+          <CardHeader>
+            <CardTitle>配置错误</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="text-sm leading-6 text-muted-foreground" data-testid="init-error-message">
+              {initializationError}
+            </div>
+            <div className="text-sm text-muted-foreground">
+              修正本地 `config.toml` 后，点击下方按钮重新加载，或重启应用。
+            </div>
+            <Button
+              data-testid="init-error-reload-button"
+              onClick={() => {
+                window.location.reload();
+              }}
+              type="button"
+            >
+              重新加载
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="h-full overflow-x-auto p-4" data-testid="layout-root">
@@ -1367,9 +1417,20 @@ const App = (): JSX.Element => {
                         <div className="text-[11px] font-medium text-foreground">
                           {stateSnapshot.pendingAction.summary}
                         </div>
-                        <div className="text-[10px] text-muted-foreground/70 break-all">
-                          {stateSnapshot.pendingAction.targetPath}
-                        </div>
+                        {stateSnapshot.pendingAction.kind === "workspace_write" ? (
+                          <div className="text-[10px] text-muted-foreground/70 break-all">
+                            {stateSnapshot.pendingAction.targetPath}
+                          </div>
+                        ) : (
+                          <>
+                            <div className="text-[10px] text-muted-foreground/70 break-all">
+                              {stateSnapshot.pendingAction.workingDirectory}
+                            </div>
+                            <div className="text-[10px] text-muted-foreground/70 break-all">
+                              {stateSnapshot.pendingAction.command}
+                            </div>
+                          </>
+                        )}
                       </div>
                     ) : (
                       <div className="text-[11px] text-muted-foreground/40">无待确认动作</div>
@@ -1406,6 +1467,8 @@ const App = (): JSX.Element => {
                       >
                         {stateSnapshot.pendingAction?.kind === "workspace_write"
                           ? "确认并执行工作区写入"
+                          : stateSnapshot.pendingAction?.kind === "host_exec"
+                            ? "确认并执行工作区命令"
                           : "确认并清除门控"}
                       </Button>
                     )}

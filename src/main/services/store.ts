@@ -80,6 +80,7 @@ const scoreByTerms = (content: string, terms: string[]): number => {
 
 export class EnsoStore {
   private readonly db: Database.Database;
+  private knowledgeSearchIndexAvailable = false;
 
   constructor(dbPath: string) {
     fs.mkdirSync(path.dirname(dbPath), { recursive: true });
@@ -161,6 +162,8 @@ export class EnsoStore {
       CREATE INDEX IF NOT EXISTS idx_knowledge_chunks_source ON knowledge_chunks(source_id, chunk_index);
     `);
 
+    this.initializeKnowledgeSearchIndex();
+
     // migrate: add plan/trace/verification columns to state_snapshots
     const stateColumns = this.db.pragma("table_info(state_snapshots)") as Array<{ name: string }>;
     const colNames = new Set(stateColumns.map((c) => c.name));
@@ -175,6 +178,32 @@ export class EnsoStore {
     }
     if (!colNames.has("pending_action_json")) {
       this.db.exec("ALTER TABLE state_snapshots ADD COLUMN pending_action_json TEXT NOT NULL DEFAULT 'null'");
+    }
+  }
+
+  private initializeKnowledgeSearchIndex(): void {
+    try {
+      this.db.exec(`
+        CREATE VIRTUAL TABLE IF NOT EXISTS knowledge_chunks_fts USING fts5(
+          chunk_id UNINDEXED,
+          source_id UNINDEXED,
+          content,
+          tokenize = 'unicode61 remove_diacritics 2'
+        );
+      `);
+
+      this.db.exec(`
+        INSERT INTO knowledge_chunks_fts (chunk_id, source_id, content)
+        SELECT kc.id, kc.source_id, kc.content
+        FROM knowledge_chunks kc
+        WHERE NOT EXISTS (
+          SELECT 1 FROM knowledge_chunks_fts fts WHERE fts.chunk_id = kc.id
+        );
+      `);
+
+      this.knowledgeSearchIndexAvailable = true;
+    } catch {
+      this.knowledgeSearchIndexAvailable = false;
     }
   }
 
@@ -496,29 +525,29 @@ export class EnsoStore {
     content: string,
     metadata: Record<string, unknown> = {}
   ): void {
+    const chunkId = randomUUID();
+
     this.db
       .prepare(
         "INSERT INTO knowledge_chunks (id, source_id, chunk_index, content, metadata_json) VALUES (?, ?, ?, ?, ?)"
       )
-      .run(randomUUID(), sourceId, chunkIndex, content, JSON.stringify(metadata));
+      .run(chunkId, sourceId, chunkIndex, content, JSON.stringify(metadata));
+
+    if (this.knowledgeSearchIndexAvailable) {
+      this.db
+        .prepare("INSERT INTO knowledge_chunks_fts (chunk_id, source_id, content) VALUES (?, ?, ?)")
+        .run(chunkId, sourceId, content);
+    }
   }
 
-  searchKnowledgeChunks(terms: string[], limit = 6): RetrievedSnippet[] {
-    const normalizedTerms = terms
-      .map((term) => term.trim().toLowerCase())
-      .filter((term) => term.length >= 2)
-      .slice(0, 6);
-
-    if (normalizedTerms.length === 0) {
-      return [];
-    }
-
+  private searchKnowledgeChunksByLike(query: string, terms: string[], limit = 6): RetrievedSnippet[] {
     const params: Record<string, string | number> = { limit: Math.max(1, limit * 4) };
-    const clauses = normalizedTerms.map((term, index) => {
+    const clauses = terms.map((term, index) => {
       const key = `term${index}`;
       params[key] = `%${term}%`;
       return `kc.content LIKE @${key}`;
     });
+    const loweredQuery = query.trim().toLowerCase();
 
     const rows = this.db
       .prepare(
@@ -539,7 +568,11 @@ export class EnsoStore {
 
     return rows
       .map((row: any) => {
-        const score = scoreByTerms(row.content, normalizedTerms);
+        const loweredContent = row.content.toLowerCase();
+        const phraseBoost =
+          loweredQuery.length >= 4 && loweredContent.includes(loweredQuery) ? 50 : 0;
+        const matchedDistinctTerms = terms.filter((term) => loweredContent.includes(term)).length;
+        const score = phraseBoost + matchedDistinctTerms * 10 + scoreByTerms(row.content, terms);
         return {
           chunkId: row.chunk_id,
           sourceId: row.source_id,
@@ -551,6 +584,81 @@ export class EnsoStore {
       })
       .sort((a: RetrievedSnippet, b: RetrievedSnippet) => b.score - a.score)
       .slice(0, limit);
+  }
+
+  private searchKnowledgeChunksByFts(query: string, terms: string[], limit = 6): RetrievedSnippet[] {
+    if (!this.knowledgeSearchIndexAvailable) {
+      return [];
+    }
+
+    const normalizedPhrase = terms.join(" ").trim();
+    const exactPhraseQuery = normalizedPhrase.includes(" ") ? `"${normalizedPhrase}"` : "";
+    const termQuery = terms.map((term) => `"${term}"`).join(" OR ");
+    const matchQuery = [exactPhraseQuery, termQuery].filter(Boolean).join(" OR ");
+    const params = {
+      matchQuery,
+      limit: Math.max(1, limit * 8)
+    };
+    const loweredQuery = query.trim().toLowerCase();
+
+    const rows = this.db
+      .prepare(
+        `
+          SELECT
+            kc.id AS chunk_id,
+            kc.source_id AS source_id,
+            ks.name AS source_name,
+            ks.path AS source_path,
+            kc.content AS content,
+            bm25(knowledge_chunks_fts) AS bm25_score
+          FROM knowledge_chunks_fts
+          JOIN knowledge_chunks kc ON kc.id = knowledge_chunks_fts.chunk_id
+          JOIN knowledge_sources ks ON ks.id = kc.source_id
+          WHERE knowledge_chunks_fts MATCH @matchQuery
+          ORDER BY bm25_score ASC
+          LIMIT @limit
+        `
+      )
+      .all(params);
+
+    return rows
+      .map((row: any) => {
+        const loweredContent = row.content.toLowerCase();
+        const termScore = scoreByTerms(row.content, terms);
+        const matchedDistinctTerms = terms.filter((term) => loweredContent.includes(term)).length;
+        const phraseBoost =
+          loweredQuery.length >= 4 && loweredContent.includes(loweredQuery) ? 50 : 0;
+        const bm25Score = typeof row.bm25_score === "number" ? -row.bm25_score : 0;
+
+        return {
+          chunkId: row.chunk_id,
+          sourceId: row.source_id,
+          sourceName: row.source_name,
+          sourcePath: row.source_path,
+          content: row.content.slice(0, 600),
+          score: phraseBoost + matchedDistinctTerms * 10 + termScore + bm25Score
+        } satisfies RetrievedSnippet;
+      })
+      .sort((a: RetrievedSnippet, b: RetrievedSnippet) => b.score - a.score)
+      .slice(0, limit);
+  }
+
+  searchKnowledgeChunks(query: string, terms: string[], limit = 6): RetrievedSnippet[] {
+    const normalizedTerms = terms
+      .map((term) => term.trim().toLowerCase())
+      .filter((term) => term.length >= 2)
+      .slice(0, 6);
+
+    if (normalizedTerms.length === 0) {
+      return [];
+    }
+
+    const ftsResults = this.searchKnowledgeChunksByFts(query, normalizedTerms, limit);
+    if (ftsResults.length > 0) {
+      return ftsResults;
+    }
+
+    return this.searchKnowledgeChunksByLike(query, normalizedTerms, limit);
   }
 
   close(): void {

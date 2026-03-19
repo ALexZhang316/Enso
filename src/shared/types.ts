@@ -21,7 +21,7 @@ export interface ChatMessage {
   createdAt: string;
 }
 
-export interface PendingAction {
+export interface WorkspaceWritePendingAction {
   kind: "workspace_write";
   summary: string;
   targetPath: string;
@@ -29,6 +29,17 @@ export interface PendingAction {
   sourceRequestText: string;
   requestedAt: string;
 }
+
+export interface HostExecPendingAction {
+  kind: "host_exec";
+  summary: string;
+  command: string;
+  workingDirectory: string;
+  sourceRequestText: string;
+  requestedAt: string;
+}
+
+export type PendingAction = WorkspaceWritePendingAction | HostExecPendingAction;
 
 export interface StateSnapshot {
   conversationId: string;

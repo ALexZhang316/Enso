@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { PendingAction } from "../../shared/types";
+import { WorkspaceWritePendingAction } from "../../shared/types";
 
 const WORKSPACE_SUBDIRS = ["tasks", "scratch", "outputs", "cache", "logs"] as const;
 
@@ -49,7 +49,7 @@ export class WorkspaceService {
   buildWorkspaceWriteProposal(params: {
     requestText: string;
     content: string;
-  }): PendingAction {
+  }): WorkspaceWritePendingAction {
     const stem = deriveStem(params.requestText);
     const fileName = `${stem}-${toTimestampSlug(new Date().toISOString())}.md`;
     const targetPath = path.join(this.workspaceRoot, "outputs", fileName);
@@ -64,12 +64,8 @@ export class WorkspaceService {
     };
   }
 
-  executePendingAction(action: PendingAction): { targetPath: string; bytesWritten: number } {
+  executePendingAction(action: WorkspaceWritePendingAction): { targetPath: string; bytesWritten: number } {
     this.ensureWorkspace();
-
-    if (action.kind !== "workspace_write") {
-      throw new Error(`Unsupported pending action kind: ${action.kind}`);
-    }
 
     const resolvedRoot = path.resolve(this.workspaceRoot);
     const resolvedTarget = path.resolve(action.targetPath);
@@ -86,11 +82,7 @@ export class WorkspaceService {
     };
   }
 
-  verifyPendingAction(action: PendingAction): boolean {
-    if (action.kind !== "workspace_write") {
-      return false;
-    }
-
+  verifyPendingAction(action: WorkspaceWritePendingAction): boolean {
     return fs.existsSync(path.resolve(action.targetPath));
   }
 

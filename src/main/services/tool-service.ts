@@ -1,7 +1,7 @@
 ﻿import { RetrievedSnippet } from "../../shared/types";
 
 export interface ToolRunResult {
-  toolName: "read" | "search" | "compute";
+  toolName: "read" | "search" | "compute" | "exec";
   summary: string;
 }
 

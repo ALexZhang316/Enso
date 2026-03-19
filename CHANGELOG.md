@@ -1,5 +1,57 @@
 # CHANGELOG
 
+## 2026-03-19 - Host exec proposal-to-execution expansion
+### What changed
+1. Added a bounded `host_exec` confirmation chain for read-only PowerShell commands inside the Enso workspace.
+2. Added `HostExecService` to validate allowed commands, execute them after confirmation, and verify exit status.
+3. Extended `PendingAction` beyond `workspace_write` so the renderer and execution flow can carry either workspace writes or host exec proposals.
+4. Added regressions for safe host exec confirmation/execution, destructive host exec blocking, and the visible UI confirmation flow for host commands.
+
+### Why it changed
+- The proposal-to-execution path previously stopped at workspace writes, leaving `exec` as a documented capability without a real confirmed execution chain.
+- Enso needed a safer intermediate step before any broader external-action support: explicit, read-only commands, scoped to the local workspace, under visible confirmation.
+
+## 2026-03-19 - Core correctness fixes
+### What changed
+1. Added strict runtime validation to `ConfigService`; invalid `config.toml` values now raise explicit config errors instead of silently falling back to defaults.
+2. Added a blocking renderer init-error state so invalid config now renders a clear recovery card with the config path, validation reason, and a reload action.
+3. Narrowed action-adjacent request detection so informational prompts like "Can you update me on..." and "How do I write..." stay on the dialogue path, while real workspace-write and side-effect requests remain gated.
+4. Expanded regression coverage for invalid config handling, informational action wording, and init-error recovery.
+5. Upgraded `preflight` and `verify` to run `test:mvp:all`, bringing UI automation into the formal acceptance path.
+
+### Why it changed
+- The app could previously boot with an invalid config and quietly drift to defaults, hiding configuration bugs.
+- Action gating was too broad and could incorrectly block normal questions.
+- The official verification script did not cover the UI stop conditions that the repository contract depends on.
+
+## 2026-03-19 - Gate regression coverage expansion
+### What changed
+1. Added an integration regression for unsupported action requests so blocked side-effect attempts now assert `action-adjacent` classification, blocked verification, persisted trace phases, and proposal-style audit output.
+2. Extended the UI automation flow to verify blocked actions in the renderer, including the blocked assistant response, right-rail verification state, trace entry, audit summary, and the absence of a confirmation button.
+
+### Why it changed
+- The core correctness fixes narrowed action detection, but the repository still lacked direct regressions proving unsupported side-effect requests stay blocked end-to-end.
+- The right rail is part of the product contract, so blocked-action behavior needed visible UI coverage instead of only service-level assertions.
+
+## 2026-03-19 - Local retrieval quality upgrade
+### What changed
+1. Added a local SQLite FTS search index for knowledge chunks and wired retrieval to prefer full-text search over plain `LIKE` scanning.
+2. Kept the existing keyword search path as a compatibility fallback when the full-text index is unavailable.
+3. Added a regression that verifies exact phrase matches outrank looser keyword-only hits.
+
+### Why it changed
+- Retrieval quality was still limited to lightweight keyword counting, which made exact phrase queries less reliable than they should be.
+- Enso needed a local-first improvement that strengthens evidence retrieval without adding external services or changing the product boundary.
+
+## 2026-03-19 - Remove redundant acceptance checklist file
+### What changed
+1. Removed `MVP_ACCEPTANCE_CHECKLIST_ZH.md` from the repository root.
+2. Kept the active acceptance source in the existing repo contract: `AGENTS.md` stop conditions plus the scripted verification flow.
+
+### Why it changed
+- The file was not referenced by the repository and had become a redundant side document.
+- Its contents were garbled and weaker than the active in-repo source of truth.
+
 ## 2026-03-18 - Workspace proposal-to-execution chain
 ### What changed
 1. Added a minimal `workspace-write` execution path: action-adjacent write requests can now become a visible proposal and, after confirmation, write a file into the Enso workspace.

@@ -1,7 +1,7 @@
 import * as TOML from "@iarna/toml";
 import fs from "node:fs";
 import path from "node:path";
-import { DEFAULT_MODE } from "../../shared/modes";
+import { DEFAULT_MODE, MODES, ModeId } from "../../shared/modes";
 import { DEFAULT_PROVIDER_ID, PROVIDER_PRESET_MAP } from "../../shared/providers";
 import { EnsoConfig } from "../../shared/types";
 
@@ -10,6 +10,13 @@ type PartialConfig = Partial<EnsoConfig> & {
 };
 
 const kimiPreset = PROVIDER_PRESET_MAP[DEFAULT_PROVIDER_ID];
+const MODE_IDS = MODES.map((mode) => mode.id);
+const STYLE_VALUES = ["direct", "balanced"] as const;
+const DEFAULT_ASSUMPTION_VALUES = ["conservative", "pragmatic"] as const;
+const RISK_LABELING_VALUES = ["always", "balanced-only", "off"] as const;
+
+const hasOwn = <T extends object>(value: T, key: PropertyKey): boolean =>
+  Object.prototype.hasOwnProperty.call(value, key);
 
 export const DEFAULT_ENSO_CONFIG: EnsoConfig = {
   provider: {
@@ -40,32 +47,185 @@ export const DEFAULT_ENSO_CONFIG: EnsoConfig = {
   }
 };
 
-const mergeConfig = (partial: PartialConfig): EnsoConfig => ({
-  provider: {
-    provider:
-      partial.provider?.provider && partial.provider.provider in PROVIDER_PRESET_MAP
-        ? partial.provider.provider
-        : DEFAULT_ENSO_CONFIG.provider.provider,
-    baseUrl: partial.provider?.baseUrl ?? DEFAULT_ENSO_CONFIG.provider.baseUrl,
-    model: partial.provider?.model ?? DEFAULT_ENSO_CONFIG.provider.model,
-    apiKey: ""
-  },
-  expression: {
-    ...DEFAULT_ENSO_CONFIG.expression,
-    ...(partial.expression ?? {})
-  },
-  permissions: {
-    ...DEFAULT_ENSO_CONFIG.permissions,
-    ...(partial.permissions ?? {})
-  },
-  modeDefaults: {
-    defaultMode: partial.modeDefaults?.defaultMode ?? DEFAULT_ENSO_CONFIG.modeDefaults.defaultMode,
-    retrievalByMode: {
-      ...DEFAULT_ENSO_CONFIG.modeDefaults.retrievalByMode,
-      ...(partial.modeDefaults?.retrievalByMode ?? {})
+export class ConfigValidationError extends Error {
+  constructor(
+    public readonly configPath: string,
+    reason: string
+  ) {
+    super(`Invalid Enso config at ${configPath}: ${reason}`);
+    this.name = "ConfigValidationError";
+  }
+}
+
+const expectObject = (value: unknown, fieldPath: string, configPath: string): Record<string, unknown> => {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new ConfigValidationError(configPath, `${fieldPath} must be an object`);
+  }
+
+  return value as Record<string, unknown>;
+};
+
+const expectString = (value: unknown, fieldPath: string, configPath: string): string => {
+  if (typeof value !== "string" || value.trim().length === 0) {
+    throw new ConfigValidationError(configPath, `${fieldPath} must be a non-empty string`);
+  }
+
+  return value;
+};
+
+const expectBoolean = (value: unknown, fieldPath: string, configPath: string): boolean => {
+  if (typeof value !== "boolean") {
+    throw new ConfigValidationError(configPath, `${fieldPath} must be a boolean`);
+  }
+
+  return value;
+};
+
+const expectEnum = <T extends string>(
+  value: unknown,
+  allowed: readonly T[],
+  fieldPath: string,
+  configPath: string
+): T => {
+  if (typeof value !== "string" || !allowed.includes(value as T)) {
+    throw new ConfigValidationError(
+      configPath,
+      `${fieldPath} must be one of: ${allowed.join(", ")}`
+    );
+  }
+
+  return value as T;
+};
+
+const normalizeConfig = (partial: PartialConfig, configPath: string): EnsoConfig => {
+  const provider = { ...DEFAULT_ENSO_CONFIG.provider };
+  const expression = { ...DEFAULT_ENSO_CONFIG.expression };
+  const permissions = { ...DEFAULT_ENSO_CONFIG.permissions };
+  const modeDefaults = {
+    defaultMode: DEFAULT_ENSO_CONFIG.modeDefaults.defaultMode,
+    retrievalByMode: { ...DEFAULT_ENSO_CONFIG.modeDefaults.retrievalByMode }
+  };
+
+  if (partial.provider !== undefined) {
+    const providerSection = expectObject(partial.provider, "provider", configPath);
+    if (hasOwn(providerSection, "provider")) {
+      provider.provider = expectEnum(
+        providerSection.provider,
+        Object.keys(PROVIDER_PRESET_MAP),
+        "provider.provider",
+        configPath
+      ) as EnsoConfig["provider"]["provider"];
+    }
+    if (hasOwn(providerSection, "baseUrl")) {
+      provider.baseUrl = expectString(providerSection.baseUrl, "provider.baseUrl", configPath);
+    }
+    if (hasOwn(providerSection, "model")) {
+      provider.model = expectString(providerSection.model, "provider.model", configPath);
     }
   }
-});
+
+  if (partial.expression !== undefined) {
+    const expressionSection = expectObject(partial.expression, "expression", configPath);
+    if (hasOwn(expressionSection, "style")) {
+      expression.style = expectEnum(expressionSection.style, STYLE_VALUES, "expression.style", configPath);
+    }
+    if (hasOwn(expressionSection, "reducedQuestioning")) {
+      expression.reducedQuestioning = expectBoolean(
+        expressionSection.reducedQuestioning,
+        "expression.reducedQuestioning",
+        configPath
+      );
+    }
+    if (hasOwn(expressionSection, "defaultAssumption")) {
+      expression.defaultAssumption = expectEnum(
+        expressionSection.defaultAssumption,
+        DEFAULT_ASSUMPTION_VALUES,
+        "expression.defaultAssumption",
+        configPath
+      );
+    }
+    if (hasOwn(expressionSection, "riskLabeling")) {
+      expression.riskLabeling = expectEnum(
+        expressionSection.riskLabeling,
+        RISK_LABELING_VALUES,
+        "expression.riskLabeling",
+        configPath
+      );
+    }
+  }
+
+  if (partial.permissions !== undefined) {
+    const permissionSection = expectObject(partial.permissions, "permissions", configPath);
+    if (hasOwn(permissionSection, "readOnlyDefault")) {
+      permissions.readOnlyDefault = expectBoolean(
+        permissionSection.readOnlyDefault,
+        "permissions.readOnlyDefault",
+        configPath
+      );
+    }
+    if (hasOwn(permissionSection, "requireConfirmationForWrites")) {
+      permissions.requireConfirmationForWrites = expectBoolean(
+        permissionSection.requireConfirmationForWrites,
+        "permissions.requireConfirmationForWrites",
+        configPath
+      );
+    }
+    if (hasOwn(permissionSection, "requireDoubleConfirmationForExternal")) {
+      permissions.requireDoubleConfirmationForExternal = expectBoolean(
+        permissionSection.requireDoubleConfirmationForExternal,
+        "permissions.requireDoubleConfirmationForExternal",
+        configPath
+      );
+    }
+  }
+
+  if (partial.modeDefaults !== undefined) {
+    const modeDefaultsSection = expectObject(partial.modeDefaults, "modeDefaults", configPath);
+    if (hasOwn(modeDefaultsSection, "defaultMode")) {
+      modeDefaults.defaultMode = expectEnum(
+        modeDefaultsSection.defaultMode,
+        MODE_IDS,
+        "modeDefaults.defaultMode",
+        configPath
+      ) as ModeId;
+    }
+    if (!hasOwn(modeDefaultsSection, "retrievalByMode")) {
+      throw new ConfigValidationError(
+        configPath,
+        "modeDefaults.retrievalByMode must define default, deep-dialogue, decision, research"
+      );
+    }
+
+    const retrievalByModeSection = expectObject(
+      modeDefaultsSection.retrievalByMode,
+      "modeDefaults.retrievalByMode",
+      configPath
+    );
+    for (const modeId of MODE_IDS) {
+      if (!hasOwn(retrievalByModeSection, modeId)) {
+        throw new ConfigValidationError(
+          configPath,
+          `modeDefaults.retrievalByMode.${modeId} must exist and be a boolean`
+        );
+      }
+      modeDefaults.retrievalByMode[modeId] = expectBoolean(
+        retrievalByModeSection[modeId],
+        `modeDefaults.retrievalByMode.${modeId}`,
+        configPath
+      );
+    }
+  }
+
+  return {
+    provider: {
+      ...provider,
+      apiKey: ""
+    },
+    expression,
+    permissions,
+    modeDefaults
+  };
+};
 
 const sanitizeForPersistence = (config: EnsoConfig): EnsoConfig => ({
   ...config,
@@ -107,15 +267,20 @@ export class ConfigService {
     try {
       const raw = fs.readFileSync(this.configPath, "utf8");
       const parsed = TOML.parse(raw) as PartialConfig;
-      return mergeConfig(parsed);
-    } catch {
-      return DEFAULT_ENSO_CONFIG;
+      return normalizeConfig(parsed, this.configPath);
+    } catch (error) {
+      if (error instanceof ConfigValidationError) {
+        throw error;
+      }
+
+      const detail = error instanceof Error ? error.message : "failed to parse TOML";
+      throw new ConfigValidationError(this.configPath, `failed to parse TOML: ${detail}`);
     }
   }
 
   save(config: EnsoConfig): EnsoConfig {
     this.ensureConfigFile();
-    const merged = mergeConfig(config);
+    const merged = normalizeConfig(config, this.configPath);
     fs.writeFileSync(
       this.configPath,
       TOML.stringify(sanitizeForPersistence(merged) as any),
