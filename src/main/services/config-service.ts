@@ -3,7 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { DEFAULT_MODE, MODES, ModeId } from "../../shared/modes";
 import { DEFAULT_PROVIDER_ID, PROVIDER_PRESET_MAP } from "../../shared/providers";
-import { EnsoConfig } from "../../shared/types";
+import { ActionType, EnsoConfig, ACTION_TYPES, PermissionLevel } from "../../shared/types";
 
 type PartialConfig = Partial<EnsoConfig> & {
   provider?: Partial<EnsoConfig["provider"]>;
@@ -13,6 +13,7 @@ const kimiPreset = PROVIDER_PRESET_MAP[DEFAULT_PROVIDER_ID];
 const MODE_IDS = MODES.map((mode) => mode.id);
 const DENSITY_VALUES = ["concise", "standard", "detailed"] as const;
 const REPORTING_GRANULARITY_VALUES = ["plan-level", "result-level"] as const;
+const PERMISSION_LEVEL_VALUES = ["allow", "confirm", "block"] as const;
 
 const hasOwn = <T extends object>(value: T, key: PropertyKey): boolean =>
   Object.prototype.hasOwnProperty.call(value, key);
@@ -30,9 +31,10 @@ export const DEFAULT_ENSO_CONFIG: EnsoConfig = {
   },
   reportingGranularity: "plan-level",
   permissions: {
-    readOnlyDefault: true,
-    requireConfirmationForWrites: true,
-    requireDoubleConfirmationForExternal: true
+    workspace_write: "confirm",
+    host_exec_readonly: "confirm",
+    host_exec_destructive: "block",
+    external_network: "block"
   },
   modeDefaults: {
     defaultMode: DEFAULT_MODE,
@@ -148,26 +150,15 @@ const normalizeConfig = (partial: PartialConfig, configPath: string): EnsoConfig
 
   if (partial.permissions !== undefined) {
     const permissionSection = expectObject(partial.permissions, "permissions", configPath);
-    if (hasOwn(permissionSection, "readOnlyDefault")) {
-      permissions.readOnlyDefault = expectBoolean(
-        permissionSection.readOnlyDefault,
-        "permissions.readOnlyDefault",
-        configPath
-      );
-    }
-    if (hasOwn(permissionSection, "requireConfirmationForWrites")) {
-      permissions.requireConfirmationForWrites = expectBoolean(
-        permissionSection.requireConfirmationForWrites,
-        "permissions.requireConfirmationForWrites",
-        configPath
-      );
-    }
-    if (hasOwn(permissionSection, "requireDoubleConfirmationForExternal")) {
-      permissions.requireDoubleConfirmationForExternal = expectBoolean(
-        permissionSection.requireDoubleConfirmationForExternal,
-        "permissions.requireDoubleConfirmationForExternal",
-        configPath
-      );
+    for (const actionType of ACTION_TYPES) {
+      if (hasOwn(permissionSection, actionType)) {
+        permissions[actionType] = expectEnum(
+          permissionSection[actionType],
+          PERMISSION_LEVEL_VALUES,
+          `permissions.${actionType}`,
+          configPath
+        ) as PermissionLevel;
+      }
     }
   }
 

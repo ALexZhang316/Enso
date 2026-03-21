@@ -146,7 +146,7 @@ Unless there is a hard blocker, do not change the default stack.
 - Local persistence target: SQLite
 - User-editable config: TOML
 - Model integration: provider abstraction with one provider first
-- Knowledge/RAG: local ingestion + chunking + embeddings + SQLite-backed metadata
+- Knowledge/RAG: local ingestion + chunking + SQLite FTS retrieval (vector/embedding deferred)
 - Persistence scope: sessions, state, audit, workspace metadata, and knowledge metadata all stored locally in SQLite
 
 ### Version locks

@@ -1,4 +1,4 @@
-# Windows UI Layout Spec v0.3.1
+# Windows UI Layout Spec v0.3.4
 
 ## Goal
 
@@ -31,16 +31,17 @@ Fixed three-column layout:
 ## Left rail
 
 ### Top: mode switching
-Buttons or segmented control:
-- Default
+Three toggle buttons for optional modes:
 - Deep Dialogue
 - Decision
 - Research
 
+Default mode is the implicit baseline when no optional mode is active.
+
 Requirements:
-- always show active mode
-- exactly one active mode at a time
-- Default should be selectable as the neutral return state
+- clicking an inactive optional mode activates it (exactly one at a time)
+- clicking the already-active optional mode deactivates it (returns to default)
+- when in default mode, all three buttons appear inactive
 - no auto-detection
 - do not force a new window on switch
 
@@ -62,11 +63,10 @@ Requirements:
 
 ### Header
 Show:
-- current mode
 - conversation title
-- active workspace root
+- current mode label (hidden when in default mode)
 - whether a knowledge source is attached
-- whether there is unfinished state
+- version badge
 
 ### Message stream
 Requirements:

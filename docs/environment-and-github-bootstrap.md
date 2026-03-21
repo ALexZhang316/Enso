@@ -1,4 +1,4 @@
-# Environment and GitHub Bootstrap v0.3.1
+# Environment and GitHub Bootstrap v0.3.4
 
 ## Purpose
 

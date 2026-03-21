@@ -7,7 +7,7 @@
 - Tool abstraction is intentionally minimal (single-tool, no cascades).
 - Gate checks still use heuristic detection for action-adjacent turns, though the wording filter is narrower and less prone to false positives.
 - Expression density and reporting granularity are persisted in config but not yet wired into the execution flow system prompt; they are framework-ready for when the execution chain reads them.
-- Confirmation now executes bounded workspace writes plus read-only host commands inside the Enso workspace; external side effects, destructive actions, and broader host execution remain blocked.
+- Permission model covers four action types (workspace_write, host_exec_readonly, host_exec_destructive, external_network) with allow/confirm/block levels; execution flow currently only checks workspace_write permission, other action types are framework-ready.
 - No packaging/installers included in this skeleton round.
 - Only one provider (Kimi) has a working implementation; others are placeholder IDs.
 

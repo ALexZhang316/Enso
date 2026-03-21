@@ -405,8 +405,7 @@ export class ExecutionFlow {
       classification.handlingClass === "action-adjacent" &&
       hostExecCommand !== null &&
       this.deps.hostExecService.isAllowedCommand(hostExecCommand);
-    const requiresWriteConfirmation =
-      config.permissions.readOnlyDefault || config.permissions.requireConfirmationForWrites;
+    const requiresWriteConfirmation = config.permissions.workspace_write !== "allow";
 
     trace(
       traceLog,

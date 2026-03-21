@@ -1,5 +1,18 @@
 # CHANGELOG
 
+## 2026-03-20 - Per-action permission model
+### What changed
+1. Replaced three boolean permission flags (readOnlyDefault, requireConfirmationForWrites, requireDoubleConfirmationForExternal) with a per-action-type permission map.
+2. Four action types: workspace_write, host_exec_readonly, host_exec_destructive, external_network.
+3. Three permission levels per action: allow (direct), confirm (ask once), block (never).
+4. Settings panel renders a permission table with one dropdown per action type.
+5. Execution flow gate checks now read `config.permissions.workspace_write` instead of boolean combinations.
+
+### Why it changed
+- Three booleans had overlapping semantics and ambiguous combinations (readOnlyDefault vs requireConfirmationForWrites).
+- Per-action model is extensible: adding new action types requires one new row, not new booleans.
+- "Double confirmation" was a UX pattern, not a security boundary; replaced by the clearer allow/confirm/block distinction.
+
 ## 2026-03-20 - Expression preferences and reporting granularity redesign
 ### What changed
 1. Replaced old 4-field expression config (style, reducedQuestioning, defaultAssumption, riskLabeling) with `density` (concise/standard/detailed) and `structuredFirst` (checkbox).

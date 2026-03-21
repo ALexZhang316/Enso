@@ -1,4 +1,4 @@
-# Module Spec Table v0.3.1
+# Module Spec Table v0.3.4
 
 Current direction:
 - Windows main chat window
@@ -39,7 +39,7 @@ Outputs:
 
 Persistent data:
 - conversation list
-- window-level UI state
+- window-level UI state (deferred)
 - recent workspace
 
 Typical risks:
@@ -168,11 +168,13 @@ Risks:
 - untyped tool I/O
 
 ### Permission Gate (P0)
-Risk-based action gate:
-- read-only by default outside the workspace
-- configurable policy for workspace writes
-- confirmation for host exec / writes outside workspace
-- dry-run + second confirmation for destructive or external effects
+Per-action permission map (allow / confirm / block):
+- workspace_write: confirm by default
+- host_exec_readonly: confirm by default
+- host_exec_destructive: block by default
+- external_network: block by default
+
+Workspace reads are implicitly allowed.
 
 ### Background Profile Slot (P1)
 User-maintained background material for dialogue continuity.

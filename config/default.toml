@@ -10,9 +10,10 @@ structuredFirst = false
 reportingGranularity = "plan-level"
 
 [permissions]
-readOnlyDefault = true
-requireConfirmationForWrites = true
-requireDoubleConfirmationForExternal = true
+workspace_write = "confirm"
+host_exec_readonly = "confirm"
+host_exec_destructive = "block"
+external_network = "block"
 
 [modeDefaults]
 defaultMode = "default"

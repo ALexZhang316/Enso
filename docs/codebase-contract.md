@@ -1,4 +1,15 @@
-# Codebase Contract v0.3.3
+# Codebase Contract v0.3.4
+
+## 2026-03-20 Per-Action Permission Model
+
+- `EnsoConfig.permissions` changed from `{ readOnlyDefault, requireConfirmationForWrites, requireDoubleConfirmationForExternal }` (three booleans) to `Record<ActionType, PermissionLevel>`.
+- `ActionType`: `workspace_write | host_exec_readonly | host_exec_destructive | external_network`.
+- `PermissionLevel`: `allow | confirm | block`.
+- New types exported from `src/shared/types.ts`: `ActionType`, `PermissionLevel`, `ACTION_TYPES`, `ACTION_TYPE_LABELS`, `PERMISSION_LEVEL_LABELS`.
+- `ConfigService` normalization iterates `ACTION_TYPES` and validates each against `PERMISSION_LEVEL_VALUES`.
+- `ExecutionFlow` gate check simplified: `config.permissions.workspace_write !== "allow"` replaces the old boolean OR.
+- Settings panel renders a per-action dropdown table instead of three checkboxes.
+- Workspace read is implicitly allowed (not in the permission map) since it has no side effects.
 
 ## 2026-03-20 Expression Preferences Redesign
 

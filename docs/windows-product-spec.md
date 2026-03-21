@@ -1,4 +1,4 @@
-# Windows Desktop Product Spec v0.3.1
+# Windows Desktop Product Spec v0.3.4
 
 ## Working definition
 

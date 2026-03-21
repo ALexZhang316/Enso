@@ -4,10 +4,15 @@ import remarkGfm from "remark-gfm";
 import { DEFAULT_MODE, MODES, OPTIONAL_MODES, ModeId } from "@shared/modes";
 import { PROVIDER_PRESETS, PROVIDER_PRESET_MAP, ProviderId } from "@shared/providers";
 import {
+  ACTION_TYPES,
+  ACTION_TYPE_LABELS,
+  ActionType,
   AuditSummary,
   ChatMessage,
   Conversation,
   EnsoConfig,
+  PERMISSION_LEVEL_LABELS,
+  PermissionLevel,
   RetrievedSnippet,
   StateSnapshot,
   KnowledgeSource,
@@ -1107,54 +1112,30 @@ const App = (): JSX.Element => {
 
                       <div className="space-y-2">
                         <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">权限</div>
-                        <label className="flex items-center gap-2 text-[12px] text-muted-foreground">
-                          <input
-                            type="checkbox"
-                            checked={settingsDraft.permissions.readOnlyDefault}
-                            onChange={(event) =>
-                              setSettingsDraft({
-                                ...settingsDraft,
-                                permissions: {
-                                  ...settingsDraft.permissions,
-                                  readOnlyDefault: event.target.checked
-                                }
-                              })
-                            }
-                          />
-                          默认只读
-                        </label>
-                        <label className="flex items-center gap-2 text-[12px] text-muted-foreground">
-                          <input
-                            type="checkbox"
-                            checked={settingsDraft.permissions.requireConfirmationForWrites}
-                            onChange={(event) =>
-                              setSettingsDraft({
-                                ...settingsDraft,
-                                permissions: {
-                                  ...settingsDraft.permissions,
-                                  requireConfirmationForWrites: event.target.checked
-                                }
-                              })
-                            }
-                          />
-                          写入类动作前需确认
-                        </label>
-                        <label className="flex items-center gap-2 text-[12px] text-muted-foreground">
-                          <input
-                            type="checkbox"
-                            checked={settingsDraft.permissions.requireDoubleConfirmationForExternal}
-                            onChange={(event) =>
-                              setSettingsDraft({
-                                ...settingsDraft,
-                                permissions: {
-                                  ...settingsDraft.permissions,
-                                  requireDoubleConfirmationForExternal: event.target.checked
-                                }
-                              })
-                            }
-                          />
-                          外部动作需双重确认
-                        </label>
+                        {ACTION_TYPES.map((actionType: ActionType) => (
+                          <div key={actionType} className="flex items-center justify-between gap-2">
+                            <span className="text-[12px] text-muted-foreground">{ACTION_TYPE_LABELS[actionType]}</span>
+                            <select
+                              className="h-7 rounded-lg bg-black/[0.04] px-2 text-[11px] text-foreground transition-colors focus:outline-none focus:ring-2 focus:ring-primary/30"
+                              value={settingsDraft.permissions[actionType]}
+                              onChange={(event) =>
+                                setSettingsDraft({
+                                  ...settingsDraft,
+                                  permissions: {
+                                    ...settingsDraft.permissions,
+                                    [actionType]: event.target.value as PermissionLevel
+                                  }
+                                })
+                              }
+                            >
+                              {(["allow", "confirm", "block"] as const).map((level) => (
+                                <option key={level} value={level}>
+                                  {PERMISSION_LEVEL_LABELS[level]}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        ))}
                       </div>
 
                       <Separator />

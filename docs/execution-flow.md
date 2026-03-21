@@ -1,4 +1,4 @@
-# Single Request Execution Flow v0.3.1
+# Single Request Execution Flow v0.3.4
 
 ## Scope
 
@@ -22,7 +22,6 @@ Assumptions:
    - pure dialogue
    - retrieval-enhanced
    - tool-assisted
-   - execution-heavy
    - action-adjacent
 4. Draft a bounded plan.
 5. Decide whether retrieval is needed.
@@ -140,9 +139,9 @@ Examples:
 No "done" should be shown without either verification or an explicit note that verification was skipped.
 
 ### Phase 10 - Gate check
-If the result implies a write outside the workspace, host execution, destructive action, or external side effect, stop at the gate and convert the result into a proposal, dry-run summary, or confirmation prompt.
+Check the per-action permission level for the implied action type. If the level is `confirm`, convert the result into a proposal and wait for user confirmation. If the level is `block`, reject the action and record it in the trace.
 
-Workspace writes may be allowed by policy, but must still be visible in the trace.
+Actions at `allow` level proceed directly but must still be visible in the trace.
 
 ### Phase 11 - Final response shaping
 Convert the structured draft plus observed results into the final user-visible response according to expression configuration and active mode.
@@ -196,3 +195,18 @@ At this stage:
 - the UI must show plan / execution trace / verification separately from the final answer
 
 A turn should no longer collapse into "call model directly" except for pure dialogue cases.
+
+## Trace phase mapping
+
+The 14-step canonical sequence above maps to 8 runtime trace phases recorded in `TraceEntry`:
+
+| Trace phase | Canonical steps covered |
+|-------------|------------------------|
+| classify | 2-3 (read context + parse request) |
+| plan | 4 (plan draft) |
+| retrieval | 5, 9 (retrieval decision + execution) |
+| tool | 6, 9 (tool decision + execution) |
+| model | 7-8 (context assembly + structured draft) |
+| gate | 11 (gate check) |
+| verification | 10 (verify results) |
+| persist | 12-14 (persistence, audit, UI update) |

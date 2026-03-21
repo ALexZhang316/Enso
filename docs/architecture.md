@@ -1,4 +1,4 @@
-# Architecture v0.3.1
+# Architecture v0.3.4
 
 ## One-line architecture view
 
@@ -105,9 +105,9 @@ Config must be schema-validated.
 Invalid config must never silently change behavior.
 
 ### Knowledge layer (RAG)
-- document store
-- index / vector store
-- retrieval pipeline
+- document store (local file import)
+- index: SQLite FTS over chunked content (vector similarity deferred)
+- retrieval pipeline: FTS ranking with keyword fallback
 - evidence injection
 
 Answers must distinguish:
@@ -161,13 +161,13 @@ Tool classes:
 - exec
 - external-action
 
-Permission tags:
-- `read_only`
-- `compute_only`
-- `workspace_write`
-- `host_exec_requires_confirm`
-- `destructive_requires_dry_run`
-- `external_side_effect_requires_double_confirm`
+Per-action permission levels (allow / confirm / block):
+- `workspace_write` (default: confirm)
+- `host_exec_readonly` (default: confirm)
+- `host_exec_destructive` (default: block)
+- `external_network` (default: block)
+
+Workspace reads are implicitly allowed (no side effects).
 
 ## Mode system
 
@@ -236,11 +236,18 @@ If multiple trust boundaries are ever needed, split them at the OS user / profil
 
 ## Permission and risk model
 
-- Level 0: pure dialogue -> allowed
-- Level 1: read-only retrieval / computation -> allowed
-- Level 2: writes inside Enso workspace -> allowed or single confirmation depending on policy
-- Level 3: host exec / writes outside workspace -> explicit confirmation
-- Level 4: destructive or external side effects -> dry-run + explicit confirmation
+Per-action permission map. Each action type has one of three levels:
+- allow: direct execution, no interruption
+- confirm: present proposal, execute after single user confirmation
+- block: code-level rejection, not executable
+
+Action types and defaults:
+- workspace_write -> confirm
+- host_exec_readonly -> confirm
+- host_exec_destructive -> block
+- external_network -> block
+
+Pure dialogue and read-only retrieval/computation are always allowed without gating.
 
 ## One-line definition
 

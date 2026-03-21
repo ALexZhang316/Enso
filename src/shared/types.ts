@@ -90,6 +90,34 @@ export interface ProviderConfig {
   apiKey: string;
 }
 
+export type ActionType =
+  | "workspace_write"
+  | "host_exec_readonly"
+  | "host_exec_destructive"
+  | "external_network";
+
+export type PermissionLevel = "allow" | "confirm" | "block";
+
+export const ACTION_TYPES: ActionType[] = [
+  "workspace_write",
+  "host_exec_readonly",
+  "host_exec_destructive",
+  "external_network"
+];
+
+export const ACTION_TYPE_LABELS: Record<ActionType, string> = {
+  workspace_write: "工作区写入",
+  host_exec_readonly: "本地只读命令",
+  host_exec_destructive: "本地破坏性命令",
+  external_network: "外部网络"
+};
+
+export const PERMISSION_LEVEL_LABELS: Record<PermissionLevel, string> = {
+  allow: "允许",
+  confirm: "确认",
+  block: "禁止"
+};
+
 export interface EnsoConfig {
   provider: ProviderConfig;
   expression: {
@@ -97,11 +125,7 @@ export interface EnsoConfig {
     structuredFirst: boolean;
   };
   reportingGranularity: "plan-level" | "result-level";
-  permissions: {
-    readOnlyDefault: boolean;
-    requireConfirmationForWrites: boolean;
-    requireDoubleConfirmationForExternal: boolean;
-  };
+  permissions: Record<ActionType, PermissionLevel>;
   modeDefaults: {
     defaultMode: ModeId;
     retrievalByMode: Record<ModeId, boolean>;

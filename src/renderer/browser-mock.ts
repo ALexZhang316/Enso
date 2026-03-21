@@ -22,9 +22,10 @@ const mockConfig = {
   },
   reportingGranularity: "plan-level" as const,
   permissions: {
-    readOnlyDefault: true,
-    requireConfirmationForWrites: true,
-    requireDoubleConfirmationForExternal: true
+    workspace_write: "confirm" as const,
+    host_exec_readonly: "confirm" as const,
+    host_exec_destructive: "block" as const,
+    external_network: "block" as const
   },
   modeDefaults: {
     defaultMode: DEFAULT_MODE,
