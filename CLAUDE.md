@@ -41,10 +41,19 @@ The product is intentionally narrow. It is not:
 Before writing any code:
 - Run `npm run preflight` and confirm it passes.
 
+Execution bias:
+- Default to bounded autopilot once the objective, scope, and stop condition are clear.
+- Continue through repeated cycles of inspect -> modify -> verify -> repair instead of stopping at the first local failure.
+- Do not inflate straightforward tasks into extended planning or meta-document work unless the user explicitly asks.
+- If preflight is already red because of known unrelated regressions, record that baseline and continue with scoped work unless the failure blocks the requested task directly.
+- Do not pause for routine design forks, minor failures, or document churn.
+- Only stop on hard blockers: missing access/credentials, ambiguous goals, irreversible high-risk side effects beyond the approved boundary, or environment failure that prevents progress.
+
 After finishing code changes:
 - Run `npm run postflight` and address any warnings.
 - If postflight warns about un-updated docs, update them before considering the task done.
-- The three mandatory docs are: CHANGELOG.md, TODO_LIMITATIONS.md, docs/codebase-contract.md.
+- The three core docs are: CHANGELOG.md, TODO_LIMITATIONS.md, docs/codebase-contract.md.
+- Update them when the change materially affects behavior, limitations, or the codebase contract. Do not create cosmetic doc churn when nothing substantive changed.
 
 Task lifecycle and detailed rules are in the "Dev workflow protocol" section of AGENTS.md.
 

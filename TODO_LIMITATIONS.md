@@ -12,6 +12,9 @@
 - No packaging/installers included in this skeleton round.
 - Provider backends now exist for Kimi, OpenAI, DeepSeek, Anthropic, and Gemini, but current regression coverage only proves protocol wiring with mocked responses; there is no live end-to-end smoke against real third-party accounts in CI.
 - `npm run verify` is currently red by design after the 2026-03-21 regression expansion, because the new tests now expose the unresolved permission-boundary defects above instead of silently passing around them.
+- The agreed target permission model is now captured in `tasks/0002-permission-boundary-rework.md`, but the runtime has not implemented it yet.
+- Workflow friction has been reduced in repo/global constraints, but execution speed still depends on agents actually prioritizing direct implementation over extra process artifacts on clear tasks.
+- Bounded autopilot is now the intended workflow mode, but actual multi-hour unattended progress still depends on tool/runtime limits outside the repo.
 
 ## Completed (Previously Deferred, Now Done)
 

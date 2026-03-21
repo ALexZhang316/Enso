@@ -1,5 +1,28 @@
 # CHANGELOG
 
+## 2026-03-21 - Workflow constraint relaxation and bounded autopilot
+### What changed
+1. Updated `AGENTS.md` so clear, bounded tasks now bias toward direct execution instead of extended planning and process artifact churn.
+2. Allowed scoped work to continue when `preflight` or `verify` are already red because of known unrelated regressions, as long as the agent records the baseline and runs relevant targeted verification.
+3. Relaxed the repo rule that forced task-file creation and mandatory tri-doc updates for every small change; the new rule is to create/update them when the task materially changes behavior, limitations, or repo contract.
+4. Updated `CLAUDE.md` to mirror the same execution-first, lower-friction workflow so Claude-side behavior stays aligned with the repo contract.
+5. Upgraded the repo's execution bias into a bounded-autopilot rule: once scope and stop condition are clear, the agent should continue through inspect -> modify -> verify -> repair loops instead of stopping at the first red result.
+
+### Why it changed
+- The prior workflow constraints were accurate but too conservative for clear, bounded tasks.
+- Excess process overhead was slowing real task progress and causing the agent to spend too much time on meta work instead of implementation.
+- The desired operating mode is now long-running, bounded autonomy rather than cautious single-step execution.
+
+## 2026-03-21 - Added executable task brief for permission boundary rework
+### What changed
+1. Added `tasks/0002-permission-boundary-rework.md` as the repo-local execution brief for the next implementation round.
+2. Captured the agreed target model for permission handling: front-loaded permission checks, separate `model_call` vs `local_egress`, stricter host-exec boundary handling, and real `allow / confirm / block` semantics.
+3. Updated `tasks/INDEX.md` so the permission-boundary rework is now the active ready task instead of remaining only in chat discussion.
+
+### Why it changed
+- The permission discussion had converged enough that the next agent should not need to reconstruct requirements from chat history.
+- The repo workflow expects objective, scope, and acceptance criteria to be encoded into a reusable task artifact.
+
 ## 2026-03-21 - Multi-provider runtime implementation
 ### What changed
 1. Added concrete runtime providers for OpenAI, DeepSeek, Anthropic, and Gemini instead of only exposing them as settings presets.

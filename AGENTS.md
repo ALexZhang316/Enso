@@ -167,24 +167,38 @@ Every coding session must follow this lifecycle:
 PREFLIGHT -> PLAN -> EXECUTE -> VERIFY -> POSTFLIGHT -> DONE
 ```
 
+### Bounded Autopilot
+
+- Default operating mode is bounded autopilot.
+- Once the objective, scope, and stop condition are clear, continue autonomously through repeated cycles of inspect -> modify -> verify -> repair.
+- Do not pause for routine design forks, minor failures, or process artifact creation.
+- Use milestone updates rather than frequent permission-seeking pauses.
+- Existing unrelated red tests are not hard blockers. Record the baseline briefly, then continue with scoped work.
+- Hard blockers are:
+  - missing credentials or access that cannot be self-resolved
+  - ambiguous or conflicting user goals
+  - irreversible high-risk side effects beyond the approved boundary
+  - environment failure that prevents the requested work
+  - direct conflict with explicit user instructions
+
 ### Phase details
 
-1. **PREFLIGHT**: Read onboarding docs (AGENTS.md, current-baseline, execution-flow, codebase-contract). Run `npm run preflight`. Confirm understanding to user. Do not write code until preflight passes.
-2. **PLAN**: Define scope and acceptance criteria. If a task file exists in `tasks/`, fill in the fields. If not, state the plan verbally or create a task file.
+1. **PREFLIGHT**: Read onboarding docs (AGENTS.md, current-baseline, execution-flow, codebase-contract). Run `npm run preflight`. Confirm understanding to user. If preflight is already red because of known unrelated regressions, record that baseline briefly and continue with scoped work unless the failure blocks the requested task directly.
+2. **PLAN**: Define scope and acceptance criteria. If a task file already exists in `tasks/`, use it. If not, state the plan verbally. Create a new task file only for multi-session work, material contract changes, or when the user asks for one.
 3. **EXECUTE**: Implement changes.
-4. **VERIFY**: Run `npm run verify`. Check each acceptance criterion.
-5. **POSTFLIGHT**: Update the three mandatory docs (see below). Run `npm run postflight` and address any warnings. Review `git diff` for unintended changes.
+4. **VERIFY**: Run targeted checks repeatedly during execution. Use `npm run verify` as the broader milestone gate. If failures are within scope, repair them in the same session rather than stopping at the first red result. If the repo has known pre-existing red tests unrelated to the scoped task, report the delta clearly and also run the most relevant targeted verification for the change.
+5. **POSTFLIGHT**: Update the required docs that materially changed (see below). Run `npm run postflight` and address any new warnings introduced by the task. Review `git diff` for unintended changes.
 6. **DONE**: All checklists complete. Task file status set to `done` if applicable.
 
 ### Mandatory post-flight document updates
 
-After ANY code change, you MUST update these three files before reporting completion:
+After code changes that materially affect behavior, limitations, or the codebase contract, you MUST update the relevant files before reporting completion:
 
 - `CHANGELOG.md` -- what changed and why
 - `TODO_LIMITATIONS.md` -- any new limitations or resolved items
 - `docs/codebase-contract.md` -- directory structure, module registry, schema, known issues, decisions
 
-Failure to update these documents is a defect equivalent to a broken build.
+Do not force cosmetic updates when a file's actual source-of-truth content did not change. Failure to update a materially affected document is a defect equivalent to a broken build.
 
 ### Task files
 

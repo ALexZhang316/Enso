@@ -1,5 +1,23 @@
 # Codebase Contract v0.3.4
 
+## 2026-03-21 Workflow Contract Update
+
+- `AGENTS.md` now explicitly biases toward direct execution for clear, bounded tasks.
+- Repo workflow now allows scoped progress when `preflight` / `verify` are already red because of known unrelated regressions, provided the baseline is stated and targeted verification is still run.
+- Task-file creation and tri-doc updates are now proportional rather than automatic for every small change; they are required when the task materially changes behavior, limitations, or repo contract.
+- `CLAUDE.md` mirrors the same lower-friction workflow so repo-local and Claude-specific instructions do not drift.
+- The repo workflow now explicitly prefers bounded autopilot once objective, scope, and stop condition are clear.
+
+## 2026-03-21 Task Brief Update
+
+- `tasks/0002-permission-boundary-rework.md` now exists as the active repo-local implementation brief for the permission-system rewrite.
+- The task captures:
+  - front-loaded permission checks
+  - distinct `model_call` and `local_egress` concerns
+  - stricter host-exec boundary handling
+  - real `allow / confirm / block` runtime semantics
+- `tasks/INDEX.md` marks Task 0002 as `ready`.
+
 ## 2026-03-21 Provider Implementation Update
 
 - `src/main/providers/` now includes:
