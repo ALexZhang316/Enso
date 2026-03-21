@@ -1,5 +1,36 @@
 # Codebase Contract v0.3.4
 
+## 2026-03-21 Provider Implementation Update
+
+- `src/main/providers/` now includes:
+  - `openai-compatible-provider.ts` for shared chat-completions style providers
+  - `openai-provider.ts`
+  - `deepseek-provider.ts`
+  - `anthropic-provider.ts`
+  - `gemini-provider.ts`
+  - `provider-http-utils.ts`
+- `provider-factory.ts` now returns concrete providers for all ids exposed in `src/shared/providers.ts`.
+- `ModelAdapter` missing-key errors are provider-aware rather than Kimi-specific.
+- Regression coverage now includes mocked response-shape tests for OpenAI, DeepSeek, Anthropic, and Gemini in addition to the provider-preset parity test.
+- Current reality after this update:
+  - provider/runtime parity is fixed
+  - `npm run test:mvp:ui` passes
+  - `npm run test:mvp` still fails only on the unresolved permission-boundary regressions added earlier
+
+## 2026-03-21 Test Coverage Gap Update
+
+- `tests/mvp.integration.test.cjs` now covers:
+  - provider preset parity with `createTextGenerationProvider()`
+  - `workspace_write` allow vs block semantics
+  - `host_exec_readonly` allow vs block semantics
+  - rejection of host-exec commands that target paths outside the Enso workspace
+  - `external_network = block` preventing remote model calls
+- Existing happy-path integration tests that require the remote model now explicitly set `external_network = "allow"` so they stop depending on the current runtime bug.
+- `tests/mvp.ui.test.cjs` now seeds a network-allowed config for model-backed UI flows and adds an end-to-end `knowledge import -> retrieval -> evidence panel` regression.
+- Current reality after the test expansion:
+  - `npm run test:mvp:ui` passes.
+- `npm run test:mvp` and therefore `npm run verify` fail on unresolved runtime defects in permission enforcement and host-exec workspace scoping.
+
 ## 2026-03-20 Per-Action Permission Model
 
 - `EnsoConfig.permissions` changed from `{ readOnlyDefault, requireConfirmationForWrites, requireDoubleConfirmationForExternal }` (three booleans) to `Record<ActionType, PermissionLevel>`.

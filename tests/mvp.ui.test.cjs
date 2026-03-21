@@ -8,6 +8,10 @@ const PROJECT_ROOT = path.resolve(__dirname, "..");
 const DIST_MAIN_PATH = path.join(PROJECT_ROOT, "dist", "main", "main.js");
 const ARTIFACT_DIR = path.join(PROJECT_ROOT, "output", "playwright");
 const DEFAULT_CONFIG_TOML = fs.readFileSync(path.join(PROJECT_ROOT, "config", "default.toml"), "utf8");
+const NETWORK_ALLOWED_CONFIG_TOML = DEFAULT_CONFIG_TOML.replace(
+  'external_network = "block"',
+  'external_network = "allow"'
+);
 
 fs.mkdirSync(ARTIFACT_DIR, { recursive: true });
 
@@ -49,10 +53,17 @@ const run = async () => {
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "enso-ui-kimi-"));
   const userDataDir = path.join(tempRoot, "user-data");
   fs.mkdirSync(userDataDir, { recursive: true });
+  fs.writeFileSync(path.join(userDataDir, "config.toml"), NETWORK_ALLOWED_CONFIG_TOML, "utf8");
   const invalidRoot = fs.mkdtempSync(path.join(os.tmpdir(), "enso-ui-invalid-config-"));
   const invalidUserDataDir = path.join(invalidRoot, "user-data");
   fs.mkdirSync(invalidUserDataDir, { recursive: true });
   const invalidConfigPath = path.join(invalidUserDataDir, "config.toml");
+  const scriptedKnowledgePath = path.join(tempRoot, "ui-knowledge.md");
+  fs.writeFileSync(
+    scriptedKnowledgePath,
+    "Enso local workspace keeps evidence visible for the operator.",
+    "utf8"
+  );
 
   let firstApp;
   let firstPage;
@@ -88,11 +99,22 @@ const run = async () => {
 
     ({ electronApp: firstApp, page: firstPage } = await runSession({
       ENSO_USER_DATA_DIR: userDataDir,
+      ENSO_TEST_IMPORT_FILES: scriptedKnowledgePath,
       ENSO_TEST_KIMI_RESPONSE: "# 自动草稿\n\n- 这是一次工作区写入测试。"
     }));
 
     await firstPage.getByTestId("layout-root").waitFor();
     await firstPage.getByTestId("mode-button-deep-dialogue").waitFor();
+    await firstPage.getByTestId("nav-knowledge-button").click();
+    await firstPage.getByTestId("knowledge-import-button").click();
+    await firstPage.getByTestId("knowledge-count").getByText("已导入 1 个来源").waitFor();
+    await firstPage.getByTestId("knowledge-import-status").getByText("已导入 1 个文件").waitFor();
+    await firstPage.getByTestId("nav-knowledge-button").click();
+    await firstPage.getByTestId("composer-input").fill("Enso local workspace");
+    await firstPage.getByTestId("composer-retrieval-toggle").check();
+    await firstPage.getByTestId("composer-send-button").click();
+    await firstPage.getByTestId("evidence-panel").getByText("ui-knowledge.md", { exact: true }).waitFor();
+    await firstPage.getByTestId("chat-message-list").getByText("已检索 1 条证据", { exact: true }).waitFor();
     await firstPage.getByTestId("composer-input").fill("Delete the README.md file.");
     await firstPage.getByTestId("composer-send-button").click();
     await firstPage.getByText("当前仅支持工作区内写入提案").waitFor();

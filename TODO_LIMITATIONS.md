@@ -7,12 +7,15 @@
 - Tool abstraction is intentionally minimal (single-tool, no cascades).
 - Gate checks still use heuristic detection for action-adjacent turns, though the wording filter is narrower and less prone to false positives.
 - Expression density and reporting granularity are persisted in config but not yet wired into the execution flow system prompt; they are framework-ready for when the execution chain reads them.
-- Permission model covers four action types (workspace_write, host_exec_readonly, host_exec_destructive, external_network) with allow/confirm/block levels; execution flow currently only checks workspace_write permission, other action types are framework-ready.
+- Permission model covers four action types (workspace_write, host_exec_readonly, host_exec_destructive, external_network) with allow/confirm/block levels, but runtime enforcement is still incomplete: workspace_write=block still proposes, host_exec_readonly allow/block are ignored, and external_network is not enforced yet.
+- Host exec currently constrains only the working directory, not command arguments, so read-only commands can still target paths outside the Enso workspace after confirmation.
 - No packaging/installers included in this skeleton round.
-- Only one provider (Kimi) has a working implementation; others are placeholder IDs.
+- Provider backends now exist for Kimi, OpenAI, DeepSeek, Anthropic, and Gemini, but current regression coverage only proves protocol wiring with mocked responses; there is no live end-to-end smoke against real third-party accounts in CI.
+- `npm run verify` is currently red by design after the 2026-03-21 regression expansion, because the new tests now expose the unresolved permission-boundary defects above instead of silently passing around them.
 
 ## Completed (Previously Deferred, Now Done)
 
+- Settings presets and runtime provider implementations are now aligned for Kimi, OpenAI, DeepSeek, Anthropic, and Gemini.
 - Proposal-to-execution now covers both workspace writes and read-only host exec inside the Enso workspace.
 - Local retrieval quality now prefers SQLite FTS ranking while keeping keyword fallback compatibility.
 - Config loading/saving now performs strict runtime validation and raises explicit config errors instead of silently falling back to defaults.
@@ -43,8 +46,8 @@
 
 ## Near-Term Next Implementation Targets
 
-- Expand proposal-to-execution beyond read-only workspace host exec into broader host exec and external actions with stricter policy levels.
-- Add more targeted tests for trace persistence and gate behavior beyond the current workspace-write and unsupported-action regressions.
-- Add a second provider implementation (e.g., DeepSeek or OpenAI) to validate the provider abstraction.
+- Make runtime permission handling honor allow/confirm/block for workspace_write, host_exec_readonly, and external_network so the new regressions pass.
+- Enforce workspace-centered host exec by rejecting commands that reference paths outside the Enso workspace, not just by constraining cwd.
+- Add live smoke coverage or a manual verification checklist for the newly wired non-Kimi providers.
 - Improve retrieval quality further (consider local embedding-based similarity beyond the current SQLite FTS + keyword fallback approach).
 - Add workspace-write tool with permission-gated execution.

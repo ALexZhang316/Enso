@@ -1,3 +1,4 @@
+import { PROVIDER_PRESET_MAP } from "../../shared/providers";
 import { EnsoConfig, ChatMessage } from "../../shared/types";
 import { createTextGenerationProvider } from "../providers/provider-factory";
 import { ProviderError } from "../providers/types";
@@ -17,7 +18,10 @@ export class ModelAdapter {
     const apiKey = this.secretService.getProviderApiKey(provider);
 
     if (!apiKey) {
-      throw new ProviderError("missing_api_key", "请先在设置中填写 Kimi API Key。");
+      throw new ProviderError(
+        "missing_api_key",
+        `Please add a ${PROVIDER_PRESET_MAP[provider]?.label ?? provider} API key in Settings first.`
+      );
     }
 
     const generationProvider = createTextGenerationProvider(provider);

@@ -1,5 +1,28 @@
 # CHANGELOG
 
+## 2026-03-21 - Multi-provider runtime implementation
+### What changed
+1. Added concrete runtime providers for OpenAI, DeepSeek, Anthropic, and Gemini instead of only exposing them as settings presets.
+2. Refactored Kimi onto the shared OpenAI-compatible provider path and added common HTTP/error parsing utilities for provider integrations.
+3. Updated `ModelAdapter` so missing-key errors reference the active provider label instead of hardcoding Kimi.
+4. Expanded integration coverage with response-shape tests for OpenAI, DeepSeek, Anthropic, and Gemini, plus the existing provider-preset parity regression.
+
+### Why it changed
+- The settings UI was advertising provider choices the runtime could not execute.
+- Users could save non-Kimi providers and only discover the mismatch after submitting a request.
+- Provider support needed to move from placeholder config surface to actual runnable backend wiring.
+
+## 2026-03-21 - Regression coverage expansion for permission gaps and retrieval wiring
+### What changed
+1. Expanded `tests/mvp.integration.test.cjs` to cover provider-preset/runtime parity, workspace_write allow/block semantics, host_exec_readonly allow/block semantics, outside-workspace host-exec rejection, and external_network blocking.
+2. Updated model-backed happy-path integration tests to explicitly set `external_network = "allow"` instead of depending on the current runtime bug where remote model calls ignore the default `block` permission.
+3. Extended `tests/mvp.ui.test.cjs` to preload a network-allowed config for model-backed UI flows and to cover `knowledge import -> retrieval -> evidence panel` end-to-end in the desktop shell.
+
+### Why it changed
+- The review identified real permission-boundary defects, but the official regression suite did not prove those boundaries.
+- Positive tests were implicitly relying on incorrect behavior from the permission system, which would make future fixes look like regressions.
+- Knowledge import was wired in the product shell but still lacked an end-to-end UI regression covering retrieval evidence visibility.
+
 ## 2026-03-20 - Per-action permission model
 ### What changed
 1. Replaced three boolean permission flags (readOnlyDefault, requireConfirmationForWrites, requireDoubleConfirmationForExternal) with a per-action-type permission map.

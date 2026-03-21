@@ -7,15 +7,21 @@ const PROJECT_ROOT = path.resolve(__dirname, "..");
 const DIST_ROOT = path.join(PROJECT_ROOT, "dist");
 
 const { ConfigService, ConfigValidationError } = require(path.join(DIST_ROOT, "main/services/config-service.js"));
+const { AnthropicProvider } = require(path.join(DIST_ROOT, "main/providers/anthropic-provider.js"));
+const { DeepSeekProvider } = require(path.join(DIST_ROOT, "main/providers/deepseek-provider.js"));
 const { ExecutionFlow } = require(path.join(DIST_ROOT, "main/core/execution-flow.js"));
+const { GeminiProvider } = require(path.join(DIST_ROOT, "main/providers/gemini-provider.js"));
 const { HostExecService } = require(path.join(DIST_ROOT, "main/services/host-exec-service.js"));
 const { KnowledgeService } = require(path.join(DIST_ROOT, "main/services/knowledge-service.js"));
 const { ModelAdapter } = require(path.join(DIST_ROOT, "main/services/model-adapter.js"));
+const { createTextGenerationProvider } = require(path.join(DIST_ROOT, "main/providers/provider-factory.js"));
+const { OpenAIProvider } = require(path.join(DIST_ROOT, "main/providers/openai-provider.js"));
 const { SecretService } = require(path.join(DIST_ROOT, "main/services/secret-service.js"));
 const { EnsoStore } = require(path.join(DIST_ROOT, "main/services/store.js"));
 const { ToolService } = require(path.join(DIST_ROOT, "main/services/tool-service.js"));
 const { WorkspaceService } = require(path.join(DIST_ROOT, "main/services/workspace-service.js"));
 const { DEFAULT_MODE } = require(path.join(DIST_ROOT, "shared/modes.js"));
+const { PROVIDER_PRESETS } = require(path.join(DIST_ROOT, "shared/providers.js"));
 const { KimiProvider } = require(path.join(DIST_ROOT, "main/providers/kimi-provider.js"));
 const { ProviderError } = require(path.join(DIST_ROOT, "main/providers/types.js"));
 
@@ -98,6 +104,60 @@ const mockKimiReply = (text) => {
   return () => {
     global.fetch = originalFetch;
   };
+};
+
+const mockKimiReplyWithCount = (text) => {
+  const originalFetch = global.fetch;
+  let callCount = 0;
+  global.fetch = async () => {
+    callCount += 1;
+    return new Response(
+      JSON.stringify({
+        choices: [
+          {
+            message: {
+              content: text
+            }
+          }
+        ]
+      }),
+      {
+        status: 200,
+        headers: { "Content-Type": "application/json" }
+      }
+    );
+  };
+
+  return {
+    getCallCount: () => callCount,
+    restore() {
+      global.fetch = originalFetch;
+    }
+  };
+};
+
+const mockJsonFetch = (payload, status = 200) => {
+  const originalFetch = global.fetch;
+  global.fetch = async () =>
+    new Response(JSON.stringify(payload), {
+      status,
+      headers: { "Content-Type": "application/json" }
+    });
+
+  return () => {
+    global.fetch = originalFetch;
+  };
+};
+
+const updatePermissions = (harness, overrides) => {
+  const currentConfig = harness.configService.load();
+  return harness.configService.save({
+    ...currentConfig,
+    permissions: {
+      ...currentConfig.permissions,
+      ...overrides
+    }
+  });
 };
 
 const tests = [
@@ -274,12 +334,147 @@ const tests = [
     }
   },
   {
+    name: "OpenAIProvider extracts assistant text from chat completions",
+    fn: async () => {
+      const restoreFetch = mockJsonFetch({
+        choices: [
+          {
+            message: {
+              content: "openai reply"
+            }
+          }
+        ]
+      });
+
+      try {
+        const provider = new OpenAIProvider();
+        const result = await provider.generate({
+          provider: "openai",
+          baseUrl: "https://api.openai.com/v1",
+          model: "gpt-5.4",
+          apiKey: "openai-key",
+          messages: [{ role: "user", content: "hello" }]
+        });
+
+        assert.equal(result.text, "openai reply");
+      } finally {
+        restoreFetch();
+      }
+    }
+  },
+  {
+    name: "DeepSeekProvider extracts assistant text from chat completions",
+    fn: async () => {
+      const restoreFetch = mockJsonFetch({
+        choices: [
+          {
+            message: {
+              content: "deepseek reply"
+            }
+          }
+        ]
+      });
+
+      try {
+        const provider = new DeepSeekProvider();
+        const result = await provider.generate({
+          provider: "deepseek",
+          baseUrl: "https://api.deepseek.com/v1",
+          model: "deepseek-chat",
+          apiKey: "deepseek-key",
+          messages: [{ role: "user", content: "hello" }]
+        });
+
+        assert.equal(result.text, "deepseek reply");
+      } finally {
+        restoreFetch();
+      }
+    }
+  },
+  {
+    name: "AnthropicProvider extracts assistant text from messages API",
+    fn: async () => {
+      const restoreFetch = mockJsonFetch({
+        content: [
+          {
+            type: "text",
+            text: "anthropic reply"
+          }
+        ]
+      });
+
+      try {
+        const provider = new AnthropicProvider();
+        const result = await provider.generate({
+          provider: "anthropic",
+          baseUrl: "https://api.anthropic.com/v1",
+          model: "claude-opus-4-6",
+          apiKey: "anthropic-key",
+          messages: [{ role: "user", content: "hello" }]
+        });
+
+        assert.equal(result.text, "anthropic reply");
+      } finally {
+        restoreFetch();
+      }
+    }
+  },
+  {
+    name: "GeminiProvider extracts assistant text from generateContent",
+    fn: async () => {
+      const restoreFetch = mockJsonFetch({
+        candidates: [
+          {
+            content: {
+              parts: [
+                {
+                  text: "gemini reply"
+                }
+              ]
+            }
+          }
+        ]
+      });
+
+      try {
+        const provider = new GeminiProvider();
+        const result = await provider.generate({
+          provider: "gemini",
+          baseUrl: "https://generativelanguage.googleapis.com/v1beta",
+          model: "gemini-3.1-pro-preview",
+          apiKey: "gemini-key",
+          messages: [{ role: "user", content: "hello" }]
+        });
+
+        assert.equal(result.text, "gemini reply");
+      } finally {
+        restoreFetch();
+      }
+    }
+  },
+  {
+    name: "Every provider preset exposed to the app has a concrete runtime implementation",
+    fn: async () => {
+      for (const preset of PROVIDER_PRESETS) {
+        try {
+          const provider = createTextGenerationProvider(preset.id);
+          assert.equal(provider.id, preset.id);
+        } catch (error) {
+          assert.fail(
+            `Provider preset ${preset.id} must have a concrete runtime implementation: ${error instanceof Error ? error.message : error}`
+          );
+        }
+      }
+    }
+  },
+  {
     name: "ExecutionFlow persists a normal Kimi conversation roundtrip",
     fn: async () => {
       const harness = createHarness();
       const restoreFetch = mockKimiReply("这是来自 Kimi 的真实对话链路回复。");
 
       try {
+        updatePermissions(harness, { external_network: "allow" });
         harness.secretService.saveProviderApiKey("kimi", "kimi-secret-123");
         const conversation = harness.store.createConversation("deep-dialogue", "Kimi 对话测试");
 
@@ -311,6 +506,7 @@ const tests = [
       const restoreFetch = mockKimiReply("normal dialogue reply");
 
       try {
+        updatePermissions(harness, { external_network: "allow" });
         harness.secretService.saveProviderApiKey("kimi", "kimi-secret-123");
         const conversation = harness.store.createConversation("default", "Informational prompts");
 
@@ -381,6 +577,64 @@ const tests = [
     }
   },
   {
+    name: "ExecutionFlow executes workspace writes immediately when workspace_write is allow",
+    fn: async () => {
+      const harness = createHarness();
+
+      try {
+        updatePermissions(harness, { workspace_write: "allow" });
+        const conversation = harness.store.createConversation("default", "Workspace write allow");
+        const result = await harness.executionFlow.run({
+          conversationId: conversation.id,
+          mode: "default",
+          text: "Write a report file",
+          enableRetrievalForTurn: false
+        });
+
+        const outputsDir = path.join(harness.workspaceRoot, "outputs");
+        const outputFiles = fs.readdirSync(outputsDir);
+
+        assert.equal(result.classification.handlingClass, "action-adjacent");
+        assert.equal(result.state.pendingConfirmation, false);
+        assert.equal(result.state.pendingAction, null);
+        assert.deepEqual(result.state.toolsCalled, ["workspace-write"]);
+        assert.equal(result.verification.status, "passed");
+        assert.equal(outputFiles.length, 1);
+      } finally {
+        harness.cleanup();
+      }
+    }
+  },
+  {
+    name: "ExecutionFlow blocks workspace writes when workspace_write is block",
+    fn: async () => {
+      const harness = createHarness();
+
+      try {
+        updatePermissions(harness, { workspace_write: "block" });
+        const conversation = harness.store.createConversation("default", "Workspace write block");
+        const result = await harness.executionFlow.run({
+          conversationId: conversation.id,
+          mode: "default",
+          text: "Write a report file",
+          enableRetrievalForTurn: false
+        });
+
+        const outputsDir = path.join(harness.workspaceRoot, "outputs");
+        const outputFiles = fs.readdirSync(outputsDir);
+
+        assert.equal(result.classification.handlingClass, "action-adjacent");
+        assert.equal(result.state.pendingConfirmation, false);
+        assert.equal(result.state.pendingAction, null);
+        assert.equal(result.verification.status, "blocked");
+        assert.equal(result.state.trace.some((entry) => entry.phase === "gate"), true);
+        assert.equal(outputFiles.length, 0);
+      } finally {
+        harness.cleanup();
+      }
+    }
+  },
+  {
     name: "ExecutionFlow proposes and executes safe host exec commands inside the workspace",
     fn: async () => {
       const harness = createHarness();
@@ -420,6 +674,65 @@ const tests = [
     }
   },
   {
+    name: "ExecutionFlow executes safe host exec commands immediately when host_exec_readonly is allow",
+    fn: async () => {
+      const harness = createHarness();
+
+      try {
+        updatePermissions(harness, { host_exec_readonly: "allow" });
+        const outputsDir = path.join(harness.workspaceRoot, "outputs");
+        fs.mkdirSync(outputsDir, { recursive: true });
+        fs.writeFileSync(path.join(outputsDir, "allow-exec.txt"), "safe", "utf8");
+
+        const conversation = harness.store.createConversation("default", "Host exec allow");
+        const result = await harness.executionFlow.run({
+          conversationId: conversation.id,
+          mode: "default",
+          text: "Run `Get-ChildItem outputs`",
+          enableRetrievalForTurn: false
+        });
+
+        assert.equal(result.classification.handlingClass, "action-adjacent");
+        assert.equal(result.state.pendingConfirmation, false);
+        assert.equal(result.state.pendingAction, null);
+        assert.deepEqual(result.state.toolsCalled, ["exec"]);
+        assert.equal(result.verification.status, "passed");
+        assert.equal(result.assistantMessage.content.includes("allow-exec.txt"), true);
+      } finally {
+        harness.cleanup();
+      }
+    }
+  },
+  {
+    name: "ExecutionFlow blocks safe host exec commands when host_exec_readonly is block",
+    fn: async () => {
+      const harness = createHarness();
+
+      try {
+        updatePermissions(harness, { host_exec_readonly: "block" });
+        const outputsDir = path.join(harness.workspaceRoot, "outputs");
+        fs.mkdirSync(outputsDir, { recursive: true });
+        fs.writeFileSync(path.join(outputsDir, "block-exec.txt"), "safe", "utf8");
+
+        const conversation = harness.store.createConversation("default", "Host exec block");
+        const result = await harness.executionFlow.run({
+          conversationId: conversation.id,
+          mode: "default",
+          text: "Run `Get-ChildItem outputs`",
+          enableRetrievalForTurn: false
+        });
+
+        assert.equal(result.classification.handlingClass, "action-adjacent");
+        assert.equal(result.state.pendingConfirmation, false);
+        assert.equal(result.state.pendingAction, null);
+        assert.equal(result.verification.status, "blocked");
+        assert.equal(result.state.trace.some((entry) => entry.phase === "gate"), true);
+      } finally {
+        harness.cleanup();
+      }
+    }
+  },
+  {
     name: "ExecutionFlow keeps destructive host exec commands blocked",
     fn: async () => {
       const harness = createHarness();
@@ -440,6 +753,30 @@ const tests = [
         assert.equal(result.audit.resultType, "proposal");
         assert.equal(result.audit.riskNotes, "unsupported host exec command blocked");
         assert.equal(result.assistantMessage.content.includes("仅支持在 Enso 工作区内执行只读命令"), true);
+      } finally {
+        harness.cleanup();
+      }
+    }
+  },
+  {
+    name: "ExecutionFlow blocks host exec commands that target paths outside the workspace",
+    fn: async () => {
+      const harness = createHarness();
+
+      try {
+        updatePermissions(harness, { host_exec_readonly: "allow" });
+        const conversation = harness.store.createConversation("default", "Host exec outside workspace");
+        const result = await harness.executionFlow.run({
+          conversationId: conversation.id,
+          mode: "default",
+          text: "Run `Get-ChildItem C:\\`",
+          enableRetrievalForTurn: false
+        });
+
+        assert.equal(result.classification.handlingClass, "action-adjacent");
+        assert.equal(result.state.pendingConfirmation, false);
+        assert.equal(result.state.pendingAction, null);
+        assert.equal(result.verification.status, "blocked");
       } finally {
         harness.cleanup();
       }
@@ -484,6 +821,7 @@ const tests = [
       const restoreFetch = mockKimiReply("retrieval override reply");
 
       try {
+        updatePermissions(harness, { external_network: "allow" });
         harness.secretService.saveProviderApiKey("kimi", "kimi-secret-123");
         const docPath = path.join(harness.tempDir, "knowledge.md");
         fs.writeFileSync(
@@ -523,6 +861,7 @@ const tests = [
       const restoreFetch = mockKimiReply("reply without evidence");
 
       try {
+        updatePermissions(harness, { external_network: "allow" });
         harness.secretService.saveProviderApiKey("kimi", "kimi-secret-123");
         const docPath = path.join(harness.tempDir, "knowledge.md");
         fs.writeFileSync(docPath, "Enso keeps local artifacts in the workspace.", "utf8");
@@ -559,12 +898,41 @@ const tests = [
     }
   },
   {
+    name: "ExecutionFlow blocks remote model calls when external_network is block",
+    fn: async () => {
+      const harness = createHarness();
+      const mocked = mockKimiReplyWithCount("network should stay blocked");
+
+      try {
+        updatePermissions(harness, { external_network: "block" });
+        harness.secretService.saveProviderApiKey("kimi", "kimi-secret-123");
+        const conversation = harness.store.createConversation("default", "Network block");
+        const result = await harness.executionFlow.run({
+          conversationId: conversation.id,
+          mode: "default",
+          text: "hello",
+          enableRetrievalForTurn: false
+        });
+
+        assert.equal(result.classification.handlingClass, "pure-dialogue");
+        assert.equal(mocked.getCallCount(), 0);
+        assert.equal(result.state.pendingConfirmation, false);
+        assert.equal(result.verification.status, "blocked");
+        assert.equal(result.state.trace.some((entry) => entry.phase === "gate"), true);
+      } finally {
+        mocked.restore();
+        harness.cleanup();
+      }
+    }
+  },
+  {
     name: "Workspace write proposals execute after confirmation inside the Enso workspace",
     fn: async () => {
       const harness = createHarness();
       const restoreFetch = mockKimiReply("# 会议纪要\n\n- 已整理关键结论。");
 
       try {
+        updatePermissions(harness, { external_network: "allow" });
         harness.secretService.saveProviderApiKey("kimi", "kimi-secret-123");
         const conversation = harness.store.createConversation("default", "Workspace write");
 
