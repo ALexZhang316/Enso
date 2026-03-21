@@ -130,7 +130,7 @@ const tests = [
           provider: {
             provider: "kimi",
             baseUrl: "https://api.moonshot.cn/v1",
-            model: "moonshot-v1-32k",
+            model: "kimi-k2.5",
             apiKey: "should-not-persist"
           }
         });
@@ -139,7 +139,7 @@ const tests = [
         const rawToml = fs.readFileSync(harness.configPath, "utf8");
 
         assert.equal(saved.provider.provider, "kimi");
-        assert.equal(reloaded.provider.model, "moonshot-v1-32k");
+        assert.equal(reloaded.provider.model, "kimi-k2.5");
         assert.equal(reloaded.provider.apiKey, "");
         assert.equal(rawToml.includes("should-not-persist"), false);
       } finally {
@@ -148,7 +148,7 @@ const tests = [
     }
   },
   {
-    name: "ConfigService rejects invalid defaultMode values in config.toml",
+    name: "ConfigService ignores invalid defaultMode and forces default",
     fn: async () => {
       const harness = createHarness();
 
@@ -168,13 +168,9 @@ const tests = [
           "utf8"
         );
 
-        assert.throws(
-          () => harness.configService.load(),
-          (error) =>
-            error instanceof ConfigValidationError &&
-            error.message.includes("modeDefaults.defaultMode") &&
-            error.message.includes(harness.configPath)
-        );
+        // defaultMode is now always forced to "default", so invalid TOML values are silently ignored
+        const config = harness.configService.load();
+        assert.strictEqual(config.modeDefaults.defaultMode, "default");
       } finally {
         harness.cleanup();
       }
@@ -263,7 +259,7 @@ const tests = [
           provider.generate({
             provider: "kimi",
             baseUrl: "https://api.moonshot.cn/v1",
-            model: "moonshot-v1-8k",
+            model: "kimi-k2.5",
             apiKey: "bad-key",
             messages: [{ role: "user", content: "hello" }]
           }),

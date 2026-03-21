@@ -6,6 +6,7 @@
 - Retrieval now uses local SQLite full-text search with keyword fallback over local chunks (still no embedding/vector similarity yet).
 - Tool abstraction is intentionally minimal (single-tool, no cascades).
 - Gate checks still use heuristic detection for action-adjacent turns, though the wording filter is narrower and less prone to false positives.
+- Expression density and reporting granularity are persisted in config but not yet wired into the execution flow system prompt; they are framework-ready for when the execution chain reads them.
 - Confirmation now executes bounded workspace writes plus read-only host commands inside the Enso workspace; external side effects, destructive actions, and broader host execution remain blocked.
 - No packaging/installers included in this skeleton round.
 - Only one provider (Kimi) has a working implementation; others are placeholder IDs.
@@ -25,7 +26,7 @@
 - Right panel shows explicit plan / execution trace / verification result.
 - Request classifier distinguishes pure-dialogue / retrieval-enhanced / tool-assisted / action-adjacent.
 - Per-turn retrieval override and config-driven retrieval defaults are now wired end-to-end into `ExecutionFlow`.
-- New conversations now honor the configured default mode instead of always falling back to `default`.
+- New conversations always start in default mode; optional modes (Deep Dialogue, Decision, Research) are toggled on/off per-conversation.
 - Retrieved snippets are persisted on assistant messages so the evidence panel can show the latest run.
 - Verification now fails when retrieval/tool turns miss required evidence or tool output.
 - Gated workspace-write proposals can now be confirmed and executed inside the local Enso workspace with explicit verification and audit.

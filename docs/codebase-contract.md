@@ -1,4 +1,24 @@
-# Codebase Contract v0.3.1
+# Codebase Contract v0.3.3
+
+## 2026-03-20 Expression Preferences Redesign
+
+- `EnsoConfig.expression` replaced: old fields (style, reducedQuestioning, defaultAssumption, riskLabeling) removed; new fields are `density` (concise/standard/detailed) and `structuredFirst` (boolean).
+- New top-level `EnsoConfig.reportingGranularity` (plan-level / result-level) controls agent interruption frequency during execution.
+- `ConfigService` normalization updated: validates `density` against `DENSITY_VALUES`, `structuredFirst` as boolean, `reportingGranularity` against `REPORTING_GRANULARITY_VALUES`.
+- Settings panel shows density dropdown, structuredFirst checkbox, and granularity dropdown in separate sections.
+- Right-rail context panel displays density and granularity instead of the old style field.
+- `default.toml` updated with new schema; old expression fields are ignored if present in user configs.
+
+## 2026-03-20 Mode Selector UI Update
+
+- Mode selector no longer renders a "默认" button; default mode is the implicit baseline when no optional mode is active.
+- `OPTIONAL_MODES` exported from `src/shared/modes.ts` filters out `default` for UI consumption.
+- `handleModeSelect` in `App.tsx` now toggles: clicking an active optional mode reverts to `DEFAULT_MODE`.
+- `ConfigService.normalizeConfig` forces `modeDefaults.defaultMode` to `"default"` regardless of TOML content.
+- Settings panel removed the default-mode dropdown; retrieval checkboxes only show optional modes.
+- Center pane header omits mode label in default mode; right rail shows "Enso" instead of "默认".
+- Integration test updated: invalid `defaultMode` config now verifies silent override rather than expecting a thrown error.
+- UI test updated: `expectActiveMode("default")` checks that all optional mode buttons have `aria-pressed="false"`.
 
 ## 2026-03-19 Host Exec Proposal Update
 
@@ -37,7 +57,7 @@
 - `ExecutionFlow` now honors persisted `modeDefaults.retrievalByMode` settings together with the per-turn `enableRetrievalForTurn` override.
 - Assistant message metadata now persists `retrievedSnippets`, `retrievalSnippetCount`, and `retrievalSources` for the right-panel evidence view.
 - Verification now fails when a retrieval/tool-required turn is missing evidence or tool output.
-- Conversation bootstrap and new-conversation creation now use the configured `defaultMode` instead of a hardcoded fallback.
+- Conversation bootstrap and new-conversation creation use `defaultMode` from config (now always forced to `"default"`).
 - Regression coverage now includes retrieval wiring, verification failure semantics, snippet persistence, and configured default-mode behavior.
 
 ## 2026-03-18 Proposal-To-Execution Update

@@ -11,9 +11,8 @@ type PartialConfig = Partial<EnsoConfig> & {
 
 const kimiPreset = PROVIDER_PRESET_MAP[DEFAULT_PROVIDER_ID];
 const MODE_IDS = MODES.map((mode) => mode.id);
-const STYLE_VALUES = ["direct", "balanced"] as const;
-const DEFAULT_ASSUMPTION_VALUES = ["conservative", "pragmatic"] as const;
-const RISK_LABELING_VALUES = ["always", "balanced-only", "off"] as const;
+const DENSITY_VALUES = ["concise", "standard", "detailed"] as const;
+const REPORTING_GRANULARITY_VALUES = ["plan-level", "result-level"] as const;
 
 const hasOwn = <T extends object>(value: T, key: PropertyKey): boolean =>
   Object.prototype.hasOwnProperty.call(value, key);
@@ -26,11 +25,10 @@ export const DEFAULT_ENSO_CONFIG: EnsoConfig = {
     apiKey: ""
   },
   expression: {
-    style: "balanced",
-    reducedQuestioning: true,
-    defaultAssumption: "pragmatic",
-    riskLabeling: "balanced-only"
+    density: "standard",
+    structuredFirst: false
   },
+  reportingGranularity: "plan-level",
   permissions: {
     readOnlyDefault: true,
     requireConfirmationForWrites: true,
@@ -100,6 +98,7 @@ const expectEnum = <T extends string>(
 const normalizeConfig = (partial: PartialConfig, configPath: string): EnsoConfig => {
   const provider = { ...DEFAULT_ENSO_CONFIG.provider };
   const expression = { ...DEFAULT_ENSO_CONFIG.expression };
+  let reportingGranularity = DEFAULT_ENSO_CONFIG.reportingGranularity;
   const permissions = { ...DEFAULT_ENSO_CONFIG.permissions };
   const modeDefaults = {
     defaultMode: DEFAULT_ENSO_CONFIG.modeDefaults.defaultMode,
@@ -126,32 +125,25 @@ const normalizeConfig = (partial: PartialConfig, configPath: string): EnsoConfig
 
   if (partial.expression !== undefined) {
     const expressionSection = expectObject(partial.expression, "expression", configPath);
-    if (hasOwn(expressionSection, "style")) {
-      expression.style = expectEnum(expressionSection.style, STYLE_VALUES, "expression.style", configPath);
+    if (hasOwn(expressionSection, "density")) {
+      expression.density = expectEnum(expressionSection.density, DENSITY_VALUES, "expression.density", configPath);
     }
-    if (hasOwn(expressionSection, "reducedQuestioning")) {
-      expression.reducedQuestioning = expectBoolean(
-        expressionSection.reducedQuestioning,
-        "expression.reducedQuestioning",
+    if (hasOwn(expressionSection, "structuredFirst")) {
+      expression.structuredFirst = expectBoolean(
+        expressionSection.structuredFirst,
+        "expression.structuredFirst",
         configPath
       );
     }
-    if (hasOwn(expressionSection, "defaultAssumption")) {
-      expression.defaultAssumption = expectEnum(
-        expressionSection.defaultAssumption,
-        DEFAULT_ASSUMPTION_VALUES,
-        "expression.defaultAssumption",
-        configPath
-      );
-    }
-    if (hasOwn(expressionSection, "riskLabeling")) {
-      expression.riskLabeling = expectEnum(
-        expressionSection.riskLabeling,
-        RISK_LABELING_VALUES,
-        "expression.riskLabeling",
-        configPath
-      );
-    }
+  }
+
+  if (hasOwn(partial, "reportingGranularity")) {
+    reportingGranularity = expectEnum(
+      partial.reportingGranularity,
+      REPORTING_GRANULARITY_VALUES,
+      "reportingGranularity",
+      configPath
+    ) as EnsoConfig["reportingGranularity"];
   }
 
   if (partial.permissions !== undefined) {
@@ -181,38 +173,23 @@ const normalizeConfig = (partial: PartialConfig, configPath: string): EnsoConfig
 
   if (partial.modeDefaults !== undefined) {
     const modeDefaultsSection = expectObject(partial.modeDefaults, "modeDefaults", configPath);
-    if (hasOwn(modeDefaultsSection, "defaultMode")) {
-      modeDefaults.defaultMode = expectEnum(
-        modeDefaultsSection.defaultMode,
-        MODE_IDS,
-        "modeDefaults.defaultMode",
+    // defaultMode is always "default" -- ignore TOML value
+    modeDefaults.defaultMode = DEFAULT_MODE;
+    if (hasOwn(modeDefaultsSection, "retrievalByMode")) {
+      const retrievalByModeSection = expectObject(
+        modeDefaultsSection.retrievalByMode,
+        "modeDefaults.retrievalByMode",
         configPath
-      ) as ModeId;
-    }
-    if (!hasOwn(modeDefaultsSection, "retrievalByMode")) {
-      throw new ConfigValidationError(
-        configPath,
-        "modeDefaults.retrievalByMode must define default, deep-dialogue, decision, research"
       );
-    }
-
-    const retrievalByModeSection = expectObject(
-      modeDefaultsSection.retrievalByMode,
-      "modeDefaults.retrievalByMode",
-      configPath
-    );
-    for (const modeId of MODE_IDS) {
-      if (!hasOwn(retrievalByModeSection, modeId)) {
-        throw new ConfigValidationError(
-          configPath,
-          `modeDefaults.retrievalByMode.${modeId} must exist and be a boolean`
-        );
+      for (const modeId of MODE_IDS) {
+        if (hasOwn(retrievalByModeSection, modeId)) {
+          modeDefaults.retrievalByMode[modeId] = expectBoolean(
+            retrievalByModeSection[modeId],
+            `modeDefaults.retrievalByMode.${modeId}`,
+            configPath
+          );
+        }
       }
-      modeDefaults.retrievalByMode[modeId] = expectBoolean(
-        retrievalByModeSection[modeId],
-        `modeDefaults.retrievalByMode.${modeId}`,
-        configPath
-      );
     }
   }
 
@@ -222,6 +199,7 @@ const normalizeConfig = (partial: PartialConfig, configPath: string): EnsoConfig
       apiKey: ""
     },
     expression,
+    reportingGranularity,
     permissions,
     modeDefaults
   };

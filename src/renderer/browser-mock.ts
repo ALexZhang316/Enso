@@ -13,15 +13,14 @@ const mockConfig = {
   provider: {
     provider: "kimi" as const,
     baseUrl: "https://api.moonshot.cn/v1",
-    model: "moonshot-v1-8k",
+    model: "kimi-k2.5",
     apiKey: ""
   },
   expression: {
-    style: "balanced" as const,
-    reducedQuestioning: true,
-    defaultAssumption: "pragmatic" as const,
-    riskLabeling: "balanced-only" as const
+    density: "standard" as const,
+    structuredFirst: false
   },
+  reportingGranularity: "plan-level" as const,
   permissions: {
     readOnlyDefault: true,
     requireConfirmationForWrites: true,

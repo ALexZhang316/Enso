@@ -1,13 +1,13 @@
 [provider]
 provider = "kimi"
 baseUrl = "https://api.moonshot.cn/v1"
-model = "moonshot-v1-8k"
+model = "kimi-k2.5"
 
 [expression]
-style = "balanced"
-reducedQuestioning = true
-defaultAssumption = "pragmatic"
-riskLabeling = "balanced-only"
+density = "standard"
+structuredFirst = false
+
+reportingGranularity = "plan-level"
 
 [permissions]
 readOnlyDefault = true

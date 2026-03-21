@@ -1,5 +1,27 @@
 # CHANGELOG
 
+## 2026-03-20 - Expression preferences and reporting granularity redesign
+### What changed
+1. Replaced old 4-field expression config (style, reducedQuestioning, defaultAssumption, riskLabeling) with `density` (concise/standard/detailed) and `structuredFirst` (checkbox).
+2. Added top-level `reportingGranularity` (plan-level / result-level) controlling how much the agent interrupts during execution.
+3. Updated config normalization, default.toml, settings panel, browser mock, and right-rail context display.
+
+### Why it changed
+- Old expression fields were generic and disconnected from real user needs.
+- Reporting granularity addresses the pain of step-by-step confirmation prompts.
+
+## 2026-03-20 - Mode selector UI: implicit default, toggle optional modes
+### What changed
+1. Removed the explicit "默认" button from the mode selector; default mode is now the implicit baseline when no optional mode is active.
+2. Deep Dialogue, Decision, and Research are now independent toggle buttons -- click to activate, click again to deactivate (returns to default).
+3. Center pane header hides the mode label when in default mode; right rail shows "Enso" instead of "默认".
+4. Settings panel no longer offers a "默认模式" dropdown; `defaultMode` is always forced to `"default"` in config normalization.
+5. Retrieval checkboxes in settings now only show the three optional modes.
+
+### Why it changed
+- The "默认" button occupied space without adding value -- default is the natural state, not an active choice.
+- The toggle interaction (like Claude's extended thinking) is more intuitive for optional behavioral modes.
+
 ## 2026-03-19 - Host exec proposal-to-execution expansion
 ### What changed
 1. Added a bounded `host_exec` confirmation chain for read-only PowerShell commands inside the Enso workspace.

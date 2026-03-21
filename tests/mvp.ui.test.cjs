@@ -32,9 +32,17 @@ const runSession = async (envOverrides) => {
 };
 
 const expectActiveMode = async (page, modeId) => {
-  await page.getByTestId(`mode-button-${modeId}`).waitFor();
-  const active = await page.getByTestId(`mode-button-${modeId}`).getAttribute("aria-pressed");
-  assert.equal(active, "true");
+  if (modeId === "default") {
+    // In default mode, all optional mode buttons should be inactive
+    for (const optId of ["deep-dialogue", "decision", "research"]) {
+      const pressed = await page.getByTestId(`mode-button-${optId}`).getAttribute("aria-pressed");
+      assert.equal(pressed, "false", `Expected mode-button-${optId} to be inactive in default mode`);
+    }
+  } else {
+    await page.getByTestId(`mode-button-${modeId}`).waitFor();
+    const active = await page.getByTestId(`mode-button-${modeId}`).getAttribute("aria-pressed");
+    assert.equal(active, "true");
+  }
 };
 
 const run = async () => {
@@ -56,7 +64,7 @@ const run = async () => {
   try {
     fs.writeFileSync(
       invalidConfigPath,
-      DEFAULT_CONFIG_TOML.replace('defaultMode = "default"', 'defaultMode = "boom"'),
+      DEFAULT_CONFIG_TOML.replace("decision = true", 'decision = "yes"'),
       "utf8"
     );
 
@@ -66,12 +74,12 @@ const run = async () => {
 
     await invalidPage.getByTestId("init-error-card").waitFor();
     await invalidPage.getByTestId("init-error-message").getByText("config.toml").waitFor();
-    await invalidPage.getByTestId("init-error-message").getByText("modeDefaults.defaultMode").waitFor();
+    await invalidPage.getByTestId("init-error-message").getByText("retrievalByMode.decision").waitFor();
 
     fs.writeFileSync(invalidConfigPath, DEFAULT_CONFIG_TOML, "utf8");
     await invalidPage.getByTestId("init-error-reload-button").click();
     await invalidPage.getByTestId("layout-root").waitFor();
-    await invalidPage.getByTestId("mode-button-default").waitFor();
+    await invalidPage.getByTestId("mode-button-deep-dialogue").waitFor();
 
     await invalidApp.close();
     invalidApp = null;
@@ -84,7 +92,7 @@ const run = async () => {
     }));
 
     await firstPage.getByTestId("layout-root").waitFor();
-    await firstPage.getByTestId("mode-button-default").waitFor();
+    await firstPage.getByTestId("mode-button-deep-dialogue").waitFor();
     await firstPage.getByTestId("composer-input").fill("Delete the README.md file.");
     await firstPage.getByTestId("composer-send-button").click();
     await firstPage.getByText("当前仅支持工作区内写入提案").waitFor();
@@ -113,15 +121,16 @@ const run = async () => {
 
     await firstPage.getByTestId("nav-settings-button").click();
     await firstPage.getByTestId("settings-provider-select").waitFor();
-    await firstPage.getByTestId("settings-provider-model-input").fill("moonshot-v1-8k");
-    await firstPage.getByTestId("settings-provider-baseurl-input").fill("https://api.moonshot.cn/v1");
+    await firstPage.getByTestId("settings-provider-model-input").selectOption("kimi-k2.5");
+    await firstPage.getByTestId("settings-provider-baseurl-input").selectOption("https://api.moonshot.cn/v1");
     await firstPage.getByTestId("settings-provider-apikey-input").fill("kimi-ui-test-key");
-    await firstPage.getByTestId("settings-default-mode-select").selectOption("research");
     await firstPage.getByTestId("settings-save-button").click();
     await firstPage.getByTestId("settings-status").getByText("设置已保存").waitFor();
 
     await firstPage.getByTestId("nav-settings-button").click();
     await firstPage.getByTestId("conversation-create-button").click();
+    await expectActiveMode(firstPage, "default");
+    await firstPage.getByTestId("mode-button-research").click();
     await expectActiveMode(firstPage, "research");
 
     await firstPage.getByTestId("composer-input").fill("请写一份测试纪要文件");
@@ -146,7 +155,7 @@ const run = async () => {
 
     await secondPage.getByTestId("layout-root").waitFor();
     await secondPage.getByTestId("conversation-create-button").click();
-    await expectActiveMode(secondPage, "research");
+    await expectActiveMode(secondPage, "default");
 
     await secondPage.screenshot({
       path: path.join(ARTIFACT_DIR, "mvp-ui-success.png"),

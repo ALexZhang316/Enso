@@ -93,11 +93,10 @@ export interface ProviderConfig {
 export interface EnsoConfig {
   provider: ProviderConfig;
   expression: {
-    style: "direct" | "balanced";
-    reducedQuestioning: boolean;
-    defaultAssumption: "conservative" | "pragmatic";
-    riskLabeling: "always" | "balanced-only" | "off";
+    density: "concise" | "standard" | "detailed";
+    structuredFirst: boolean;
   };
+  reportingGranularity: "plan-level" | "result-level";
   permissions: {
     readOnlyDefault: boolean;
     requireConfirmationForWrites: boolean;

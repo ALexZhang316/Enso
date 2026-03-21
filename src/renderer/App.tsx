@@ -1,7 +1,7 @@
 ﻿import { useEffect, useMemo, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { DEFAULT_MODE, MODES, ModeId } from "@shared/modes";
+import { DEFAULT_MODE, MODES, OPTIONAL_MODES, ModeId } from "@shared/modes";
 import { PROVIDER_PRESETS, PROVIDER_PRESET_MAP, ProviderId } from "@shared/providers";
 import {
   AuditSummary,
@@ -72,8 +72,10 @@ const tracePhaseLabel = (phase: TraceEntry["phase"]): string => {
 
 const modeLabel = (mode: ModeId): string => MODES.find((item) => item.id === mode)?.label ?? mode;
 const boolLabel = (value: boolean): string => (value ? "是" : "否");
-const styleLabel = (style: EnsoConfig["expression"]["style"]): string =>
-  style === "direct" ? "直给" : "平衡";
+const densityLabel = (d: EnsoConfig["expression"]["density"]): string =>
+  d === "concise" ? "精简" : d === "detailed" ? "详尽" : "标准";
+const granularityLabel = (g: EnsoConfig["reportingGranularity"]): string =>
+  g === "result-level" ? "结果级" : "方案级";
 const providerLabel = (providerId: ProviderId): string => PROVIDER_PRESET_MAP[providerId].label;
 const taskStatusLabel = (status: StateSnapshot["taskStatus"]): string => {
   switch (status) {
@@ -306,6 +308,7 @@ const App = (): JSX.Element => {
     setAuditSummary(payload.audit);
     setLastRunInfo("");
     setSubmitError("");
+    setCenterView("chat");
 
     if (payload.mode) {
       setActiveMode(payload.mode);
@@ -363,10 +366,11 @@ const App = (): JSX.Element => {
       return;
     }
 
-    setActiveMode(mode);
-    await window.enso.setMode(activeConversationId, mode);
+    const newMode = activeMode === mode ? DEFAULT_MODE : mode;
+    setActiveMode(newMode);
+    await window.enso.setMode(activeConversationId, newMode);
     setConversations((prev) =>
-      prev.map((item) => (item.id === activeConversationId ? { ...item, mode } : item))
+      prev.map((item) => (item.id === activeConversationId ? { ...item, mode: newMode } : item))
     );
   };
 
@@ -539,19 +543,19 @@ const App = (): JSX.Element => {
     <div className="h-full overflow-x-auto p-4" data-testid="layout-root">
       <div className="grid h-full min-w-[960px] grid-cols-[200px_1fr_280px] gap-3">
         <aside className="flex h-full min-h-0 flex-col gap-2.5" data-testid="left-rail">
-          {/* Mode selector - compact pill group */}
+          {/* Mode selector - toggle buttons (default mode is implicit) */}
           <Card className="shrink-0">
             <CardContent className="p-3">
-              <div className="flex gap-0.5 rounded-[10px] bg-black/[0.05] p-[3px]">
-                {MODES.map((mode) => (
+              <div className="flex gap-1.5">
+                {OPTIONAL_MODES.map((mode) => (
                   <button
                     key={mode.id}
                     data-testid={`mode-button-${mode.id}`}
                     aria-pressed={activeMode === mode.id}
                     className={`flex-1 rounded-lg px-2 py-[7px] text-[11px] font-medium transition-all duration-200 whitespace-nowrap ${
                       activeMode === mode.id
-                        ? "bg-white text-foreground shadow-[0_0.5px_2px_rgba(0,0,0,0.1),0_0px_0.5px_rgba(0,0,0,0.06)]"
-                        : "text-muted-foreground/70 hover:text-foreground/60"
+                        ? "bg-primary text-primary-foreground shadow-sm"
+                        : "bg-black/[0.04] text-muted-foreground/70 hover:bg-black/[0.07] hover:text-foreground/60"
                     }`}
                     onClick={() => {
                       void handleModeSelect(mode.id);
@@ -567,7 +571,7 @@ const App = (): JSX.Element => {
           </Card>
 
           {/* Conversations list */}
-          <Card className="min-h-0 flex-1">
+          <Card className="min-h-0 flex-1 overflow-hidden">
             <CardContent className="flex h-full flex-col p-0">
               <div className="flex items-center justify-between px-4 pt-3 pb-1">
                 <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/70">会话</div>
@@ -679,7 +683,7 @@ const App = (): JSX.Element => {
                   {activeConversation?.title ?? "Enso"}
                 </div>
                 <div className="text-[11px] text-muted-foreground mt-0.5">
-                  {modeLabel(activeMode)} · {knowledgeSources.length > 0 ? "知识已附加" : "无附加知识"}
+                  {activeMode !== "default" ? `${modeLabel(activeMode)} · ` : ""}{knowledgeSources.length > 0 ? "知识已附加" : "无附加知识"}
                 </div>
               </div>
               <Badge variant="muted">{`v${appInfo.version}`}</Badge>
@@ -688,7 +692,7 @@ const App = (): JSX.Element => {
 
           {centerView === "chat" && (
             <>
-              <Card className="min-h-0 flex-1">
+              <Card className="min-h-0 flex-1 overflow-hidden">
                 <CardContent className="h-full p-0">
                   <ScrollArea className="h-full px-5 py-4">
                     <div className="space-y-2.5" data-testid="chat-message-list">
@@ -843,8 +847,8 @@ const App = (): JSX.Element => {
           )}
 
           {centerView === "knowledge" && (
-            <Card className="min-h-0 flex-1">
-              <CardHeader className="flex-row items-center justify-between space-y-0">
+            <Card className="min-h-0 flex-1 flex flex-col overflow-hidden">
+              <CardHeader className="shrink-0 flex-row items-center justify-between space-y-0">
                 <CardTitle>知识库</CardTitle>
                 <Button
                   data-testid="knowledge-import-button"
@@ -858,7 +862,7 @@ const App = (): JSX.Element => {
                   导入文件
                 </Button>
               </CardHeader>
-              <CardContent className="h-full min-h-0 p-0">
+              <CardContent className="flex-1 min-h-0 p-0">
                 <ScrollArea className="h-full px-4 pb-4">
                   <div className="space-y-2" data-testid="knowledge-view">
                     <div className="text-[11px] text-muted-foreground" data-testid="knowledge-count">
@@ -895,8 +899,8 @@ const App = (): JSX.Element => {
           )}
 
           {centerView === "settings" && (
-            <Card className="min-h-0 flex-1">
-              <CardHeader className="flex-row items-center justify-between space-y-0">
+            <Card className="min-h-0 flex-1 flex flex-col overflow-hidden">
+              <CardHeader className="shrink-0 flex-row items-center justify-between space-y-0">
                 <CardTitle>设置</CardTitle>
                 <div className="flex gap-2">
                   <Button
@@ -920,7 +924,7 @@ const App = (): JSX.Element => {
                   </Button>
                 </div>
               </CardHeader>
-              <CardContent className="h-full min-h-0 p-0">
+              <CardContent className="flex-1 min-h-0 p-0">
                 <ScrollArea className="h-full px-4 pb-4">
                   {!settingsDraft ? (
                     <div className="flex items-center justify-center h-24 text-[13px] text-muted-foreground/50">
@@ -938,11 +942,14 @@ const App = (): JSX.Element => {
                             value={settingsDraft.provider.provider}
                             onChange={(event) => {
                               const nextProvider = event.target.value as ProviderId;
+                              const preset = PROVIDER_PRESET_MAP[nextProvider];
                               setSettingsDraft({
                                 ...settingsDraft,
                                 provider: {
                                   ...settingsDraft.provider,
-                                  provider: nextProvider
+                                  provider: nextProvider,
+                                  model: preset?.defaultModel ?? settingsDraft.provider.model,
+                                  baseUrl: preset?.defaultBaseUrl ?? settingsDraft.provider.baseUrl
                                 }
                               });
                               setProviderApiKeyDraft("");
@@ -957,7 +964,7 @@ const App = (): JSX.Element => {
                           </select>
                         </label>
                         <div className="rounded-xl bg-primary/[0.04] p-3 text-[11px] text-muted-foreground">
-                          本轮仅接入 Kimi。provider 字段已保留，为后续扩展其他厂商预留接口。
+                          切换提供商时模型和 URL 会自动填充为该提供商的默认值。
                         </div>
                         <div className="text-[12px] text-muted-foreground">
                           API Key 不会写入 TOML 或 SQLite 明文；保存时会进入主进程安全存储。
@@ -967,8 +974,9 @@ const App = (): JSX.Element => {
                         </div>
                         <label className="space-y-1">
                           <div className="text-[12px] text-muted-foreground">模型</div>
-                          <Input
+                          <select
                             data-testid="settings-provider-model-input"
+                            className="h-9 w-full rounded-[10px] bg-black/[0.04] px-3 text-[13px] text-foreground transition-colors focus:outline-none focus:ring-2 focus:ring-primary/30"
                             value={settingsDraft.provider.model}
                             onChange={(event) =>
                               setSettingsDraft({
@@ -979,12 +987,17 @@ const App = (): JSX.Element => {
                                 }
                               })
                             }
-                          />
+                          >
+                            {(PROVIDER_PRESET_MAP[settingsDraft.provider.provider]?.models ?? []).map((m) => (
+                              <option key={m} value={m}>{m}</option>
+                            ))}
+                          </select>
                         </label>
                         <label className="space-y-1">
                           <div className="text-[12px] text-muted-foreground">基础 URL</div>
-                          <Input
+                          <select
                             data-testid="settings-provider-baseurl-input"
+                            className="h-9 w-full rounded-[10px] bg-black/[0.04] px-3 text-[13px] text-foreground transition-colors focus:outline-none focus:ring-2 focus:ring-primary/30"
                             value={settingsDraft.provider.baseUrl}
                             onChange={(event) =>
                               setSettingsDraft({
@@ -995,7 +1008,11 @@ const App = (): JSX.Element => {
                                 }
                               })
                             }
-                          />
+                          >
+                            {(PROVIDER_PRESET_MAP[settingsDraft.provider.provider]?.baseUrls ?? []).map((u) => (
+                              <option key={u} value={u}>{u}</option>
+                            ))}
+                          </select>
                         </label>
                         <label className="space-y-1">
                           <div className="text-[12px] text-muted-foreground">本地 API Key</div>
@@ -1026,80 +1043,62 @@ const App = (): JSX.Element => {
                       <div className="space-y-2">
                         <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">表达偏好</div>
                         <label className="space-y-1">
-                          <div className="text-[12px] text-muted-foreground">风格</div>
+                          <div className="text-[12px] text-muted-foreground">回复密度</div>
                           <select
-                            data-testid="settings-style-select"
+                            data-testid="settings-density-select"
                             className="h-9 w-full rounded-[10px] bg-black/[0.04] px-3 text-[13px] text-foreground transition-colors focus:outline-none focus:ring-2 focus:ring-primary/30"
-                            value={settingsDraft.expression.style}
+                            value={settingsDraft.expression.density}
                             onChange={(event) =>
                               setSettingsDraft({
                                 ...settingsDraft,
                                 expression: {
                                   ...settingsDraft.expression,
-                                  style: event.target.value as EnsoConfig["expression"]["style"]
+                                  density: event.target.value as EnsoConfig["expression"]["density"]
                                 }
                               })
                             }
                           >
-                            <option value="direct">直给</option>
-                            <option value="balanced">平衡</option>
+                            <option value="concise">精简</option>
+                            <option value="standard">标准</option>
+                            <option value="detailed">详尽</option>
                           </select>
                         </label>
                         <label className="flex items-center gap-2 text-[12px] text-muted-foreground">
                           <input
                             type="checkbox"
-                            checked={settingsDraft.expression.reducedQuestioning}
+                            checked={settingsDraft.expression.structuredFirst}
                             onChange={(event) =>
                               setSettingsDraft({
                                 ...settingsDraft,
                                 expression: {
                                   ...settingsDraft.expression,
-                                  reducedQuestioning: event.target.checked
+                                  structuredFirst: event.target.checked
                                 }
                               })
                             }
                           />
-                          减少追问
+                          结构化优先
                         </label>
+                      </div>
+
+                      <Separator />
+
+                      <div className="space-y-2">
+                        <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">汇报粒度</div>
                         <label className="space-y-1">
-                          <div className="text-[12px] text-muted-foreground">默认假设</div>
                           <select
+                            data-testid="settings-granularity-select"
                             className="h-9 w-full rounded-[10px] bg-black/[0.04] px-3 text-[13px] text-foreground transition-colors focus:outline-none focus:ring-2 focus:ring-primary/30"
-                            value={settingsDraft.expression.defaultAssumption}
+                            value={settingsDraft.reportingGranularity}
                             onChange={(event) =>
                               setSettingsDraft({
                                 ...settingsDraft,
-                                expression: {
-                                  ...settingsDraft.expression,
-                                  defaultAssumption:
-                                    event.target.value as EnsoConfig["expression"]["defaultAssumption"]
-                                }
+                                reportingGranularity: event.target.value as EnsoConfig["reportingGranularity"]
                               })
                             }
                           >
-                            <option value="conservative">保守</option>
-                            <option value="pragmatic">务实</option>
-                          </select>
-                        </label>
-                        <label className="space-y-1">
-                          <div className="text-[12px] text-muted-foreground">风险标注</div>
-                          <select
-                            className="h-9 w-full rounded-[10px] bg-black/[0.04] px-3 text-[13px] text-foreground transition-colors focus:outline-none focus:ring-2 focus:ring-primary/30"
-                            value={settingsDraft.expression.riskLabeling}
-                            onChange={(event) =>
-                              setSettingsDraft({
-                                ...settingsDraft,
-                                expression: {
-                                  ...settingsDraft.expression,
-                                  riskLabeling:
-                                    event.target.value as EnsoConfig["expression"]["riskLabeling"]
-                                }
-                              })
-                            }
-                          >
-                            <option value="always">总是显示</option>
-                            <option value="balanced-only">仅平衡风格显示</option>
-                            <option value="off">关闭</option>
+                            <option value="plan-level">方案级 — 确认一次，不再打断</option>
+                            <option value="result-level">结果级 — 直接做完汇报结果</option>
                           </select>
                         </label>
                       </div>
@@ -1162,32 +1161,9 @@ const App = (): JSX.Element => {
 
                       <div className="space-y-2">
                         <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">模式默认值</div>
-                        <label className="space-y-1">
-                          <div className="text-[12px] text-muted-foreground">默认模式</div>
-                          <select
-                            data-testid="settings-default-mode-select"
-                            className="h-9 w-full rounded-[10px] bg-black/[0.04] px-3 text-[13px] text-foreground transition-colors focus:outline-none focus:ring-2 focus:ring-primary/30"
-                            value={settingsDraft.modeDefaults.defaultMode}
-                            onChange={(event) =>
-                              setSettingsDraft({
-                                ...settingsDraft,
-                                modeDefaults: {
-                                  ...settingsDraft.modeDefaults,
-                                  defaultMode: event.target.value as ModeId
-                                }
-                              })
-                            }
-                          >
-                            {MODES.map((mode) => (
-                              <option key={mode.id} value={mode.id}>
-                                {mode.label}
-                              </option>
-                            ))}
-                          </select>
-                        </label>
                         <div className="space-y-1">
                           <div className="text-[12px] text-muted-foreground">按模式启用检索</div>
-                          {MODES.map((mode) => (
+                          {OPTIONAL_MODES.map((mode) => (
                             <label key={mode.id} className="flex items-center gap-2 text-[12px] text-muted-foreground">
                               <input
                                 type="checkbox"
@@ -1222,8 +1198,8 @@ const App = (): JSX.Element => {
           )}
 
           {centerView === "audits" && (
-            <Card className="min-h-0 flex-1">
-              <CardHeader className="flex-row items-center justify-between space-y-0">
+            <Card className="min-h-0 flex-1 flex flex-col overflow-hidden">
+              <CardHeader className="shrink-0 flex-row items-center justify-between space-y-0">
                 <CardTitle>审计记录</CardTitle>
                 <div className="flex items-center gap-2 text-[12px] text-muted-foreground">
                   <label className="flex items-center gap-2">
@@ -1248,7 +1224,7 @@ const App = (): JSX.Element => {
                   </Button>
                 </div>
               </CardHeader>
-              <CardContent className="h-full min-h-0 p-0">
+              <CardContent className="flex-1 min-h-0 p-0">
                 <ScrollArea className="h-full px-4 pb-4">
                   <div className="space-y-2 text-sm" data-testid="audit-record-list">
                     {auditRecords.length === 0 ? (
@@ -1291,8 +1267,10 @@ const App = (): JSX.Element => {
           <Card className="shrink-0" data-testid="context-panel">
             <CardContent className="p-3 space-y-3">
               <div>
-                <div className="text-[15px] font-semibold text-foreground">{modeLabel(activeMode)}</div>
-                <div className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">{activeModeDescription}</div>
+                <div className="text-[15px] font-semibold text-foreground">{activeMode === "default" ? "Enso" : modeLabel(activeMode)}</div>
+                {activeMode !== "default" && (
+                  <div className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">{activeModeDescription}</div>
+                )}
               </div>
               {/* iOS-style info rows */}
               <div className="rounded-xl bg-black/[0.03] divide-y divide-black/[0.04] overflow-hidden">
@@ -1301,7 +1279,8 @@ const App = (): JSX.Element => {
                   ["模型", config?.provider.model ?? "--"],
                   ["知识", `${knowledgeSources.length} 个来源`],
                   ["工作区", workspaceRoot || "--"],
-                  ["风格", config ? styleLabel(config.expression.style) : "--"]
+                  ["密度", config ? densityLabel(config.expression.density) : "--"],
+                  ["汇报", config ? granularityLabel(config.reportingGranularity) : "--"]
                 ] as const).map(([label, value]) => (
                   <div key={label} className="flex items-center justify-between px-3 py-2 gap-2">
                     <span className="text-[11px] text-muted-foreground shrink-0">{label}</span>
@@ -1313,7 +1292,7 @@ const App = (): JSX.Element => {
           </Card>
 
           {/* State + Plan + Trace + Verification (scrollable) */}
-          <Card className="min-h-0 flex-1">
+          <Card className="min-h-0 flex-1 overflow-hidden">
             <CardContent className="h-full p-0">
               <ScrollArea className="h-full">
                 <div className="p-3 space-y-3">

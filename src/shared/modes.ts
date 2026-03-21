@@ -24,3 +24,5 @@ export const MODES = [
 export type ModeId = (typeof MODES)[number]["id"];
 
 export const DEFAULT_MODE: ModeId = "default";
+
+export const OPTIONAL_MODES = MODES.filter((m) => m.id !== "default");
