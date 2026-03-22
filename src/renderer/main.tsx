@@ -26,10 +26,7 @@ function renderBridgeError(): void {
   `;
 }
 
-const shouldUseBrowserMock =
-  import.meta.env.DEV &&
-  import.meta.env.VITE_ENABLE_BROWSER_MOCK === "true" &&
-  !window.enso;
+const shouldUseBrowserMock = import.meta.env.DEV && import.meta.env.VITE_ENABLE_BROWSER_MOCK === "true" && !window.enso;
 
 if (shouldUseBrowserMock) {
   import("./browser-mock").then(({ mockBridge }) => {

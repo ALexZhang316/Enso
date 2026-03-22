@@ -7,12 +7,9 @@ import {
   AuditSummary,
   ChatMessage,
   Conversation,
-  ExecutionPlan,
   KnowledgeSource,
   RetrievedSnippet,
-  StateSnapshot,
-  TraceEntry,
-  VerificationResult
+  StateSnapshot
 } from "../../shared/types";
 
 const now = (): string => new Date().toISOString();
@@ -217,9 +214,7 @@ export class EnsoStore {
   }
 
   listConversations(): Conversation[] {
-    const rows = this.db
-      .prepare("SELECT * FROM conversations ORDER BY pinned DESC, updated_at DESC")
-      .all();
+    const rows = this.db.prepare("SELECT * FROM conversations ORDER BY pinned DESC, updated_at DESC").all();
 
     return rows.map(toConversation);
   }
@@ -234,9 +229,7 @@ export class EnsoStore {
     const id = randomUUID();
 
     this.db
-      .prepare(
-        "INSERT INTO conversations (id, title, mode, pinned, created_at, updated_at) VALUES (?, ?, ?, 0, ?, ?)"
-      )
+      .prepare("INSERT INTO conversations (id, title, mode, pinned, created_at, updated_at) VALUES (?, ?, ?, 0, ?, ?)")
       .run(id, title, mode, timestamp, timestamp);
 
     return this.getConversation(id)!;
@@ -254,16 +247,12 @@ export class EnsoStore {
 
   togglePinnedConversation(conversationId: string): void {
     this.db
-      .prepare(
-        "UPDATE conversations SET pinned = CASE WHEN pinned = 1 THEN 0 ELSE 1 END, updated_at = ? WHERE id = ?"
-      )
+      .prepare("UPDATE conversations SET pinned = CASE WHEN pinned = 1 THEN 0 ELSE 1 END, updated_at = ? WHERE id = ?")
       .run(now(), conversationId);
   }
 
   setConversationMode(conversationId: string, mode: ModeId): void {
-    this.db
-      .prepare("UPDATE conversations SET mode = ?, updated_at = ? WHERE id = ?")
-      .run(mode, now(), conversationId);
+    this.db.prepare("UPDATE conversations SET mode = ?, updated_at = ? WHERE id = ?").run(mode, now(), conversationId);
   }
 
   listMessages(conversationId: string): ChatMessage[] {
@@ -276,9 +265,7 @@ export class EnsoStore {
 
   listRecentMessages(conversationId: string, limit = 12): ChatMessage[] {
     const rows = this.db
-      .prepare(
-        "SELECT * FROM messages WHERE conversation_id = ? ORDER BY created_at DESC LIMIT ?"
-      )
+      .prepare("SELECT * FROM messages WHERE conversation_id = ? ORDER BY created_at DESC LIMIT ?")
       .all(conversationId, limit)
       .reverse();
 
@@ -300,9 +287,7 @@ export class EnsoStore {
       )
       .run(id, conversationId, role, content, JSON.stringify(metadata), timestamp);
 
-    this.db
-      .prepare("UPDATE conversations SET updated_at = ? WHERE id = ?")
-      .run(timestamp, conversationId);
+    this.db.prepare("UPDATE conversations SET updated_at = ? WHERE id = ?").run(timestamp, conversationId);
 
     const row = this.db.prepare("SELECT * FROM messages WHERE id = ?").get(id);
 
@@ -310,9 +295,7 @@ export class EnsoStore {
   }
 
   getState(conversationId: string): StateSnapshot {
-    const row = this.db
-      .prepare("SELECT * FROM state_snapshots WHERE conversation_id = ?")
-      .get(conversationId);
+    const row = this.db.prepare("SELECT * FROM state_snapshots WHERE conversation_id = ?").get(conversationId);
 
     if (!row) {
       return {
@@ -406,18 +389,14 @@ export class EnsoStore {
   }
 
   listAudits(limit = 80): AuditSummary[] {
-    const rows = this.db
-      .prepare("SELECT * FROM audits ORDER BY created_at DESC LIMIT ?")
-      .all(Math.max(1, limit));
+    const rows = this.db.prepare("SELECT * FROM audits ORDER BY created_at DESC LIMIT ?").all(Math.max(1, limit));
 
     return rows.map(toAudit);
   }
 
   listAuditsByConversation(conversationId: string, limit = 80): AuditSummary[] {
     const rows = this.db
-      .prepare(
-        "SELECT * FROM audits WHERE conversation_id = ? ORDER BY created_at DESC LIMIT ?"
-      )
+      .prepare("SELECT * FROM audits WHERE conversation_id = ? ORDER BY created_at DESC LIMIT ?")
       .all(conversationId, Math.max(1, limit));
 
     return rows.map(toAudit);
@@ -476,9 +455,9 @@ export class EnsoStore {
   }
 
   getActiveConversationId(): string | null {
-    const row = this.db
-      .prepare("SELECT value_json FROM app_state WHERE key = 'active_conversation_id'")
-      .get() as { value_json: string } | undefined;
+    const row = this.db.prepare("SELECT value_json FROM app_state WHERE key = 'active_conversation_id'").get() as
+      | { value_json: string }
+      | undefined;
 
     if (!row) {
       return null;
@@ -489,9 +468,7 @@ export class EnsoStore {
   }
 
   listKnowledgeSources(): KnowledgeSource[] {
-    const rows = this.db
-      .prepare("SELECT * FROM knowledge_sources ORDER BY created_at DESC")
-      .all();
+    const rows = this.db.prepare("SELECT * FROM knowledge_sources ORDER BY created_at DESC").all();
 
     return rows.map((row: any) => ({
       id: row.id,
@@ -505,18 +482,14 @@ export class EnsoStore {
   addKnowledgeSource(name: string, sourcePath: string): string {
     const id = randomUUID();
     this.db
-      .prepare(
-        "INSERT INTO knowledge_sources (id, name, path, chunk_count, created_at) VALUES (?, ?, ?, 0, ?)"
-      )
+      .prepare("INSERT INTO knowledge_sources (id, name, path, chunk_count, created_at) VALUES (?, ?, ?, 0, ?)")
       .run(id, name, sourcePath, now());
 
     return id;
   }
 
   updateKnowledgeSourceChunkCount(sourceId: string, chunkCount: number): void {
-    this.db
-      .prepare("UPDATE knowledge_sources SET chunk_count = ? WHERE id = ?")
-      .run(chunkCount, sourceId);
+    this.db.prepare("UPDATE knowledge_sources SET chunk_count = ? WHERE id = ?").run(chunkCount, sourceId);
   }
 
   insertKnowledgeChunk(
@@ -569,8 +542,7 @@ export class EnsoStore {
     return rows
       .map((row: any) => {
         const loweredContent = row.content.toLowerCase();
-        const phraseBoost =
-          loweredQuery.length >= 4 && loweredContent.includes(loweredQuery) ? 50 : 0;
+        const phraseBoost = loweredQuery.length >= 4 && loweredContent.includes(loweredQuery) ? 50 : 0;
         const matchedDistinctTerms = terms.filter((term) => loweredContent.includes(term)).length;
         const score = phraseBoost + matchedDistinctTerms * 10 + scoreByTerms(row.content, terms);
         return {
@@ -626,8 +598,7 @@ export class EnsoStore {
         const loweredContent = row.content.toLowerCase();
         const termScore = scoreByTerms(row.content, terms);
         const matchedDistinctTerms = terms.filter((term) => loweredContent.includes(term)).length;
-        const phraseBoost =
-          loweredQuery.length >= 4 && loweredContent.includes(loweredQuery) ? 50 : 0;
+        const phraseBoost = loweredQuery.length >= 4 && loweredContent.includes(loweredQuery) ? 50 : 0;
         const bm25Score = typeof row.bm25_score === "number" ? -row.bm25_score : 0;
 
         return {

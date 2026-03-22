@@ -1,7 +1,7 @@
 # Task 0002: Permission boundary rework
 
 ## Status
-ready
+completed
 
 ## Assigned model
 Codex or Claude Code
@@ -34,8 +34,8 @@ Rework Enso's permission boundary so the runtime matches the visible settings su
 - `src/main/ipc.ts`
 - `src/shared/types.ts`
 - `src/renderer/App.tsx`
-- `tests/mvp.integration.test.cjs`
-- `tests/mvp.ui.test.cjs`
+- `tests/integration.test.cjs`
+- `tests/ui.test.cjs`
 - `docs/execution-flow.md`
 - `docs/codebase-contract.md`
 - `CHANGELOG.md`
@@ -213,13 +213,13 @@ If any of these changed, do not execute automatically.
 7. Split local-content egress handling from raw provider-call permission.
 
 ## Verification targets
-- `tests/mvp.integration.test.cjs`
+- `tests/integration.test.cjs`
   must prove each effective permission branch, not just the happy path.
-- `tests/mvp.ui.test.cjs`
+- `tests/ui.test.cjs`
   must show the visible right-rail/user-facing contract for blocked, confirm, and allow paths where applicable.
 - The final green state must include:
   - `npm run verify`
-  - `npm run test:mvp:ui`
+  - `npm run test:ui`
   - `npm run postflight`
 
 ## Notes

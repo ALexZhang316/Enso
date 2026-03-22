@@ -1,5 +1,96 @@
 # CHANGELOG
 
+## 2026-03-22 - GitHub CLI becomes required bootstrap dependency
+### What changed
+1. Updated `scripts/bootstrap-git.ps1` to require both `git` and GitHub CLI (`gh`) before bootstrap work begins.
+2. Added a GitHub authentication check to bootstrap so the script now fails fast until `gh auth status` succeeds.
+3. After binding `origin`, the bootstrap script now automatically runs `gh repo set-default origin` and prints the linked default repository.
+4. Updated `docs/environment-and-github-bootstrap.md`, `README.md`, `TODO_LIMITATIONS.md`, and `docs/codebase-contract.md` to reflect the new GitHub dependency and bootstrap behavior.
+
+### Why it changed
+- The repo already had a Git bootstrap shortcut, but GitHub itself was still treated as optional setup.
+- Making `gh` a required dependency gives the repo one supported path for binding both git remotes and GitHub CLI context to the current repository.
+- Automatic GitHub repo linking removes one more manual bootstrap step on a new machine.
+
+## 2026-03-22 - Contract cleanup, stale doc deletion, and task cleanup
+### What changed
+1. Rewrote `docs/codebase-contract.md` into a clean current-state contract instead of a layered history log, and removed the old garbled legacy section.
+2. Deleted the obsolete reference docs `docs/iteration-guidance.md` and `docs/revision-notes-2026-03-09.md`.
+3. Kept `README.md` as a human-readable overview, but synced its onboarding and reference-doc lists to the current repo state instead of shrinking it.
+4. Removed outdated completed task files from `tasks/`, leaving only the active implementation brief `tasks/0002-permission-boundary-rework.md` plus `INDEX.md` and `TEMPLATE.md`.
+5. Updated `AGENTS.md`, `CLAUDE.md`, `README.md`, `tasks/INDEX.md`, `TODO_LIMITATIONS.md`, and `docs/codebase-contract.md` to stay consistent with the deletions.
+
+### Why it changed
+- `docs/codebase-contract.md` had become the highest-concentration source of redundancy, stale history, and garbled text in the repo.
+- `docs/iteration-guidance.md` and `docs/revision-notes-2026-03-09.md` were no longer earning their maintenance cost.
+- The `tasks/` folder had accumulated completed task records that no longer helped active execution.
+
+## 2026-03-22 - Reference doc pruning for product spec, module table, and UI layout
+### What changed
+1. Pruned `docs/windows-product-spec.md` so it now keeps only desktop-specific details that are not already covered by the three live source docs.
+2. Removed repeated product identity, mode-system, shared-execution-core, and main-window layout sections from `docs/windows-product-spec.md`.
+3. Reduced `docs/module-spec-table.md` to a pure module inventory by removing the duplicated product-direction and use-case preamble.
+4. Updated `docs/ui-layout.md` to state explicitly that it is the single detailed layout reference for the Windows three-panel shell.
+5. Recorded the doc-pruning round in the repo contract and limitations docs, and added an in-repo task record.
+
+### Why it changed
+- These three reference docs still contained obvious duplication after the live source docs were reduced to three.
+- `windows-product-spec.md` was repeating material that already belongs to `current-baseline`, `execution-flow`, or `architecture`.
+- `ui-layout.md` is more useful when it is clearly the only detailed layout document instead of one of several overlapping layout descriptions.
+
+## 2026-03-22 - Live source docs reduced to three
+### What changed
+1. Reduced the repo's live source-of-truth docs to three files only: `docs/current-baseline.md`, `docs/execution-flow.md`, and `docs/architecture.md`.
+2. Updated `AGENTS.md` so only those three docs participate in conflict resolution.
+3. Downgraded `windows-product-spec`, `module-spec-table`, `ui-layout`, `iteration-guidance`, `revision-notes-2026-03-09`, and `openclaw-reference-notes` to reference-only status.
+4. Updated `CLAUDE.md` to mirror the same three-doc live source model.
+5. Added `tasks/0006-live-source-doc-reduction.md` and updated `tasks/INDEX.md` to track the contract change in-repo.
+
+### Why it changed
+- Earlier pruning still left too many documents with apparent source-of-truth authority.
+- Real simplification requires reducing the number of live authority documents, not just reorganizing them.
+- This change makes future conflict resolution simpler and lowers documentation maintenance cost.
+
+## 2026-03-22 - AGENTS pruning pass
+### What changed
+1. Pruned `AGENTS.md` again by removing the redundant external-handoff wording and deleting the standalone `How to use this file` section.
+2. Clarified the `CLAUDE.md` condition in plain language: only read it when the active coding client actually uses `CLAUDE.md`.
+3. Removed the repo-direction slogan lines about execution-first versus dialogue identity from the live repo contract.
+4. Removed the standalone `EXECUTE` section from the repo workflow protocol and simplified the loop wording to `PREFLIGHT -> PLAN -> WORK -> VERIFY -> POSTFLIGHT -> DONE`.
+5. Updated `CLAUDE.md`, `docs/codebase-contract.md`, and task tracking docs to stay aligned with the simplified contract.
+
+### Why it changed
+- The previous simplification still carried wording the user considered redundant or too ceremonial.
+- The repo contract should stay lean, readable, and clearly subordinate to the global AGENTS rules.
+- Repo-local workflow text should explain only what is truly specific to this repository.
+
+## 2026-03-22 - Global AGENTS alignment and repo-contract simplification
+### What changed
+1. Simplified `AGENTS.md` again so the global AGENTS rules are now explicitly the primary execution reference, while the repo file only adds repo-specific boundaries, verification surfaces, and doc-update rules.
+2. Removed the acceptance-level taxonomy from the repo workflow contract and replaced it with a simpler normal-completion standard plus a separate release or milestone gate.
+3. Simplified `tasks/TEMPLATE.md` so it records a verification plan instead of requiring an acceptance-level classification.
+4. Updated `CLAUDE.md` to mirror the same positioning and reduced local workflow overhead.
+5. Added `tasks/0004-global-agents-alignment.md` and updated `tasks/INDEX.md` so the workflow-contract simplification is tracked in-repo.
+
+### Why it changed
+- The previous rewrite still added too much local process structure and was more cautious than the global execution baseline.
+- The repo contract should supplement the global rules, not compete with them.
+- This keeps repo instructions focused on what is truly repo-specific instead of re-specifying generic execution behavior.
+
+## 2026-03-22 - AGENTS workflow contract rewrite
+### What changed
+1. Rewrote `AGENTS.md` into a more execution-oriented contract organized around working stance, preserved boundaries, acceptance levels, and workflow phases.
+2. Replaced the old one-size-fits-all stop-condition model with four acceptance levels: Level 0 doc/text, Level 1 scoped implementation, Level 2 system-surface change, and Level 3 milestone/release.
+3. Relaxed preflight and postflight handling for doc-only and small scoped tasks by allowing recorded baselines and doc-check fallbacks when unrelated repo-wide red tests are already known.
+4. Updated `CLAUDE.md` to mirror the same acceptance-level and fallback logic instead of reintroducing a stricter contract on the client side.
+5. Updated `tasks/TEMPLATE.md` and added `tasks/0003-agents-workflow-rewrite.md` so task artifacts now follow the new less-conservative workflow contract.
+6. Recorded the workflow rewrite in `docs/codebase-contract.md` and refreshed `TODO_LIMITATIONS.md` to reflect the new operating model.
+
+### Why it changed
+- The previous workflow still behaved too much like a release checklist even after earlier relaxations.
+- It encouraged agents to over-verify, over-document, and treat every task as if it needed repo-wide green proof.
+- The new contract keeps strong proof where it matters while making small and medium tasks faster to execute honestly.
+
 ## 2026-03-21 - Workflow constraint relaxation and bounded autopilot
 ### What changed
 1. Updated `AGENTS.md` so clear, bounded tasks now bias toward direct execution instead of extended planning and process artifact churn.
@@ -37,9 +128,9 @@
 
 ## 2026-03-21 - Regression coverage expansion for permission gaps and retrieval wiring
 ### What changed
-1. Expanded `tests/mvp.integration.test.cjs` to cover provider-preset/runtime parity, workspace_write allow/block semantics, host_exec_readonly allow/block semantics, outside-workspace host-exec rejection, and external_network blocking.
+1. Expanded `tests/integration.test.cjs` to cover provider-preset/runtime parity, workspace_write allow/block semantics, host_exec_readonly allow/block semantics, outside-workspace host-exec rejection, and external_network blocking.
 2. Updated model-backed happy-path integration tests to explicitly set `external_network = "allow"` instead of depending on the current runtime bug where remote model calls ignore the default `block` permission.
-3. Extended `tests/mvp.ui.test.cjs` to preload a network-allowed config for model-backed UI flows and to cover `knowledge import -> retrieval -> evidence panel` end-to-end in the desktop shell.
+3. Extended `tests/ui.test.cjs` to preload a network-allowed config for model-backed UI flows and to cover `knowledge import -> retrieval -> evidence panel` end-to-end in the desktop shell.
 
 ### Why it changed
 - The review identified real permission-boundary defects, but the official regression suite did not prove those boundaries.
@@ -98,7 +189,7 @@
 2. Added a blocking renderer init-error state so invalid config now renders a clear recovery card with the config path, validation reason, and a reload action.
 3. Narrowed action-adjacent request detection so informational prompts like "Can you update me on..." and "How do I write..." stay on the dialogue path, while real workspace-write and side-effect requests remain gated.
 4. Expanded regression coverage for invalid config handling, informational action wording, and init-error recovery.
-5. Upgraded `preflight` and `verify` to run `test:mvp:all`, bringing UI automation into the formal acceptance path.
+5. Upgraded `preflight` and `verify` to run `test:all`, bringing UI automation into the formal acceptance path.
 
 ### Why it changed
 - The app could previously boot with an invalid config and quietly drift to defaults, hiding configuration bugs.
@@ -126,7 +217,7 @@
 
 ## 2026-03-19 - Remove redundant acceptance checklist file
 ### What changed
-1. Removed `MVP_ACCEPTANCE_CHECKLIST_ZH.md` from the repository root.
+1. Removed the redundant standalone acceptance checklist from the repository root.
 2. Kept the active acceptance source in the existing repo contract: `AGENTS.md` stop conditions plus the scripted verification flow.
 
 ### Why it changed
@@ -151,7 +242,7 @@
 2. Persisted `retrievedSnippets` into assistant message metadata so the right-panel evidence view can render the latest real snippets.
 3. Tightened verification semantics so retrieval/tool turns fail verification when required evidence or tool output is missing.
 4. Updated conversation bootstrap/create fallback to use the configured `defaultMode`, and returned that mode to the renderer for new conversations.
-5. Added regression coverage in `tests/mvp.integration.test.cjs` and `tests/mvp.ui.test.cjs` for retrieval wiring, verification failure semantics, snippet persistence, and configured default-mode behavior.
+5. Added regression coverage in `tests/integration.test.cjs` and `tests/ui.test.cjs` for retrieval wiring, verification failure semantics, snippet persistence, and configured default-mode behavior.
 
 ### Why it changed
 - The UI exposed retrieval/default-mode controls that were not fully connected to runtime behavior.

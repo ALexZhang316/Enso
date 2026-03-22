@@ -11,6 +11,8 @@ Define a first Windows desktop UI that is:
 - optimized for local task execution and inspection
 
 This is a personal execution workbench, not a flashy consumer chat app.
+This doc is the single detailed layout reference for the Windows three-panel shell.
+Other docs may reference the shell, but should not restate its layout in detail.
 
 ## Principles
 

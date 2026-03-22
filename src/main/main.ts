@@ -22,8 +22,7 @@ if (testUserDataPath) {
   app.setPath("userData", testUserDataPath);
 }
 
-const delay = async (ms: number): Promise<void> =>
-  new Promise((resolve) => setTimeout(resolve, ms));
+const delay = async (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 
 process.on("unhandledRejection", (reason) => {
   console.error("Unhandled promise rejection in main process:", reason);
@@ -67,9 +66,7 @@ const createMainWindow = async (): Promise<void> => {
       }
     }
 
-    throw lastError instanceof Error
-      ? lastError
-      : new Error("Failed to connect to dev server URL.");
+    throw lastError instanceof Error ? lastError : new Error("Failed to connect to dev server URL.");
   }
 
   await window.loadFile(path.join(__dirname, "../renderer/index.html"));

@@ -180,7 +180,7 @@ const run = async () => {
     await expectActiveMode(secondPage, "default");
 
     await secondPage.screenshot({
-      path: path.join(ARTIFACT_DIR, "mvp-ui-success.png"),
+      path: path.join(ARTIFACT_DIR, "ui-success.png"),
       fullPage: true
     });
 
@@ -190,13 +190,13 @@ const run = async () => {
     assert.equal(configRaw.includes("kimi-ui-test-key"), false);
     assert.equal(secretRaw.includes("kimi-ui-test-key"), false);
 
-    process.stdout.write("MVP-1 UI 自动化测试通过。\n");
+    process.stdout.write("UI 自动化测试通过。\n");
   } catch (error) {
     const failedPage = firstPage ?? invalidPage;
     if (failedPage) {
       try {
         await failedPage.screenshot({
-          path: path.join(ARTIFACT_DIR, "mvp-ui-failure.png"),
+          path: path.join(ARTIFACT_DIR, "ui-failure.png"),
           fullPage: true
         });
       } catch {}

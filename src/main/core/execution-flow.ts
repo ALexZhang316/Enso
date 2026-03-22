@@ -16,7 +16,7 @@ import {
   WorkspaceWritePendingAction
 } from "../../shared/types";
 import { ConfigService } from "../services/config-service";
-import { HostExecRunResult, HostExecSafetyError, HostExecService } from "../services/host-exec-service";
+import { HostExecRunResult, HostExecService } from "../services/host-exec-service";
 import { KnowledgeService } from "../services/knowledge-service";
 import { ModelAdapter } from "../services/model-adapter";
 import { EnsoStore } from "../services/store";
@@ -56,32 +56,14 @@ interface ResolvePendingActionResult {
   verification: VerificationResult;
 }
 
-type ResolvedActionResult =
-  | {
-      kind: "workspace_write";
-      targetPath: string;
-      bytesWritten: number;
-    }
-  | {
-      kind: "host_exec";
-      command: string;
-      workingDirectory: string;
-      exitCode: number;
-      stdout: string;
-      stderr: string;
-    };
-
-const retrievalHintEn =
-  /\b(search|find|look\s?up|retrieve|evidence|document|quote|source|reference|knowledge)\b/i;
+const retrievalHintEn = /\b(search|find|look\s?up|retrieve|evidence|document|quote|source|reference|knowledge)\b/i;
 const retrievalHintZh = /(搜索|查找|检索|查阅|引用|知识|来源|文档|证据)/;
 
-const toolHintEn =
-  /\b(calculate|compute|sum|average|multiply|divide|read\s?file|read)\b/i;
+const toolHintEn = /\b(calculate|compute|sum|average|multiply|divide|read\s?file|read)\b/i;
 const toolHintZh = /(计算|求和|平均|乘|除|读取|阅读)/;
 
 const workspaceWriteVerbEn = /\b(write|save|create|draft|generate|make)\b/i;
-const workspaceWriteTargetEn =
-  /\b(file|note|notes|report|summary|todo|checklist|markdown|md|document)\b/i;
+const workspaceWriteTargetEn = /\b(file|note|notes|report|summary|todo|checklist|markdown|md|document)\b/i;
 const workspaceWriteZh = /(写|保存|创建|生成|整理).*(文件|笔记|纪要|总结|报告|待办|清单|文档)/;
 const hostExecIntentEn = /\b(run|execute)(?:\s+the)?(?:\s+command)?\b/i;
 const hostExecIntentZh = /(运行|执行)(命令)?/;
@@ -94,19 +76,16 @@ const blockedActionTargetEn =
   /\b(file|files|folder|folders|directory|directories|repo|repository|readme|config|code|app|application|email|message|command|commands|server|deployment|branch)\b/i;
 const blockedActionZh =
   /(删除|移除|发送|执行|运行|发布|转账|部署|重命名|移动|安装|编辑|修改|改写|更新).*(文件|文件夹|目录|仓库|README|配置|代码|应用|邮件|消息|命令|服务器|分支|部署)/;
-const informationalPromptEn =
-  /^\s*(what(?:'s| is)?|how(?:\s+do|\s+to|\s+can)?|why|who|when|where)\b/i;
+const informationalPromptEn = /^\s*(what(?:'s| is)?|how(?:\s+do|\s+to|\s+can)?|why|who|when|where)\b/i;
 const informationalActionPhraseEn =
   /\b(can you explain|could you explain|please explain|help me understand|tell me about|update me on|can you update me on|could you update me on|how do i|how to)\b/i;
 const informationalPromptZh =
   /^\s*(什么是|如何|怎么|为何|为什么|谁是|哪里|哪儿|帮我理解|解释一下|介绍一下|告诉我|更新一下)\b/;
 const informationalActionPhraseZh = /(帮我理解|解释一下|介绍一下|告诉我|更新一下(当前|现状|状态))/;
 
-const hasRetrievalHint = (text: string): boolean =>
-  retrievalHintEn.test(text) || retrievalHintZh.test(text);
+const hasRetrievalHint = (text: string): boolean => retrievalHintEn.test(text) || retrievalHintZh.test(text);
 
-const hasToolHint = (text: string): boolean =>
-  toolHintEn.test(text) || toolHintZh.test(text);
+const hasToolHint = (text: string): boolean => toolHintEn.test(text) || toolHintZh.test(text);
 
 const isInformationalPrompt = (text: string): boolean =>
   informationalPromptEn.test(text) ||
@@ -115,7 +94,10 @@ const isInformationalPrompt = (text: string): boolean =>
   informationalActionPhraseZh.test(text);
 
 const cleanExtractedCommand = (value: string): string =>
-  value.trim().replace(/[。！？!?.]+$/u, "").trim();
+  value
+    .trim()
+    .replace(/[。！？!?.]+$/u, "")
+    .trim();
 
 const extractHostExecCommand = (text: string): string | null => {
   if (isInformationalPrompt(text)) {
@@ -153,11 +135,7 @@ const trace = (entries: TraceEntry[], phase: TraceEntry["phase"], summary: strin
   entries.push({ phase, summary, timestamp: ts() });
 };
 
-const classifyRequest = (
-  text: string,
-  hasKnowledge: boolean,
-  retrievalPreferred: boolean
-): RequestClassification => {
+const classifyRequest = (text: string, hasKnowledge: boolean, retrievalPreferred: boolean): RequestClassification => {
   const hostExecCommand = extractHostExecCommand(text);
 
   if (isWorkspaceWriteIntent(text) || hostExecCommand !== null || hasExplicitBlockedActionIntent(text)) {
@@ -214,7 +192,12 @@ const buildPlan = (params: {
     }
 
     if (hostExecIntent) {
-      steps.push("prepare host exec proposal", "wait for confirmation", "run command inside workspace", "verify exit status");
+      steps.push(
+        "prepare host exec proposal",
+        "wait for confirmation",
+        "run command inside workspace",
+        "verify exit status"
+      );
       return {
         goal: "run host command in workspace",
         steps,
@@ -288,16 +271,17 @@ const verify = (
   };
 };
 
-const buildWorkspaceDraftFallback = (requestText: string): string => [
-  "# Workspace Draft",
-  "",
-  "## Request",
-  requestText,
-  "",
-  "## Draft",
-  "- This file was created from a gated workspace-write request.",
-  "- Replace this placeholder content with a refined version if needed."
-].join("\n");
+const buildWorkspaceDraftFallback = (requestText: string): string =>
+  [
+    "# Workspace Draft",
+    "",
+    "## Request",
+    requestText,
+    "",
+    "## Draft",
+    "- This file was created from a gated workspace-write request.",
+    "- Replace this placeholder content with a refined version if needed."
+  ].join("\n");
 
 const buildPendingActionProposalText = (pendingAction: PendingAction): string => {
   if (pendingAction.kind === "workspace_write") {
@@ -396,8 +380,7 @@ export class ExecutionFlow {
     const knowledgeSources = this.deps.store.listKnowledgeSources();
     const hasKnowledge = knowledgeSources.length > 0;
     const hostExecCommand = extractHostExecCommand(input.text);
-    const retrievalPreferred =
-      input.enableRetrievalForTurn || config.modeDefaults.retrievalByMode[input.mode];
+    const retrievalPreferred = input.enableRetrievalForTurn || config.modeDefaults.retrievalByMode[input.mode];
     const classification = classifyRequest(input.text, hasKnowledge, retrievalPreferred);
     const workspaceWriteIntent =
       classification.handlingClass === "action-adjacent" && isWorkspaceWriteIntent(input.text);
@@ -432,6 +415,64 @@ export class ExecutionFlow {
 
     if (classification.handlingClass === "action-adjacent") {
       if (workspaceWriteIntent) {
+        if (config.permissions.workspace_write === "block") {
+          trace(traceLog, "gate", "workspace_write is blocked by permission policy");
+          const blockedText = "工作区写入已被权限策略禁止。当前 workspace_write 设置为 block，不会生成可执行提案。";
+          const assistantMessage = this.deps.store.addMessage(
+            input.conversationId,
+            "assistant",
+            blockedText,
+            buildAssistantMessageMetadata({
+              input,
+              classification,
+              snippets: [],
+              toolResult: null,
+              retrievalEnabled: retrievalPreferred
+            })
+          );
+
+          const verification: VerificationResult = {
+            status: "blocked",
+            detail: "workspace_write permission is block"
+          };
+          trace(traceLog, "verification", `status=${verification.status}`);
+          trace(traceLog, "persist", "state and audit written");
+
+          const nextState = this.deps.store.upsertState({
+            conversationId: input.conversationId,
+            retrievalUsed: false,
+            toolsCalled: [],
+            latestToolResult: "",
+            pendingConfirmation: false,
+            pendingAction: null,
+            taskStatus: "completed",
+            updatedAt: ts(),
+            plan,
+            trace: traceLog,
+            verification
+          });
+
+          const audit = this.deps.store.addAudit({
+            conversationId: input.conversationId,
+            mode: input.mode,
+            retrievalUsed: false,
+            toolsUsed: [],
+            resultType: "proposal",
+            riskNotes: "workspace_write blocked by permission policy"
+          });
+
+          return {
+            assistantMessage,
+            state: nextState,
+            audit,
+            classification,
+            retrievedSnippets: [],
+            plan,
+            trace: traceLog,
+            verification
+          };
+        }
+
         const pendingAction = await this.createWorkspaceWriteProposal({
           input,
           config,
@@ -522,10 +563,93 @@ export class ExecutionFlow {
       }
 
       if (safeHostExecIntent && hostExecCommand) {
+        const hostExecPermission = config.permissions.host_exec_readonly;
+
+        if (hostExecPermission === "block") {
+          trace(traceLog, "gate", "host_exec_readonly is blocked by permission policy");
+          const blockedText = "主机命令执行已被权限策略禁止。当前 host_exec_readonly 设置为 block。";
+          const assistantMessage = this.deps.store.addMessage(
+            input.conversationId,
+            "assistant",
+            blockedText,
+            buildAssistantMessageMetadata({
+              input,
+              classification,
+              snippets: [],
+              toolResult: null,
+              retrievalEnabled: retrievalPreferred
+            })
+          );
+
+          const verification: VerificationResult = {
+            status: "blocked",
+            detail: "host_exec_readonly permission is block"
+          };
+          trace(traceLog, "verification", `status=${verification.status}`);
+          trace(traceLog, "persist", "state and audit written");
+
+          const nextState = this.deps.store.upsertState({
+            conversationId: input.conversationId,
+            retrievalUsed: false,
+            toolsCalled: [],
+            latestToolResult: "",
+            pendingConfirmation: false,
+            pendingAction: null,
+            taskStatus: "completed",
+            updatedAt: ts(),
+            plan,
+            trace: traceLog,
+            verification
+          });
+
+          const audit = this.deps.store.addAudit({
+            conversationId: input.conversationId,
+            mode: input.mode,
+            retrievalUsed: false,
+            toolsUsed: [],
+            resultType: "proposal",
+            riskNotes: "host_exec_readonly blocked by permission policy"
+          });
+
+          return {
+            assistantMessage,
+            state: nextState,
+            audit,
+            classification,
+            retrievedSnippets: [],
+            plan,
+            trace: traceLog,
+            verification
+          };
+        }
+
         const pendingAction = this.deps.hostExecService.buildHostExecProposal({
           requestText: input.text,
           command: hostExecCommand
         });
+
+        if (hostExecPermission === "allow") {
+          const resolution = this.executeHostExec({
+            conversationId: input.conversationId,
+            mode: input.mode,
+            pendingAction,
+            plan,
+            traceLog,
+            classification,
+            responseTextPrefix: "已执行工作区命令。"
+          });
+
+          return {
+            assistantMessage: resolution.assistantMessage,
+            state: resolution.state,
+            audit: resolution.audit,
+            classification,
+            retrievedSnippets: [],
+            plan,
+            trace: resolution.state.trace,
+            verification: resolution.verification
+          };
+        }
 
         trace(traceLog, "gate", "host exec proposal pending confirmation");
 
@@ -586,10 +710,9 @@ export class ExecutionFlow {
       }
 
       trace(traceLog, "gate", "unsupported action remains blocked");
-      const proposalText =
-        hostExecCommand
-          ? "检测到主机命令请求，但当前仅支持在 Enso 工作区内执行只读命令。破坏性命令、外部动作和工作区外执行仍保持阻断。"
-          : "检测到动作类请求，但当前仅支持工作区内写入提案和工作区内只读命令执行提案。外部执行、工作区外写入和破坏性动作仍保持阻断。";
+      const proposalText = hostExecCommand
+        ? "检测到主机命令请求，但当前仅支持在 Enso 工作区内执行只读命令。破坏性命令、外部动作和工作区外执行仍保持阻断。"
+        : "检测到动作类请求，但当前仅支持工作区内写入提案和工作区内只读命令执行提案。外部执行、工作区外写入和破坏性动作仍保持阻断。";
       const assistantMessage = this.deps.store.addMessage(
         input.conversationId,
         "assistant",
@@ -645,6 +768,64 @@ export class ExecutionFlow {
       };
     }
 
+    if (config.permissions.external_network === "block") {
+      trace(traceLog, "gate", "external_network is blocked - no remote model call permitted");
+      const blockedText = "外部网络访问已被权限策略禁止。当前 external_network 设置为 block，无法调用远程模型。";
+      const assistantMessage = this.deps.store.addMessage(
+        input.conversationId,
+        "assistant",
+        blockedText,
+        buildAssistantMessageMetadata({
+          input,
+          classification,
+          snippets: [],
+          toolResult: null,
+          retrievalEnabled: retrievalPreferred
+        })
+      );
+
+      const verification: VerificationResult = {
+        status: "blocked",
+        detail: "external_network permission is block"
+      };
+      trace(traceLog, "verification", `status=${verification.status}`);
+      trace(traceLog, "persist", "state and audit written");
+
+      const nextState = this.deps.store.upsertState({
+        conversationId: input.conversationId,
+        retrievalUsed: false,
+        toolsCalled: [],
+        latestToolResult: "",
+        pendingConfirmation: false,
+        pendingAction: null,
+        taskStatus: "completed",
+        updatedAt: ts(),
+        plan,
+        trace: traceLog,
+        verification
+      });
+
+      const audit = this.deps.store.addAudit({
+        conversationId: input.conversationId,
+        mode: input.mode,
+        retrievalUsed: false,
+        toolsUsed: [],
+        resultType: "answer",
+        riskNotes: "external_network blocked by permission policy"
+      });
+
+      return {
+        assistantMessage,
+        state: nextState,
+        audit,
+        classification,
+        retrievedSnippets: [],
+        plan,
+        trace: traceLog,
+        verification
+      };
+    }
+
     let snippets: RetrievedSnippet[] = [];
     if (classification.retrievalNeeded) {
       snippets = this.deps.knowledgeService.retrieve(input.text, 5);
@@ -657,9 +838,7 @@ export class ExecutionFlow {
       trace(
         traceLog,
         "tool",
-        toolResult
-          ? `tool=${toolResult.toolName} summary=${toolResult.summary}`
-          : "no tool matched"
+        toolResult ? `tool=${toolResult.toolName} summary=${toolResult.summary}` : "no tool matched"
       );
     }
 
@@ -678,9 +857,7 @@ export class ExecutionFlow {
       }
 
       const enrichedUserText =
-        contextParts.length > 0
-          ? `${contextParts.join("\n\n")}\n\n用户问题: ${input.text}`
-          : input.text;
+        contextParts.length > 0 ? `${contextParts.join("\n\n")}\n\n用户问题: ${input.text}` : input.text;
 
       trace(traceLog, "model", "calling model with assembled context");
 
@@ -814,6 +991,55 @@ export class ExecutionFlow {
     const traceLog = [...currentState.trace];
     trace(traceLog, "gate", "confirmation received");
 
+    const config = this.deps.configService.load();
+    const pendingKind = currentState.pendingAction.kind;
+
+    const effectivePermission =
+      pendingKind === "workspace_write" ? config.permissions.workspace_write : config.permissions.host_exec_readonly;
+
+    if (effectivePermission === "block") {
+      trace(traceLog, "gate", `revalidation failed: ${pendingKind} permission changed to block`);
+      const blockedText = `执行取消：${pendingKind} 权限在确认后已变更为 block。`;
+      const assistantMessage = this.deps.store.addMessage(conversationId, "assistant", blockedText, {
+        mode: conversation.mode,
+        handlingClass: "action-adjacent" as const,
+        retrievalUsed: false,
+        toolName: null
+      });
+
+      const verification: VerificationResult = {
+        status: "blocked",
+        detail: `revalidation: ${pendingKind} permission is now block`
+      };
+      trace(traceLog, "verification", `status=${verification.status}`);
+      trace(traceLog, "persist", "blocked state written after revalidation");
+
+      const nextState = this.deps.store.upsertState({
+        conversationId,
+        retrievalUsed: false,
+        toolsCalled: [],
+        latestToolResult: "",
+        pendingConfirmation: false,
+        pendingAction: null,
+        taskStatus: "completed",
+        updatedAt: ts(),
+        plan: currentState.plan,
+        trace: traceLog,
+        verification
+      });
+
+      const audit = this.deps.store.addAudit({
+        conversationId,
+        mode: conversation.mode,
+        retrievalUsed: false,
+        toolsUsed: [],
+        resultType: "proposal",
+        riskNotes: `revalidation blocked: ${pendingKind} permission changed to block`
+      });
+
+      return { assistantMessage, state: nextState, audit, verification };
+    }
+
     if (currentState.pendingAction.kind === "workspace_write") {
       return this.executeWorkspaceWrite({
         conversationId,
@@ -858,6 +1084,14 @@ export class ExecutionFlow {
       `用户请求: ${input.text}`
     ].join("\n");
 
+    if (config.permissions.external_network === "block") {
+      trace(traceLog, "model", "workspace draft fallback: external_network is block");
+      return this.deps.workspaceService.buildWorkspaceWriteProposal({
+        requestText: input.text,
+        content: buildWorkspaceDraftFallback(input.text)
+      });
+    }
+
     try {
       trace(traceLog, "model", "drafting workspace artifact content");
       const content = await this.deps.modelAdapter.generateReply({
@@ -890,8 +1124,7 @@ export class ExecutionFlow {
     classification: RequestClassification;
     responseTextPrefix: string;
   }): ResolvePendingActionResult {
-    const { conversationId, mode, pendingAction, plan, traceLog, classification, responseTextPrefix } =
-      params;
+    const { conversationId, mode, pendingAction, plan, traceLog, classification, responseTextPrefix } = params;
 
     trace(traceLog, "tool", `workspace-write target=${pendingAction.targetPath}`);
     const writeResult = this.deps.workspaceService.executePendingAction(pendingAction);
@@ -973,8 +1206,7 @@ export class ExecutionFlow {
     classification: RequestClassification;
     responseTextPrefix: string;
   }): ResolvePendingActionResult {
-    const { conversationId, mode, pendingAction, plan, traceLog, classification, responseTextPrefix } =
-      params;
+    const { conversationId, mode, pendingAction, plan, traceLog, classification, responseTextPrefix } = params;
 
     trace(traceLog, "tool", `exec command=${pendingAction.command}`);
 

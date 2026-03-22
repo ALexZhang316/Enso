@@ -59,8 +59,7 @@ const mockMessages = [
     id: "msg-2",
     conversationId: CONV_ID,
     role: "assistant" as const,
-    content:
-      "当前处于默认模式。我会先给出平衡回答，需要时再建议检索或工具，而不会默认走重工具链。",
+    content: "当前处于默认模式。我会先给出平衡回答，需要时再建议检索或工具，而不会默认走重工具链。",
     createdAt: NOW
   }
 ];

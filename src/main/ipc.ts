@@ -25,13 +25,10 @@ const buildInitializationPayload = (
 ): InitializationPayload => {
   const currentList = store.listConversations();
   const ensured =
-    currentList.length > 0
-      ? currentList[0]
-      : store.ensureDefaultConversation(config.modeDefaults.defaultMode);
+    currentList.length > 0 ? currentList[0] : store.ensureDefaultConversation(config.modeDefaults.defaultMode);
 
   const maybeActiveConversationId = store.getActiveConversationId();
-  const activeConversation =
-    currentList.find((item) => item.id === maybeActiveConversationId) ?? ensured;
+  const activeConversation = currentList.find((item) => item.id === maybeActiveConversationId) ?? ensured;
 
   store.setActiveConversationId(activeConversation.id);
 
@@ -62,10 +59,7 @@ export const registerIpcHandlers = ({
 
   ipcMain.handle("enso:conversation:create", (_event, title?: string) => {
     const config = configService.load();
-    const conversation = store.createConversation(
-      config.modeDefaults.defaultMode,
-      title?.trim() || "新会话"
-    );
+    const conversation = store.createConversation(config.modeDefaults.defaultMode, title?.trim() || "新会话");
     store.setActiveConversationId(conversation.id);
 
     return {
@@ -106,9 +100,7 @@ export const registerIpcHandlers = ({
     const remaining = store.listConversations();
     const config = configService.load();
     const nextConversation =
-      remaining.length > 0
-        ? remaining[0]
-        : store.ensureDefaultConversation(config.modeDefaults.defaultMode);
+      remaining.length > 0 ? remaining[0] : store.ensureDefaultConversation(config.modeDefaults.defaultMode);
 
     store.setActiveConversationId(nextConversation.id);
 
@@ -159,8 +151,7 @@ export const registerIpcHandlers = ({
   });
 
   ipcMain.handle("enso:file:import", async () => {
-    const scriptedImportPaths = process.env.ENSO_TEST_IMPORT_FILES
-      ?.split(path.delimiter)
+    const scriptedImportPaths = process.env.ENSO_TEST_IMPORT_FILES?.split(path.delimiter)
       .map((item) => item.trim())
       .filter(Boolean);
 

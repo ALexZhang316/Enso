@@ -90,11 +90,7 @@ export interface ProviderConfig {
   apiKey: string;
 }
 
-export type ActionType =
-  | "workspace_write"
-  | "host_exec_readonly"
-  | "host_exec_destructive"
-  | "external_network";
+export type ActionType = "workspace_write" | "host_exec_readonly" | "host_exec_destructive" | "external_network";
 
 export type PermissionLevel = "allow" | "confirm" | "block";
 
@@ -145,15 +141,7 @@ export interface ExecutionPlan {
   verificationTarget: string;
 }
 
-export type TracePhase =
-  | "classify"
-  | "plan"
-  | "retrieval"
-  | "tool"
-  | "model"
-  | "verification"
-  | "gate"
-  | "persist";
+export type TracePhase = "classify" | "plan" | "retrieval" | "tool" | "model" | "verification" | "gate" | "persist";
 
 export interface TraceEntry {
   phase: TracePhase;

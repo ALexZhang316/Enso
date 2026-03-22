@@ -2,117 +2,33 @@
 
 ## Internalized handoff
 
-The latest handoff pack has already been internalized into this repository.
-Project-internal documents are the only active source of truth.
-Do not rely on any external zip file during implementation or handoff.
+Project-internal documents are the active source of truth for this repository.
+This file supplements the global AGENTS rules with repo-specific constraints.
 
-Onboarding order:
+## Read this repo in order
+
 1. `AGENTS.md`
 2. `docs/current-baseline.md`
 3. `docs/execution-flow.md`
-4. `docs/codebase-contract.md`
-5. `docs/environment-and-github-bootstrap.md`
-6. `CLAUDE.md` if your client reads it
+4. `docs/architecture.md`
+5. `docs/codebase-contract.md`
+6. `docs/environment-and-github-bootstrap.md`
+7. `CLAUDE.md` only if the active coding client actually reads `CLAUDE.md`
 
-## Project summary
-
-Build a local-first Windows desktop personal agent whose main value is solving complex desktop tasks under user control.
-
-The app should provide:
-- fixed three-panel main chat window
-- optional manual mode switching on top of a default mode
-- visible plan / execution / verification flow
-- local config, local session/state, local audit
-- file import
-- minimal knowledge ingestion + retrieval
-- local workspace
-- bounded tool calling
-- single-request execution flow defined in `docs/execution-flow.md`
-
-This is a single-user system, not a generic SaaS product and not a social-channel assistant.
-
-## Strategic intent
-
-The product is now execution-first.
-Dialogue remains supported, but does not define the product identity.
-The core is:
-- planner
-- executor
-- verifier
-- tool registry
-- task state
-- permission boundary
-
-## Hard constraints
-
-- No automatic mode selection
-- Default mode must exist even when no optional mode is enabled
-- Deep Dialogue / Decision / Research are mutually exclusive optional modes
-- These modes bias behavior; they are not separate engines or product identities
-- No social / messaging channel integrations as a product pillar
-- No companion persona as a product goal
-- No automatic long-term personality memory
-- No multi-agent system as a current priority
-- No hidden side-effect execution
-- No uncontrolled autonomous loops
-- Do not drift beyond the execution-first product boundary
-
-## Behavior constraints
-
-Implementation details are flexible. Product behavior is not.
-
-You may choose:
-- internal function/module structure
-- naming
-- storage wrappers
-- UI component decomposition
-- stub strategy
-
-You may not change:
-- single-user local-first assumption
-- main request flow
-- execution-first product direction
-- read-visible and permission-gated action principle
-- requirement for visible state and auditability
-- default mode + mutually exclusive optional mode behavior
-
-## OpenClaw-aligned execution rule
-
-Enso should borrow OpenClaw at the architecture level, not the product-shape level.
-
-Must borrow:
-- local control-plane thinking
-- typed first-class tools
-- workspace-centered execution
-- explicit permission gate and approval boundary
-- visible execution trace and verification
-- strict config validation
-
-Must not borrow:
-- messaging-channel expansion
-- companion persona framing
-- social-surface product strategy
-- omnipresence as product value
-- multi-agent product identity for the current stage
-
-Implementation consequence:
-- prefer strengthening `planner -> executor -> verifier` over adding more chat polish
-- prefer explicit tool policy over vague agent-like improvisation
-- prefer proposal / dry-run / blocked result over hidden side effects
-
-## Source documents
-
-Use these files as the source of truth:
+## Use these docs to break ties
 
 1. `docs/current-baseline.md`
 2. `docs/execution-flow.md`
-3. `docs/windows-product-spec.md`
-4. `docs/architecture.md`
-5. `docs/module-spec-table.md`
-6. `docs/ui-layout.md`
-7. `docs/iteration-guidance.md`
-8. `docs/revision-notes-2026-03-09.md`
-9. `docs/openclaw-reference-notes.md`
+3. `docs/architecture.md`
+
+All other docs are reference material.
+They can explain implementation details or historical context, but they do not override the three live source docs above.
+
+Reference-only docs:
+- `docs/windows-product-spec.md`
+- `docs/module-spec-table.md`
+- `docs/ui-layout.md`
+- `docs/openclaw-reference-notes.md`
 
 If uncertainty remains:
 - choose the simpler implementation
@@ -122,6 +38,68 @@ If uncertainty remains:
 Operational bootstrap:
 - use `docs/environment-and-github-bootstrap.md` for environment setup, native rebuild prerequisites, and GitHub initialization when `.git` is missing
 
+## Repo direction
+
+This repository builds a local-first Windows desktop personal agent for one trusted operator.
+
+The center of the product is:
+- planner
+- executor
+- verifier
+- tool registry
+- task state
+- permission boundary
+
+## Non-negotiable product boundaries
+
+Keep these:
+- fixed three-panel desktop shell
+- default mode always available
+- optional manual modes: Deep Dialogue, Decision, Research
+- no automatic mode routing
+- planner -> executor -> verifier as the main execution backbone
+- visible plan, trace, verification, and audit signals
+- local config, session/state, audit, workspace, and knowledge metadata
+- file import and a retrieval path
+- typed bounded tools: read, search, compute, workspace-write, exec
+- explicit permission boundaries for higher-risk actions
+
+Do not introduce these:
+- hidden side-effect execution
+- uncontrolled autonomous loops
+- messaging-channel expansion as a product pillar
+- companion-persona framing as a product goal
+- automatic long-term personality memory
+- multi-agent product identity as a current priority
+- product drift away from execution-first local task completion
+
+Implementation details are flexible.
+Product behavior is not.
+
+## OpenClaw-aligned architecture rule
+
+Borrow OpenClaw at the architecture level, not the product-shape level.
+
+Keep:
+- local control-plane thinking
+- typed first-class tools
+- workspace-centered execution
+- explicit permission gates and approval boundaries
+- visible execution trace and verification
+- strict config validation
+
+Do not copy:
+- messaging-channel expansion
+- companion persona framing
+- social-surface product strategy
+- omnipresence as product value
+- multi-agent product identity for the current stage
+
+In practice:
+- prefer strengthening `planner -> executor -> verifier` over chat polish
+- prefer explicit tool policy over vague improvisation
+- prefer proposal, dry-run, or blocked results over hidden side effects
+
 ## Text encoding hygiene
 
 - Keep repository text files in UTF-8.
@@ -129,87 +107,109 @@ Operational bootstrap:
   `. .\scripts\enable-utf8-terminal.ps1`
 - Prefer ASCII punctuation in docs when equivalent text works well enough, for example use `->` in place of a Unicode arrow.
 
-## Preserve in ongoing iterations
+## Completion standard
 
-- Windows desktop main window shell
-- fixed 3-panel layout
-- default mode + manual optional mode switching
-- local conversation/session basics
-- local config read/write with validation
-- local state persistence
-- audit summary persistence + display
-- local workspace root
-- file import
-- retrieval path
-- typed tool abstraction: read / search / compute / workspace-write / exec
-- planner -> executor -> verifier main chain
-- visible task state and latest execution trace
+Default completion standard for normal work:
+- the requested objective is complete
+- verification matches the touched surface
+- no new in-scope regression remains unresolved
+- unrelated pre-existing red checks are called out explicitly when relevant
+- materially affected docs are updated
 
-## Stop conditions
+Do not force a release-style gate for every small task.
+Do not claim more than your verification actually proves.
 
-A change is not acceptable unless all are true:
-
+Use the full release or milestone gate only when claiming repo-wide health or release readiness.
+That higher bar means all of the following are true:
 - app launches
 - three-panel UI works
 - mode switching works, including return to default mode
 - requests can be submitted and answered
 - state, plan, and audit summaries are visible
-- file import + minimal retrieval are wired
+- file import plus minimal retrieval are wired
 - workspace exists and is used by the execution chain
 - bounded tool execution runs end-to-end
-- verifier can confirm basic artifact/result existence
+- verifier can confirm basic artifact or result existence
 
-## Dev workflow protocol
+## Workflow protocol
 
-Every coding session must follow this lifecycle:
+Follow the global execution model.
+Within this repo, keep the work loop simple:
 
+```text
+PREFLIGHT -> PLAN -> WORK -> VERIFY -> POSTFLIGHT -> DONE
 ```
-PREFLIGHT -> PLAN -> EXECUTE -> VERIFY -> POSTFLIGHT -> DONE
-```
 
-### Bounded Autopilot
+### PREFLIGHT
 
-- Default operating mode is bounded autopilot.
-- Once the objective, scope, and stop condition are clear, continue autonomously through repeated cycles of inspect -> modify -> verify -> repair.
-- Do not pause for routine design forks, minor failures, or process artifact creation.
-- Use milestone updates rather than frequent permission-seeking pauses.
-- Existing unrelated red tests are not hard blockers. Record the baseline briefly, then continue with scoped work.
-- Hard blockers are:
-  - missing credentials or access that cannot be self-resolved
-  - ambiguous or conflicting user goals
-  - irreversible high-risk side effects beyond the approved boundary
-  - environment failure that prevents the requested work
-  - direct conflict with explicit user instructions
+- Read the onboarding docs.
+- For executable work, run `npm run preflight` unless you already have a recent baseline for the same branch and task context.
+- For doc-only or workflow-contract changes, you may reuse a recent recorded baseline instead of rerunning the full repo gate, but say so explicitly.
+- If preflight is already red because of known unrelated regressions, record that baseline and continue unless it blocks the requested task directly.
 
-### Phase details
+### PLAN
 
-1. **PREFLIGHT**: Read onboarding docs (AGENTS.md, current-baseline, execution-flow, codebase-contract). Run `npm run preflight`. Confirm understanding to user. If preflight is already red because of known unrelated regressions, record that baseline briefly and continue with scoped work unless the failure blocks the requested task directly.
-2. **PLAN**: Define scope and acceptance criteria. If a task file already exists in `tasks/`, use it. If not, state the plan verbally. Create a new task file only for multi-session work, material contract changes, or when the user asks for one.
-3. **EXECUTE**: Implement changes.
-4. **VERIFY**: Run targeted checks repeatedly during execution. Use `npm run verify` as the broader milestone gate. If failures are within scope, repair them in the same session rather than stopping at the first red result. If the repo has known pre-existing red tests unrelated to the scoped task, report the delta clearly and also run the most relevant targeted verification for the change.
-5. **POSTFLIGHT**: Update the required docs that materially changed (see below). Run `npm run postflight` and address any new warnings introduced by the task. Review `git diff` for unintended changes.
-6. **DONE**: All checklists complete. Task file status set to `done` if applicable.
+Define:
+- objective
+- in-scope and out-of-scope surfaces
+- planned verification
 
-### Mandatory post-flight document updates
+Use an existing task file if it helps.
+Create or update a task file only when it adds value, especially for multi-session work, material contract changes, or handoff-heavy tasks.
 
-After code changes that materially affect behavior, limitations, or the codebase contract, you MUST update the relevant files before reporting completion:
+### VERIFY
 
-- `CHANGELOG.md` -- what changed and why
-- `TODO_LIMITATIONS.md` -- any new limitations or resolved items
-- `docs/codebase-contract.md` -- directory structure, module registry, schema, known issues, decisions
+- Match verification to the problem layer.
+- Run the smallest sufficient checks for the actual claim you are making.
+- If failures are within scope, repair them in the same session rather than stopping at the first red result.
+- Use `npm run verify` when the change honestly needs repo-wide proof.
+- Run `npm run test:ui` when desktop-shell stop-condition surfaces are meaningfully touched.
 
-Do not force cosmetic updates when a file's actual source-of-truth content did not change. Failure to update a materially affected document is a defect equivalent to a broken build.
+### POSTFLIGHT
 
-### Task files
+- Update required docs proportionally to the real change.
+- Run `npm run postflight` when broader verification is expected to pass or when claiming repo-wide health.
+- If a known unrelated red baseline prevents full postflight from going green, run `node scripts/check-docs-updated.cjs`, review the diff, and report why full postflight is still red.
 
-Task definitions live in `tasks/`. Use `tasks/TEMPLATE.md` as the starting point.
+### DONE
+
+Report:
+- what changed
+- what verification ran
+- any remaining unrelated red baseline
+- any residual risk or follow-up worth tracking
+
+## Required document updates
+
+After changes that materially affect behavior, limitations, workflow contract, or the codebase contract, update the relevant source-of-truth files before reporting completion:
+
+- `CHANGELOG.md` for what changed and why
+- `TODO_LIMITATIONS.md` for new or resolved limitations
+- `docs/codebase-contract.md` for contract, module, schema, workflow, or known-issue drift
+
+Also update these when they are directly affected:
+- `AGENTS.md`
+- `CLAUDE.md`
+- `docs/current-baseline.md`
+- `docs/execution-flow.md`
+
+Do not force cosmetic updates when a file's actual source-of-truth content did not change.
+
+## Task files
+
+Task definitions live in `tasks/`.
+Use `tasks/TEMPLATE.md` as the starting point.
 The task index is `tasks/INDEX.md`.
 
-### When in doubt
+Use task files when they improve continuity.
+Do not create them as empty ceremony.
 
-1. Check `tasks/INDEX.md` for the current backlog
-2. If no task is assigned, ask the user
-3. Do not start coding without a clear objective and acceptance criteria
+## When in doubt
+
+1. Check `tasks/INDEX.md` for the active backlog.
+2. If there is no assigned task, ask the user for the objective.
+3. Choose the simpler implementation and the smallest honest verification.
+4. Do not start coding without a clear objective and a credible verification plan.
 
 ## Fixed tech stack for the current stage
 
@@ -217,24 +217,27 @@ Unless there is a hard blocker, do not change the default stack.
 
 - Desktop shell: Electron
 - Frontend: React + TypeScript
-- UI styling/components: Tailwind CSS + shadcn/ui
-- LLM / retrieval glue layer: LangChain.js
+- UI styling and components: Tailwind CSS + shadcn/ui
+- LLM and retrieval glue layer: LangChain.js
 - Local database access: better-sqlite3
 - Local persistence target: SQLite
 - User-editable config: TOML
 - Model integration: provider abstraction with one provider first
-- Knowledge/RAG: local ingestion + chunking + SQLite FTS retrieval (vector/embedding deferred)
+- Knowledge and RAG: local ingestion plus chunking plus SQLite FTS retrieval, with vector or embedding work deferred
 - Persistence scope: sessions, state, audit, workspace metadata, and knowledge metadata stored locally in SQLite
 
 ### Version locks
+
 - Lock to a stable Node.js LTS release. Do not upgrade Node casually.
 - Lock Electron to a stable major version for the current stage. Do not upgrade Electron casually.
 - Do not swap better-sqlite3 out unless there is a real blocker.
 
 ### LangChain.js constraint
-Use LangChain.js as an integration/orchestration helper only.
+
+Use LangChain.js as an integration and orchestration helper only.
 Do not let framework-default agent behavior replace the product-defined execution flow.
 The execution flow spec remains the source of truth.
 
 ### Do not switch
+
 Do not switch to Tauri, Next.js, YAML-first config, or a cloud-first architecture unless explicitly instructed.

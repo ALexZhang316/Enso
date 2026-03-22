@@ -2,8 +2,8 @@
 
 ## Why this file exists
 
-The repository is already past the pre-start / first-MVP planning stage.
-This file replaces early-stage MVP language with a current-state baseline.
+The repository is past the initial planning stage and under active iteration.
+This file defines the current-state baseline.
 It defines what Enso is now trying to become across ongoing iterations.
 
 ## Current product identity

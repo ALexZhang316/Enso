@@ -15,6 +15,9 @@ draft
 - [ ] Criterion 2
 - [ ] Criterion 3
 
+## Verification plan
+<!-- Smallest sufficient checks that honestly prove the task -->
+
 ## Files in scope
 <!-- List files to create or modify -->
 
@@ -27,15 +30,18 @@ draft
 - [ ] Read docs/execution-flow.md
 - [ ] Read docs/codebase-contract.md
 - [ ] Confirmed codebase-contract matches actual code
-- [ ] `npm run preflight` passes
-- [ ] Stated understanding to user
+- [ ] Recorded `npm run preflight` baseline, or explicitly justified reusing/skipping the full repo gate
+- [ ] Stated scope and planned verification to the user
 
 ## Post-flight checklist
-- [ ] `npm run verify` passes (build + tests)
-- [ ] CHANGELOG.md updated
-- [ ] TODO_LIMITATIONS.md updated
-- [ ] docs/codebase-contract.md updated
-- [ ] `npm run postflight` passes (no warnings)
+- [ ] Objective and acceptance criteria are satisfied
+- [ ] Targeted verification ran and was recorded
+- [ ] Broader checks ran if the claim required them, or the gap was explained
+- [ ] CHANGELOG.md updated if materially affected
+- [ ] TODO_LIMITATIONS.md updated if materially affected
+- [ ] docs/codebase-contract.md updated if materially affected
+- [ ] AGENTS.md and CLAUDE.md updated if the workflow contract changed
+- [ ] `npm run postflight` passed, or a known unrelated red baseline plus a successful doc-check fallback was recorded
 - [ ] No unintended file changes (git diff reviewed)
 
 ## Notes

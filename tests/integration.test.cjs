@@ -26,7 +26,7 @@ const { KimiProvider } = require(path.join(DIST_ROOT, "main/providers/kimi-provi
 const { ProviderError } = require(path.join(DIST_ROOT, "main/providers/types.js"));
 
 const createHarness = () => {
-  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "enso-mvp1-test-"));
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "enso-test-"));
   const dbPath = path.join(tempDir, "enso.sqlite");
   const configPath = path.join(tempDir, "config.toml");
   const secretPath = path.join(tempDir, "secrets.json");
@@ -979,10 +979,10 @@ const tests = [
   }
 
   if (passed !== tests.length) {
-    process.stderr.write(`\nMVP-1 自动化测试失败：${passed}/${tests.length} 通过。\n`);
+    process.stderr.write(`\n集成测试失败：${passed}/${tests.length} 通过。\n`);
     process.exit(1);
   }
 
-  process.stdout.write(`\nMVP-1 自动化测试通过：${passed}/${tests.length} 通过。\n`);
+  process.stdout.write(`\n集成测试通过：${passed}/${tests.length} 通过。\n`);
   process.exit(0);
 })();

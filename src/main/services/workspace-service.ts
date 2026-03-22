@@ -4,8 +4,7 @@ import { WorkspaceWritePendingAction } from "../../shared/types";
 
 const WORKSPACE_SUBDIRS = ["tasks", "scratch", "outputs", "cache", "logs"] as const;
 
-const toTimestampSlug = (input: string): string =>
-  input.replace(/[:.]/g, "-");
+const toTimestampSlug = (input: string): string => input.replace(/[:.]/g, "-");
 
 const sanitizeStem = (input: string): string => {
   const normalized = input
@@ -46,10 +45,7 @@ export class WorkspaceService {
     return this.workspaceRoot;
   }
 
-  buildWorkspaceWriteProposal(params: {
-    requestText: string;
-    content: string;
-  }): WorkspaceWritePendingAction {
+  buildWorkspaceWriteProposal(params: { requestText: string; content: string }): WorkspaceWritePendingAction {
     const stem = deriveStem(params.requestText);
     const fileName = `${stem}-${toTimestampSlug(new Date().toISOString())}.md`;
     const targetPath = path.join(this.workspaceRoot, "outputs", fileName);

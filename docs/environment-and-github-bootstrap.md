@@ -19,6 +19,7 @@ Required tools:
 - Node.js `20.x`
 - npm (bundled with Node.js)
 - Git
+- GitHub CLI (`gh`)
 - Python `3.12`
 - Visual Studio 2022 Build Tools with C++ tools and Windows SDK
 
@@ -34,6 +35,7 @@ Use `winget` where available.
 Recommended packages:
 - `OpenJS.NodeJS.20`
 - `Git.Git`
+- `GitHub.cli`
 - `Python.Python.3.12`
 - `Microsoft.VisualStudio.2022.BuildTools`
 
@@ -48,6 +50,8 @@ Run these checks in a fresh terminal after installation:
 node -v
 npm -v
 git --version
+gh --version
+gh auth status
 python --version
 ```
 
@@ -55,6 +59,7 @@ Expected minimums:
 - Node.js reports `20.x`
 - npm is available
 - Git is available
+- GitHub CLI is available and authenticated
 - Python is available
 
 ## UTF-8 terminal bootstrap
@@ -96,20 +101,27 @@ From the repository root:
 npm install
 npm run rebuild:native
 npm run build
-npm run test:mvp
-npm run test:mvp:ui
+npm run test:integration
+npm run test:ui
 ```
 
 Useful full check:
 
 ```powershell
-npm run test:mvp:all
+npm run test:all
 ```
 
 If `better-sqlite3` reports ABI or native-load problems, re-run:
 
 ```powershell
 npm run rebuild:native
+```
+
+GitHub CLI authentication is required before GitHub bootstrap flows:
+
+```powershell
+gh auth login
+gh auth status
 ```
 
 ## GitHub bootstrap when `.git` is missing
@@ -125,8 +137,11 @@ npm run bootstrap:git
 
 Default behavior:
 - initialize `.git` if missing
+- require both `git` and `gh`
+- require `gh auth status` to pass before continuing
 - rename the primary branch to `main`
 - automatically bind `origin` to `https://github.com/ALexZhang316/Enso.git`
+- automatically set the local GitHub CLI default repository to the configured `origin`
 - fetch remote metadata so `origin/*` branches are visible locally
 - print remotes and current status
 
@@ -145,13 +160,16 @@ Test-Path .git
 If `.git` already exists:
 - skip repository initialization
 - verify remotes with `git remote -v`
+- refresh the local GitHub CLI default repository from `origin`
 
 If you want to run the steps manually instead of using the script:
 
 ```powershell
+gh auth login
 git init
 git branch -M main
 git remote add origin https://github.com/ALexZhang316/Enso.git
+gh repo set-default origin
 git add .
 git commit -m "chore: initialize repository from internalized baseline"
 ```
@@ -183,6 +201,12 @@ Recommended meaning:
 - `upstream` = original source repository
 - `origin` = your writable fork
 
+After configuring remotes manually, link GitHub CLI to the active repo:
+
+```powershell
+gh repo set-default origin
+```
+
 ## Post-init sanity check
 
 After Git initialization, run:
@@ -190,12 +214,13 @@ After Git initialization, run:
 ```powershell
 git status
 git remote -v
+gh repo set-default --view
 ```
 
 The repository is ready for normal work once all are true:
 - environment verification passes
 - `npm run build` passes
-- `npm run test:mvp:all` passes
+- `npm run test:all` passes
 - Git metadata exists if this copy is meant to sync with GitHub
 
 ## Maintenance rule

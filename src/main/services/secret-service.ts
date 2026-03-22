@@ -106,10 +106,7 @@ export class SecretService {
       const key = this.getFallbackKey();
       const decipher = crypto.createDecipheriv("aes-256-gcm", key, Buffer.from(ivBase64, "base64"));
       decipher.setAuthTag(Buffer.from(tagBase64, "base64"));
-      const decrypted = Buffer.concat([
-        decipher.update(Buffer.from(encryptedBase64, "base64")),
-        decipher.final()
-      ]);
+      const decrypted = Buffer.concat([decipher.update(Buffer.from(encryptedBase64, "base64")), decipher.final()]);
       return decrypted.toString("utf8");
     } catch {
       return null;

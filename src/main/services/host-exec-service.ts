@@ -86,13 +86,47 @@ export class HostExecService {
       return false;
     }
 
-    return READ_ONLY_COMMAND_PATTERNS.some((pattern) => pattern.test(normalized));
+    if (!READ_ONLY_COMMAND_PATTERNS.some((pattern) => pattern.test(normalized))) {
+      return false;
+    }
+
+    if (!this.commandArgsStayInsideWorkspace(normalized)) {
+      return false;
+    }
+
+    return true;
   }
 
-  buildHostExecProposal(params: {
-    requestText: string;
-    command: string;
-  }): HostExecPendingAction {
+  private commandArgsStayInsideWorkspace(command: string): boolean {
+    const resolvedRoot = path.resolve(this.workspaceRoot);
+    const parts = command.split(/\s+/).slice(1);
+
+    for (const part of parts) {
+      if (/^-/.test(part)) {
+        continue;
+      }
+
+      if (/\$\(|`/.test(part)) {
+        return false;
+      }
+
+      if (path.isAbsolute(part)) {
+        const resolvedArg = path.resolve(part);
+        if (resolvedArg !== resolvedRoot && !resolvedArg.startsWith(`${resolvedRoot}${path.sep}`)) {
+          return false;
+        }
+      } else if (part.includes("..")) {
+        const resolvedArg = path.resolve(resolvedRoot, part);
+        if (resolvedArg !== resolvedRoot && !resolvedArg.startsWith(`${resolvedRoot}${path.sep}`)) {
+          return false;
+        }
+      }
+    }
+
+    return true;
+  }
+
+  buildHostExecProposal(params: { requestText: string; command: string }): HostExecPendingAction {
     const command = params.command.trim();
     if (!this.isAllowedCommand(command)) {
       throw new HostExecSafetyError(
@@ -129,10 +163,9 @@ export class HostExecService {
       timeout: COMMAND_TIMEOUT_MS
     });
 
-    const stderrParts = [
-      result.stderr ?? "",
-      result.error instanceof Error ? result.error.message : ""
-    ].filter(Boolean);
+    const stderrParts = [result.stderr ?? "", result.error instanceof Error ? result.error.message : ""].filter(
+      Boolean
+    );
 
     return {
       command: action.command,

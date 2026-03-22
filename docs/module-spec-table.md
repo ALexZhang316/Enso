@@ -1,17 +1,5 @@
 # Module Spec Table v0.3.4
 
-Current direction:
-- Windows main chat window
-- local-first
-- desktop entry
-- execution-first personal agent
-
-Use-case focus:
-- complex local problem solving
-- decision support
-- research support
-- deep dialogue as a supported posture, not the product core
-
 ## Modules
 
 ### Interface Layer (P0)

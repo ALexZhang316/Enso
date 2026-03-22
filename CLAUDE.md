@@ -10,10 +10,12 @@ Read in this order before making changes:
 1. `AGENTS.md`
 2. `docs/current-baseline.md`
 3. `docs/execution-flow.md`
-4. `docs/codebase-contract.md`
-5. `docs/environment-and-github-bootstrap.md`
+4. `docs/architecture.md`
+5. `docs/codebase-contract.md`
+6. `docs/environment-and-github-bootstrap.md`
 
 Use this file after the shared project docs for Claude-specific constraints.
+Only use it when the active coding client actually reads `CLAUDE.md`.
 
 ## Project context
 
@@ -39,23 +41,28 @@ The product is intentionally narrow. It is not:
 ## Dev workflow enforcement
 
 Before writing any code:
-- Run `npm run preflight` and confirm it passes.
+- Follow the global AGENTS execution model first.
+- Read the shared repo docs first.
+- For executable work, run `npm run preflight` and record the baseline unless you already have a recent baseline for the same branch and task context.
+- For doc-only or workflow-contract changes, you may reuse a recent recorded baseline instead of rerunning the full repo gate, but say so explicitly.
+- If preflight is already red because of known unrelated regressions, state that clearly and continue with scoped work unless the failure blocks the requested task directly.
 
 Execution bias:
-- Default to bounded autopilot once the objective, scope, and stop condition are clear.
+- Default to bounded autopilot once the objective, scope, and verification plan are clear.
 - Continue through repeated cycles of inspect -> modify -> verify -> repair instead of stopping at the first local failure.
 - Do not inflate straightforward tasks into extended planning or meta-document work unless the user explicitly asks.
-- If preflight is already red because of known unrelated regressions, record that baseline and continue with scoped work unless the failure blocks the requested task directly.
 - Do not pause for routine design forks, minor failures, or document churn.
 - Only stop on hard blockers: missing access/credentials, ambiguous goals, irreversible high-risk side effects beyond the approved boundary, or environment failure that prevents progress.
 
 After finishing code changes:
-- Run `npm run postflight` and address any warnings.
-- If postflight warns about un-updated docs, update them before considering the task done.
+- Satisfy the repo's normal completion standard unless you are explicitly claiming repo-wide or release-level health.
+- Run the smallest sufficient verification for the claim you are making.
+- Run `npm run postflight` when broader verification is expected to pass or when claiming repo-wide or release-level health.
+- If a known unrelated red baseline prevents full postflight from going green, run `node scripts/check-docs-updated.cjs`, review the diff, and report why full postflight remains red.
 - The three core docs are: CHANGELOG.md, TODO_LIMITATIONS.md, docs/codebase-contract.md.
 - Update them when the change materially affects behavior, limitations, or the codebase contract. Do not create cosmetic doc churn when nothing substantive changed.
 
-Task lifecycle and detailed rules are in the "Dev workflow protocol" section of AGENTS.md.
+Task lifecycle and detailed rules are in AGENTS.md.
 
 ## Implementation rules
 
@@ -64,13 +71,13 @@ Follow the markdown docs under `docs/`.
 When docs conflict, use:
 1. `docs/current-baseline.md`
 2. `docs/execution-flow.md`
-3. `docs/windows-product-spec.md`
-4. `docs/architecture.md`
-5. `docs/module-spec-table.md`
-6. `docs/ui-layout.md`
-7. `docs/iteration-guidance.md`
-8. `docs/revision-notes-2026-03-09.md`
-9. `docs/openclaw-reference-notes.md`
+3. `docs/architecture.md`
+
+The rest are reference-only docs:
+- `docs/windows-product-spec.md`
+- `docs/module-spec-table.md`
+- `docs/ui-layout.md`
+- `docs/openclaw-reference-notes.md`
 
 For environment setup, native rebuild prerequisites, and GitHub initialization when `.git` is missing, use:
 - `docs/environment-and-github-bootstrap.md`

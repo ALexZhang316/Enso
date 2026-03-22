@@ -1,4 +1,4 @@
-# Enso Repository Baseline v0.3.1
+# Enso Repository Baseline v0.3.4
 
 The latest handoff pack has already been internalized into this repository.
 Project-internal documents are the only active source of truth.
@@ -9,9 +9,10 @@ Do not rely on any external zip file during implementation or handoff.
 1. `AGENTS.md`
 2. `docs/current-baseline.md`
 3. `docs/execution-flow.md`
-4. `docs/codebase-contract.md`
-5. `docs/environment-and-github-bootstrap.md`
-6. `CLAUDE.md` if your client reads it
+4. `docs/architecture.md`
+5. `docs/codebase-contract.md`
+6. `docs/environment-and-github-bootstrap.md`
+7. `CLAUDE.md` only if the active coding client actually reads `CLAUDE.md`
 
 ## Why this baseline exists
 
@@ -31,19 +32,19 @@ But changes the center of gravity to:
 - visible planning, state, and verification
 - heavy user customization
 
-## Source-of-truth priority
+## Live source docs
 
 When documents conflict, use this order:
 
 1. `docs/current-baseline.md`
 2. `docs/execution-flow.md`
-3. `docs/windows-product-spec.md`
-4. `docs/architecture.md`
-5. `docs/module-spec-table.md`
-6. `docs/ui-layout.md`
-7. `docs/iteration-guidance.md`
-8. `docs/revision-notes-2026-03-09.md`
-9. `docs/openclaw-reference-notes.md`
+3. `docs/architecture.md`
+
+All other docs are reference-only:
+- `docs/windows-product-spec.md`
+- `docs/module-spec-table.md`
+- `docs/ui-layout.md`
+- `docs/openclaw-reference-notes.md`
 
 ## Project identity
 
@@ -89,9 +90,11 @@ Operational setup is documented in:
 
 This includes:
 - required Windows toolchain
+- required GitHub CLI (`gh`) installation and authentication
 - native rebuild prerequisites for `better-sqlite3`
 - project install and verification
 - GitHub initialization when this repository was copied without `.git`
+- automatic GitHub CLI linking to the configured current repo during bootstrap
 
 Built-in shortcut:
 - `npm run bootstrap:git`
@@ -110,17 +113,18 @@ Default Git binding:
 ## Run and verify
 
 1. Install Node.js `20.x`
-2. Run `npm install`
-3. Start dev mode with `npm run dev`
-4. Build with `npm run build`
-5. Launch the built app with `npm run start`
+2. Install and authenticate GitHub CLI with `gh auth login`
+3. Run `npm install`
+4. Start dev mode with `npm run dev`
+5. Build with `npm run build`
+6. Launch the built app with `npm run start`
 
 Automated checks:
-- `npm run test:mvp`
-- `npm run test:mvp:ui`
-- `npm run test:mvp:all`
+- `npm run test:integration`
+- `npm run test:ui`
+- `npm run test:all`
 - `npm run rebuild:native` if `better-sqlite3` has an ABI mismatch
 
 ## Deprecation note
 
-Early pre-start planning files such as `docs/mvp-definition.md` and `docs/implementation-kickoff.md` are no longer active documents in this repository baseline.
+Early pre-start planning files such as `docs/implementation-kickoff.md` are no longer active documents in this repository baseline.

@@ -1,9 +1,9 @@
 import * as TOML from "@iarna/toml";
 import fs from "node:fs";
 import path from "node:path";
-import { DEFAULT_MODE, MODES, ModeId } from "../../shared/modes";
+import { DEFAULT_MODE, MODES } from "../../shared/modes";
 import { DEFAULT_PROVIDER_ID, PROVIDER_PRESET_MAP } from "../../shared/providers";
-import { ActionType, EnsoConfig, ACTION_TYPES, PermissionLevel } from "../../shared/types";
+import { EnsoConfig, ACTION_TYPES, PermissionLevel } from "../../shared/types";
 
 type PartialConfig = Partial<EnsoConfig> & {
   provider?: Partial<EnsoConfig["provider"]>;
@@ -88,10 +88,7 @@ const expectEnum = <T extends string>(
   configPath: string
 ): T => {
   if (typeof value !== "string" || !allowed.includes(value as T)) {
-    throw new ConfigValidationError(
-      configPath,
-      `${fieldPath} must be one of: ${allowed.join(", ")}`
-    );
+    throw new ConfigValidationError(configPath, `${fieldPath} must be one of: ${allowed.join(", ")}`);
   }
 
   return value as T;
@@ -223,11 +220,7 @@ export class ConfigService {
       return;
     }
 
-    fs.writeFileSync(
-      this.configPath,
-      TOML.stringify(sanitizeForPersistence(DEFAULT_ENSO_CONFIG) as any),
-      "utf8"
-    );
+    fs.writeFileSync(this.configPath, TOML.stringify(sanitizeForPersistence(DEFAULT_ENSO_CONFIG) as any), "utf8");
   }
 
   load(): EnsoConfig {
@@ -250,11 +243,7 @@ export class ConfigService {
   save(config: EnsoConfig): EnsoConfig {
     this.ensureConfigFile();
     const merged = normalizeConfig(config, this.configPath);
-    fs.writeFileSync(
-      this.configPath,
-      TOML.stringify(sanitizeForPersistence(merged) as any),
-      "utf8"
-    );
+    fs.writeFileSync(this.configPath, TOML.stringify(sanitizeForPersistence(merged) as any), "utf8");
     return merged;
   }
 }

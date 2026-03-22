@@ -1,6 +1,12 @@
 import { ProviderId } from "../../shared/providers";
 import { extractTextFromParts, ensureBaseUrl, toNetworkError, toProviderError } from "./provider-http-utils";
-import { ProviderError, ProviderMessage, TextGenerationProvider, TextGenerationRequest, TextGenerationResult } from "./types";
+import {
+  ProviderError,
+  ProviderMessage,
+  TextGenerationProvider,
+  TextGenerationRequest,
+  TextGenerationResult
+} from "./types";
 
 interface OpenAiCompatibleProviderOptions {
   id: ProviderId;

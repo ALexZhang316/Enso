@@ -6,14 +6,11 @@ export interface ToolRunResult {
 }
 
 const hasComputeHint = (text: string): boolean =>
-  /\b(calculate|compute|sum|average|multiply|divide)\b/i.test(text) ||
-  /(计算|求和|平均|乘|除)/.test(text);
+  /\b(calculate|compute|sum|average|multiply|divide)\b/i.test(text) || /(计算|求和|平均|乘|除)/.test(text);
 
-const hasSearchHint = (text: string): boolean =>
-  /\b(search|find)\b/i.test(text) || /(搜索|查找)/.test(text);
+const hasSearchHint = (text: string): boolean => /\b(search|find)\b/i.test(text) || /(搜索|查找)/.test(text);
 
-const hasReadHint = (text: string): boolean =>
-  /\b(read)\b/i.test(text) || /(读取|阅读)/.test(text);
+const hasReadHint = (text: string): boolean => /\b(read)\b/i.test(text) || /(读取|阅读)/.test(text);
 
 const computeExpression = (input: string): string | null => {
   const matches = input.match(/[0-9+\-*/().\s]{3,}/g);

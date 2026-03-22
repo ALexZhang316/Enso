@@ -26,12 +26,7 @@ export class ModelAdapter {
 
     const generationProvider = createTextGenerationProvider(provider);
     const recentMessages = params.history.slice(-12).map((message) => ({
-      role:
-        message.role === "assistant"
-          ? "assistant"
-          : message.role === "system"
-            ? "system"
-            : "user",
+      role: message.role === "assistant" ? "assistant" : message.role === "system" ? "system" : "user",
       content: message.content
     })) as Array<{ role: "system" | "user" | "assistant"; content: string }>;
 
