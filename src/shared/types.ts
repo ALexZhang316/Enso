@@ -199,3 +199,11 @@ export interface StructuredExecutionDraft {
   verificationTarget: string;
   needsConfirmation: boolean;
 }
+
+export interface ToolRunResult {
+  toolName: "read" | "search" | "compute" | "workspace-write" | "exec";
+  success: boolean;
+  output: string;
+  sideEffects: string[];
+  error?: string;
+}

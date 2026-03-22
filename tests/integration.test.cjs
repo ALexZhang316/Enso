@@ -1114,6 +1114,118 @@ const tests = [
       }
     }
   }
+  ,
+  {
+    name: "ToolService returns structured compute results",
+    fn: async () => {
+      const result = new ToolService().decideAndRun("calculate 2 + 2", []);
+
+      assert.ok(result);
+      assert.equal(result.toolName, "compute");
+      assert.equal(result.success, true);
+      assert.equal(result.output, "2 + 2 = 4");
+      assert.deepEqual(result.sideEffects, []);
+      assert.equal(result.error, undefined);
+      assert.equal(result.summary, "2 + 2 = 4");
+    }
+  },
+  {
+    name: "ToolService writes real files and returns structured workspace-write results",
+    fn: async () => {
+      const harness = createHarness();
+
+      try {
+        const toolService = new ToolService({
+          workspaceService: harness.workspaceService
+        });
+        const targetPath = path.join(harness.workspaceRoot, "outputs", "tool-write.md");
+        const result = toolService.runWorkspaceWrite({
+          kind: "workspace_write",
+          summary: "write tool output",
+          targetPath,
+          content: "# Tool output\n",
+          sourceRequestText: "write tool output",
+          requestedAt: new Date().toISOString()
+        });
+
+        assert.equal(result.toolName, "workspace-write");
+        assert.equal(result.success, true);
+        assert.equal(result.output.includes(targetPath), true);
+        assert.deepEqual(result.sideEffects, [`wrote:${path.resolve(targetPath)}`]);
+        assert.equal(fs.readFileSync(targetPath, "utf8"), "# Tool output\n");
+      } finally {
+        harness.cleanup();
+      }
+    }
+  },
+  {
+    name: "WorkspaceService rejects writes outside the workspace root",
+    fn: async () => {
+      const harness = createHarness();
+
+      try {
+        const outsidePath = path.join(harness.tempDir, "outside.md");
+        assert.throws(
+          () => harness.workspaceService.writeFile(outsidePath, "blocked"),
+          /outside the Enso workspace/i
+        );
+      } finally {
+        harness.cleanup();
+      }
+    }
+  },
+  {
+    name: "ToolService returns structured host exec results with captured stdout",
+    fn: async () => {
+      const harness = createHarness();
+
+      try {
+        const hostExecService = new HostExecService(harness.workspaceRoot);
+        const toolService = new ToolService({ hostExecService });
+        const outputsDir = path.join(harness.workspaceRoot, "outputs");
+        fs.mkdirSync(outputsDir, { recursive: true });
+        fs.writeFileSync(path.join(outputsDir, "tool-exec.txt"), "tool-exec", "utf8");
+
+        const result = toolService.runHostExec(
+          hostExecService.buildHostExecProposal({
+            requestText: "Run `Get-Content outputs/tool-exec.txt`",
+            command: "Get-Content outputs/tool-exec.txt"
+          })
+        );
+
+        assert.equal(result.toolName, "exec");
+        assert.equal(result.success, true);
+        assert.equal(result.output.includes("STDOUT"), true);
+        assert.equal(result.output.includes("tool-exec"), true);
+        assert.deepEqual(result.sideEffects, ["exec:Get-Content outputs/tool-exec.txt"]);
+        assert.equal(result.error, undefined);
+      } finally {
+        harness.cleanup();
+      }
+    }
+  },
+  {
+    name: "HostExecService times out long-running commands",
+    fn: async () => {
+      const harness = createHarness();
+
+      try {
+        const hostExecService = new HostExecService(harness.workspaceRoot, { timeoutMs: 50 });
+        const action = hostExecService.buildHostExecProposal({
+          requestText: "Run `Start-Sleep -Seconds 1`",
+          command: "Start-Sleep -Seconds 1"
+        });
+        const result = hostExecService.executePendingAction(action);
+
+        assert.equal(result.timedOut, true);
+        assert.equal(result.exitCode, -1);
+        assert.equal(result.stderr.includes("timed out"), true);
+        assert.equal(hostExecService.verifyPendingAction(result), false);
+      } finally {
+        harness.cleanup();
+      }
+    }
+  }
 ];
 
 (async () => {

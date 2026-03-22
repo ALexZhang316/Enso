@@ -60,22 +60,35 @@ export class WorkspaceService {
     };
   }
 
-  executePendingAction(action: WorkspaceWritePendingAction): { targetPath: string; bytesWritten: number } {
+  resolvePathInsideWorkspace(targetPath: string): string {
     this.ensureWorkspace();
 
     const resolvedRoot = path.resolve(this.workspaceRoot);
-    const resolvedTarget = path.resolve(action.targetPath);
-    if (!resolvedTarget.startsWith(`${resolvedRoot}${path.sep}`)) {
+    const resolvedTarget = path.isAbsolute(targetPath)
+      ? path.resolve(targetPath)
+      : path.resolve(resolvedRoot, targetPath);
+
+    if (resolvedTarget !== resolvedRoot && !resolvedTarget.startsWith(`${resolvedRoot}${path.sep}`)) {
       throw new Error("Refusing to write outside the Enso workspace.");
     }
 
+    return resolvedTarget;
+  }
+
+  writeFile(targetPath: string, content: string): { targetPath: string; bytesWritten: number } {
+    const resolvedTarget = this.resolvePathInsideWorkspace(targetPath);
+
     fs.mkdirSync(path.dirname(resolvedTarget), { recursive: true });
-    fs.writeFileSync(resolvedTarget, action.content, "utf8");
+    fs.writeFileSync(resolvedTarget, content, "utf8");
 
     return {
       targetPath: resolvedTarget,
-      bytesWritten: Buffer.byteLength(action.content, "utf8")
+      bytesWritten: Buffer.byteLength(content, "utf8")
     };
+  }
+
+  executePendingAction(action: WorkspaceWritePendingAction): { targetPath: string; bytesWritten: number } {
+    return this.writeFile(action.targetPath, action.content);
   }
 
   verifyPendingAction(action: WorkspaceWritePendingAction): boolean {

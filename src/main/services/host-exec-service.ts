@@ -10,7 +10,8 @@ const READ_ONLY_COMMAND_PATTERNS = [
   /^type(?:\s|$)/i,
   /^Select-String(?:\s|$)/i,
   /^findstr(?:\s|$)/i,
-  /^where(?:\s|$)/i
+  /^where(?:\s|$)/i,
+  /^Start-Sleep(?:\s|$)/i
 ] as const;
 
 const DISALLOWED_COMMAND_PATTERNS = [
@@ -36,7 +37,11 @@ const DISALLOWED_COMMAND_PATTERNS = [
   /^winget(?:\s|$)/i
 ] as const;
 
-const COMMAND_TIMEOUT_MS = 15000;
+const DEFAULT_COMMAND_TIMEOUT_MS = 30000;
+
+interface HostExecServiceOptions {
+  timeoutMs?: number;
+}
 
 export interface HostExecRunResult {
   command: string;
@@ -44,6 +49,8 @@ export interface HostExecRunResult {
   exitCode: number;
   stdout: string;
   stderr: string;
+  timedOut: boolean;
+  error?: string;
 }
 
 export class HostExecSafetyError extends Error {
@@ -74,7 +81,14 @@ const truncateOutput = (value: string, maxLength = 1600): string => {
 };
 
 export class HostExecService {
-  constructor(private readonly workspaceRoot: string) {}
+  private readonly timeoutMs: number;
+
+  constructor(
+    private readonly workspaceRoot: string,
+    options: HostExecServiceOptions = {}
+  ) {
+    this.timeoutMs = options.timeoutMs ?? DEFAULT_COMMAND_TIMEOUT_MS;
+  }
 
   isAllowedCommand(command: string): boolean {
     const normalized = command.trim();
@@ -160,23 +174,33 @@ export class HostExecService {
       cwd: workingDirectory,
       encoding: "utf8",
       windowsHide: true,
-      timeout: COMMAND_TIMEOUT_MS
+      timeout: this.timeoutMs
     });
 
-    const stderrParts = [result.stderr ?? "", result.error instanceof Error ? result.error.message : ""].filter(
-      Boolean
-    );
+    const timedOut =
+      result.error instanceof Error &&
+      "code" in result.error &&
+      result.error.code === "ETIMEDOUT";
+    const errorMessage = result.error instanceof Error ? result.error.message : undefined;
+
+    const stderrParts = [
+      result.stderr ?? "",
+      timedOut ? `Command timed out after ${this.timeoutMs}ms.` : "",
+      errorMessage && !timedOut ? errorMessage : ""
+    ].filter(Boolean);
 
     return {
       command: action.command,
       workingDirectory,
-      exitCode: typeof result.status === "number" ? result.status : -1,
+      exitCode: timedOut ? -1 : typeof result.status === "number" ? result.status : -1,
       stdout: truncateOutput(result.stdout ?? ""),
-      stderr: truncateOutput(stderrParts.join("\n"))
+      stderr: truncateOutput(stderrParts.join("\n")),
+      timedOut,
+      error: timedOut ? `Command timed out after ${this.timeoutMs}ms.` : errorMessage
     };
   }
 
   verifyPendingAction(result: HostExecRunResult): boolean {
-    return result.exitCode === 0;
+    return result.exitCode === 0 && !result.timedOut;
   }
 }

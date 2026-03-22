@@ -1,8 +1,25 @@
-﻿import { RetrievedSnippet } from "../../shared/types";
+import path from "node:path";
+import {
+  HostExecPendingAction,
+  RetrievedSnippet,
+  ToolRunResult as SharedToolRunResult,
+  WorkspaceWritePendingAction
+} from "../../shared/types";
+import { HostExecService } from "./host-exec-service";
+import { WorkspaceService } from "./workspace-service";
 
-export interface ToolRunResult {
-  toolName: "read" | "search" | "compute" | "exec";
+interface LegacyToolRunResult {
+  toolName: SharedToolRunResult["toolName"];
   summary: string;
+}
+
+export type ToolRunResult = (SharedToolRunResult & {
+  summary: string;
+}) | LegacyToolRunResult;
+
+interface ToolServiceDependencies {
+  workspaceService?: WorkspaceService;
+  hostExecService?: HostExecService;
 }
 
 const hasComputeHint = (text: string): boolean =>
@@ -34,33 +51,99 @@ const computeExpression = (input: string): string | null => {
   }
 };
 
+const buildToolRunResult = (params: {
+  toolName: ToolRunResult["toolName"];
+  success: boolean;
+  output: string;
+  sideEffects?: string[];
+  error?: string;
+  summary?: string;
+}): ToolRunResult => ({
+  toolName: params.toolName,
+  success: params.success,
+  output: params.output,
+  sideEffects: params.sideEffects ?? [],
+  error: params.error,
+  summary: params.summary ?? (params.success ? params.output : params.error ?? params.output)
+});
+
 export class ToolService {
+  constructor(private readonly deps: ToolServiceDependencies = {}) {}
+
   decideAndRun(requestText: string, snippets: RetrievedSnippet[]): ToolRunResult | null {
     if (hasComputeHint(requestText)) {
       const computed = computeExpression(requestText);
       if (computed) {
-        return {
+        return buildToolRunResult({
           toolName: "compute",
-          summary: computed
-        };
+          success: true,
+          output: computed
+        });
       }
     }
 
     if (hasSearchHint(requestText) && snippets.length > 0) {
-      return {
+      const output = `已检索导入知识，命中 ${snippets.length} 条相关片段。`;
+      return buildToolRunResult({
         toolName: "search",
-        summary: `已检索导入知识，命中 ${snippets.length} 条相关片段。`
-      };
+        success: true,
+        output,
+        summary: output
+      });
     }
 
     if (hasReadHint(requestText) && snippets.length > 0) {
       const first = snippets[0];
-      return {
+      const output = `已读取来源 ${first.sourceName} 作为上下文证据。`;
+      return buildToolRunResult({
         toolName: "read",
-        summary: `已读取来源 ${first.sourceName} 作为上下文证据。`
-      };
+        success: true,
+        output,
+        summary: output
+      });
     }
 
     return null;
+  }
+
+  runWorkspaceWrite(action: WorkspaceWritePendingAction): ToolRunResult {
+    if (!this.deps.workspaceService) {
+      throw new Error("ToolService requires a WorkspaceService to run workspace-write actions.");
+    }
+
+    const result = this.deps.workspaceService.executePendingAction(action);
+    const output = `Wrote ${result.bytesWritten} bytes to ${result.targetPath}`;
+
+    return buildToolRunResult({
+      toolName: "workspace-write",
+      success: true,
+      output,
+      sideEffects: [`wrote:${result.targetPath}`],
+      summary: `wrote ${path.basename(result.targetPath)}`
+    });
+  }
+
+  runHostExec(action: HostExecPendingAction): ToolRunResult {
+    if (!this.deps.hostExecService) {
+      throw new Error("ToolService requires a HostExecService to run exec actions.");
+    }
+
+    const result = this.deps.hostExecService.executePendingAction(action);
+    const success = this.deps.hostExecService.verifyPendingAction(result);
+    const outputParts = [
+      `Exit code: ${result.exitCode}`,
+      result.stdout ? `STDOUT:\n${result.stdout}` : "",
+      result.stderr ? `STDERR:\n${result.stderr}` : ""
+    ].filter(Boolean);
+    const error = success ? undefined : (result.error ?? result.stderr) || `Command failed: ${result.command}`;
+
+    return buildToolRunResult({
+      toolName: "exec",
+      success,
+      output: outputParts.join("\n\n"),
+      sideEffects: [`exec:${result.command}`],
+      error,
+      summary: `exec ${action.command}`
+    });
   }
 }
