@@ -5,13 +5,23 @@ Only use this file when the active coding client actually reads `CLAUDE.md`.
 
 ## Reading order
 
-1. `AGENTS.md` - repo-local workflow, doc authority tiers, product boundaries
-2. `docs/baseline.md` - product identity and strategic direction
-3. `docs/architecture.md` - component boundary map
-4. `docs/codebase-contract.md` - code-layer contract
-5. `docs/spec/` - behavioral specs (brain, permission, context, tools, ui, audit)
+1. `AGENTS.md` - repo-local workflow, authority by scope, product boundaries
+2. `docs/collaboration-protocol.md` - role split, review rules, handoff expectations
+3. `docs/baseline.md` - product identity and strategic direction
+4. `docs/architecture.md` - component boundary map
+5. relevant files under `docs/spec/` - behavioral source of truth
+6. `docs/codebase-contract.md` - code-layer contract
 
 For environment setup: `docs/environment-and-github-bootstrap.md`
+
+## Collaboration role
+
+In this repo's collaboration model:
+- Claude owns specs, behavior rules, interface contracts, review artifacts, and design-consistency review
+- Codex owns implementation, tests, integration, and verification
+- Alex makes the final decision when there is a conflict or tradeoff
+
+If behavior guidance in this file conflicts with `docs/spec/*.md`, `docs/spec/*.md` wins.
 
 ## Dev workflow enforcement
 

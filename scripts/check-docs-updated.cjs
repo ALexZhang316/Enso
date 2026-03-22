@@ -27,6 +27,7 @@ const REQUIRED_DOCS = [
 const SCANNED_FILES = [
   "AGENTS.md",
   "CLAUDE.md",
+  "docs/collaboration-protocol.md",
   "docs/baseline.md",
   "docs/codebase-contract.md",
   "docs/architecture.md",
@@ -37,6 +38,7 @@ const SCANNED_FILES = [
   "docs/spec/tools.md",
   "docs/spec/ui.md",
   "docs/spec/audit.md",
+  "tasks/TEMPLATE.md",
   "config/default.toml"
 ];
 
@@ -50,6 +52,8 @@ const DEPRECATED_PATTERNS = [
   [/\bdefaultAssumption\b/g, "old expression field (removed)"],
   [/\briskLabeling\b/g, "old expression field (removed)"],
   [/["']style["']\s*[:=]\s*["'](direct|balanced)["']/g, "old expression.style field (replaced by density)"],
+  [/docs\/current-baseline\.md/gi, "legacy baseline path (replaced by docs/baseline.md)"],
+  [/docs\/execution-flow\.md/gi, "legacy behavior doc path (replaced by docs/spec/*.md)"],
   [/vector.store/gi, "vector store not implemented (current: SQLite FTS)"],
   [/\bembeddings\b/gi, "embeddings not implemented (current: SQLite FTS)"],
   [/double.confirm/gi, "double confirmation removed (replaced by per-action block/confirm/allow)"]
@@ -60,6 +64,7 @@ const HISTORY_FILES = new Set(["CHANGELOG.md", "docs/codebase-contract.md"]);
 
 // Versioned doc files (should all share the same version)
 const VERSIONED_DOCS = [
+  "docs/collaboration-protocol.md",
   "docs/baseline.md",
   "docs/codebase-contract.md",
   "docs/architecture.md",

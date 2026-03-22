@@ -2,6 +2,7 @@
 
 ## Current Limitations
 
+- Collaboration review artifacts and branch handoff docs are now defined in-repo, but their creation is still manual; there is no automation that forces `docs/reviews/` or `docs/handoffs/` entries to exist when a change would benefit from them.
 - GitHub bootstrap now assumes GitHub CLI (`gh`) is installed and authenticated; if a machine is offline or not signed in yet, `npm run bootstrap:git` will stop until `gh auth login` succeeds.
 - Request execution is a constrained skeleton, not a production reasoning engine.
 - Retrieval now uses local SQLite full-text search with keyword fallback over local chunks (still no embedding/vector similarity yet).

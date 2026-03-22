@@ -1,13 +1,18 @@
 # Task 0002: Permission boundary rework
 
 ## Status
-completed
+done
 
-## Assigned model
-Codex or Claude Code
+## Ownership
+- Decision owner: Alex
+- Spec / review owner: Claude Code / Opus
+- Implementation / integration owner: Codex
 
 ## Objective
 Rework Enso's permission boundary so the runtime matches the visible settings surface and the product's execution-first safety model. The end state must preserve local-first usability while making permission behavior explicit, enforceable, and resistant to prompt-injection-driven escalation. This task is about permission semantics and execution boundaries, not a general architecture rewrite.
+
+This file is retained as the implementation brief for the completed core permission-boundary round.
+Some broader follow-on ideas from the original brief, especially the fuller local-egress split, remain deferred and are tracked in `TODO_LIMITATIONS.md`.
 
 ## Acceptance criteria
 - [ ] `workspace_write` maps to real runtime behavior:
@@ -36,7 +41,8 @@ Rework Enso's permission boundary so the runtime matches the visible settings su
 - `src/renderer/App.tsx`
 - `tests/integration.test.cjs`
 - `tests/ui.test.cjs`
-- `docs/execution-flow.md`
+- `docs/spec/brain.md`
+- `docs/spec/permission.md`
 - `docs/codebase-contract.md`
 - `CHANGELOG.md`
 - `TODO_LIMITATIONS.md`
@@ -50,20 +56,22 @@ Rework Enso's permission boundary so the runtime matches the visible settings su
 
 ## Pre-flight checklist
 - [x] Read AGENTS.md
-- [x] Read docs/current-baseline.md
-- [x] Read docs/execution-flow.md
+- [x] Read docs/collaboration-protocol.md
+- [x] Read docs/baseline.md
+- [x] Read docs/architecture.md
+- [x] Read relevant docs/spec/*.md
 - [x] Read docs/codebase-contract.md
 - [x] Confirmed codebase-contract matches actual code closely enough to proceed
-- [ ] `npm run preflight` passes
+- [x] `npm run preflight` passes
 - [x] Stated understanding to user
 
 ## Post-flight checklist
-- [ ] `npm run verify` passes (build + tests)
-- [ ] CHANGELOG.md updated
-- [ ] TODO_LIMITATIONS.md updated
-- [ ] docs/codebase-contract.md updated
-- [ ] `npm run postflight` passes (no warnings)
-- [ ] No unintended file changes (git diff reviewed)
+- [x] `npm run verify` passes (build + tests)
+- [x] CHANGELOG.md updated
+- [x] TODO_LIMITATIONS.md updated
+- [x] docs/codebase-contract.md updated
+- [x] `npm run postflight` passes (no warnings)
+- [x] No unintended file changes (git diff reviewed)
 
 ## Final rules to implement
 

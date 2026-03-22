@@ -7,20 +7,23 @@ Do not rely on any external zip file during implementation or handoff.
 ## Onboarding order
 
 1. `AGENTS.md`
-2. `docs/baseline.md`
-3. `docs/architecture.md`
-4. `docs/codebase-contract.md`
-5. `docs/environment-and-github-bootstrap.md`
-6. `CLAUDE.md` only if the active coding client actually reads `CLAUDE.md`
+2. `docs/collaboration-protocol.md`
+3. `docs/baseline.md`
+4. `docs/architecture.md`
+5. relevant files under `docs/spec/`
+6. `docs/codebase-contract.md`
+7. `docs/environment-and-github-bootstrap.md`
+8. `CLAUDE.md` only if the active coding client actually reads `CLAUDE.md`
 
-## Document authority tiers
+## Document authority by scope
 
-| Tier | Scope | Files |
-|------|-------|-------|
-| 1 | Live sources | `docs/baseline.md`, `docs/architecture.md` |
-| 2 | Behavioral specs | `docs/spec/brain.md`, `permission.md`, `context.md`, `tools.md`, `ui.md`, `audit.md` |
-| 3 | Code-layer contract | `docs/codebase-contract.md` |
-| 4 | Reference | `docs/openclaw-reference-notes.md`, `docs/environment-and-github-bootstrap.md` |
+| Scope | Files |
+|------|-------|
+| Product and architecture | `docs/baseline.md`, `docs/architecture.md` |
+| Behavioral source of truth | `docs/spec/brain.md`, `docs/spec/permission.md`, `docs/spec/context.md`, `docs/spec/tools.md`, `docs/spec/ui.md`, `docs/spec/audit.md` |
+| Collaboration and review | `docs/collaboration-protocol.md`, `docs/reviews/`, `docs/handoffs/` |
+| Code-layer contract | `docs/codebase-contract.md` |
+| Reference and operational | `docs/openclaw-reference-notes.md`, `docs/environment-and-github-bootstrap.md` |
 
 ## Project identity
 

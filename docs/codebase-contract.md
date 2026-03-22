@@ -8,18 +8,20 @@ Prefer current code over stale prose, and update this file when directory struct
 
 ## Document authority
 
-See `AGENTS.md` for the full document authority tiers.
+See `AGENTS.md` for the full authority model.
 
 Summary:
-- Tier 1 (live sources): `docs/baseline.md`, `docs/architecture.md`
-- Tier 2 (behavioral specs): `docs/spec/*.md`
-- Tier 3 (code-layer contract): this file
-- Tier 4 (reference): `docs/openclaw-reference-notes.md`, `docs/environment-and-github-bootstrap.md`
+- Product and architecture: `docs/baseline.md`, `docs/architecture.md`
+- Behavioral source of truth: `docs/spec/*.md`
+- Collaboration protocol: `docs/collaboration-protocol.md`
+- Code-layer contract: this file
+- Reference and operational: `docs/openclaw-reference-notes.md`, `docs/environment-and-github-bootstrap.md`
 
 ## Workflow docs
 
 - `AGENTS.md` is the repo-local supplement to the global AGENTS rules.
 - `CLAUDE.md` mirrors the same repo-local contract for clients that read it.
+- `docs/collaboration-protocol.md` records Alex / Claude / Codex collaboration rules, review artifacts, and handoff expectations.
 - `README.md` is a human-readable repository overview and should be kept in sync, but it is not a source-of-truth document.
 
 ## Current workflow state
@@ -35,6 +37,7 @@ Summary:
 config/
   default.toml
 docs/
+  collaboration-protocol.md
   baseline.md
   architecture.md
   codebase-contract.md
@@ -270,10 +273,8 @@ CREATE TABLE app_state (
 
 ## Active task file
 
-Current active repo-local task:
-- `tasks/0002-permission-boundary-rework.md`
-
-Historical completed task files were removed during the cleanup round to reduce maintenance noise.
+Current tracked repo-local task file:
+- `tasks/0002-permission-boundary-rework.md` (done; retained as the latest completed implementation brief)
 
 ## Known active issues
 

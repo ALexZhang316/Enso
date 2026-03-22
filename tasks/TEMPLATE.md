@@ -4,8 +4,10 @@
 <!-- draft | ready | in-progress | verify | done | blocked -->
 draft
 
-## Assigned model
-<!-- Claude Code / Codex / etc. -->
+## Ownership
+- Decision owner: Alex
+- Spec / review owner:
+- Implementation / integration owner:
 
 ## Objective
 <!-- One paragraph: what to accomplish -->
@@ -26,8 +28,10 @@ draft
 
 ## Pre-flight checklist
 - [ ] Read AGENTS.md
-- [ ] Read docs/current-baseline.md
-- [ ] Read docs/execution-flow.md
+- [ ] Read docs/collaboration-protocol.md
+- [ ] Read docs/baseline.md
+- [ ] Read docs/architecture.md
+- [ ] Read relevant docs/spec/*.md
 - [ ] Read docs/codebase-contract.md
 - [ ] Confirmed codebase-contract matches actual code
 - [ ] Recorded `npm run preflight` baseline, or explicitly justified reusing/skipping the full repo gate
@@ -40,7 +44,8 @@ draft
 - [ ] CHANGELOG.md updated if materially affected
 - [ ] TODO_LIMITATIONS.md updated if materially affected
 - [ ] docs/codebase-contract.md updated if materially affected
-- [ ] AGENTS.md and CLAUDE.md updated if the workflow contract changed
+- [ ] AGENTS.md / CLAUDE.md / docs/collaboration-protocol.md updated if the workflow contract changed
+- [ ] docs/handoffs/<branch-name>.md updated if a branch handoff record adds real value
 - [ ] `npm run postflight` passed, or a known unrelated red baseline plus a successful doc-check fallback was recorded
 - [ ] No unintended file changes (git diff reviewed)
 

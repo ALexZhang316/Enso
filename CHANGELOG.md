@@ -1,5 +1,17 @@
 # CHANGELOG
 
+## 2026-03-22 - Collaboration protocol internalized and workflow docs aligned
+### What changed
+1. Added `docs/collaboration-protocol.md` to internalize the Alex / Claude / Codex role split, review flow, handoff rules, and actual Enso path ownership inside the repository.
+2. Updated `AGENTS.md`, `CLAUDE.md`, `README.md`, and `docs/codebase-contract.md` so the new collaboration protocol and `docs/spec/*.md` behavioral source-of-truth model are reflected consistently.
+3. Fixed `tasks/TEMPLATE.md`, `tasks/0002-permission-boundary-rework.md`, and `tasks/INDEX.md` so they no longer point at removed legacy docs and now reflect the spec/review vs implementation/integration split.
+4. Extended `scripts/check-docs-updated.cjs` to scan the new collaboration doc and to flag stale references to removed legacy behavior-doc paths in workflow artifacts.
+
+### Why it changed
+- The repo had already been moved toward a layered spec/implementation split, but the collaboration contract still lived outside the repository and several workflow files still referenced deleted docs.
+- Without an internal collaboration doc, the new responsibility split was only partially durable.
+- The task template and backlog metadata needed to match the new doc system or future work would immediately drift back to the old model.
+
 ## 2026-03-22 - Documentation restructuring with modular spec layer
 ### What changed
 1. Created `docs/spec/` directory with 6 modular behavioral spec files: `brain.md` (execution flow), `permission.md` (permission model), `context.md` (knowledge/retrieval/state), `tools.md` (tool orchestration), `ui.md` (UI interaction), `audit.md` (audit events).

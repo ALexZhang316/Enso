@@ -8,40 +8,46 @@ This file supplements the global AGENTS rules with repo-specific constraints.
 ## Read this repo in order
 
 1. `AGENTS.md`
-2. `docs/baseline.md`
-3. `docs/architecture.md`
-4. `docs/codebase-contract.md`
-5. `docs/environment-and-github-bootstrap.md`
-6. `CLAUDE.md` only if the active coding client actually reads `CLAUDE.md`
+2. `docs/collaboration-protocol.md`
+3. `docs/baseline.md`
+4. `docs/architecture.md`
+5. relevant files under `docs/spec/`
+6. `docs/codebase-contract.md`
+7. `docs/environment-and-github-bootstrap.md`
+8. `CLAUDE.md` only if the active coding client actually reads `CLAUDE.md`
 
-## Document authority tiers
+## Document authority by scope
 
-### Tier 1 - Live sources (break ties with these, in order)
+### Product and architecture
 
-1. `docs/baseline.md` - product identity, mode system, capability target
-2. `docs/architecture.md` - component boundary map, mode table, operator boundary
+Use these first for product identity, boundaries, and structural direction:
+1. `docs/baseline.md`
+2. `docs/architecture.md`
 
-### Tier 2 - Behavioral specs (Opus produces, Codex implements)
+### Behavioral source of truth
 
-All files under `docs/spec/`:
-- `brain.md` - execution flow (14-step canonical sequence, trace phases)
-- `permission.md` - permission model (action types, gate rules, confirmation)
-- `context.md` - knowledge/retrieval/state contract
-- `tools.md` - tool orchestration (6 tool types, routing, failure)
-- `ui.md` - UI interaction and layout contract
-- `audit.md` - audit event spec
+All files under `docs/spec/` define the runtime and user-visible behavior contract:
+- `brain.md` - execution flow, trace phases, verification contract
+- `permission.md` - permission model, gate rules, confirmation behavior
+- `context.md` - knowledge, retrieval, context assembly, and state persistence
+- `tools.md` - tool orchestration, routing, and failure handling
+- `ui.md` - shell layout and interaction behavior
+- `audit.md` - audit event contract
 
-### Tier 3 - Code-layer contract
+If `AGENTS.md`, `CLAUDE.md`, review notes, or task files conflict with `docs/spec/*.md` on behavior, `docs/spec/*.md` wins.
 
-- `docs/codebase-contract.md` - directory structure, module ownership, schema, known issues
+### Collaboration protocol
 
-### Tier 4 - Reference and operational
+`docs/collaboration-protocol.md` defines the Alex / Claude / Codex role split, review artifact rules, and handoff expectations.
+
+### Code-layer contract
+
+`docs/codebase-contract.md` records current directory structure, module ownership, schema, and known implementation issues.
+
+### Reference and operational
 
 - `docs/openclaw-reference-notes.md` - architectural extraction guide
 - `docs/environment-and-github-bootstrap.md` - environment setup, native rebuild, GitHub init
-
-### Workflow and review directories
-
 - `docs/reviews/` - review artifacts
 - `docs/handoffs/` - branch handoff documents
 
@@ -202,8 +208,11 @@ After changes that materially affect behavior, limitations, workflow contract, o
 Also update these when they are directly affected:
 - `AGENTS.md`
 - `CLAUDE.md`
+- `README.md`
+- `docs/collaboration-protocol.md`
 - `docs/baseline.md`
 - `docs/architecture.md`
+- relevant files under `docs/spec/`
 
 Do not force cosmetic updates when a file's actual source-of-truth content did not change.
 
