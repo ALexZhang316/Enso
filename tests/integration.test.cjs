@@ -966,6 +966,153 @@ const tests = [
         harness.cleanup();
       }
     }
+  },
+  {
+    name: "ExecutionFlow injects expression config into the model system prompt",
+    fn: async () => {
+      const harness = createHarness();
+      const originalFetch = global.fetch;
+      let capturedMessages = null;
+
+      global.fetch = async (_url, init = {}) => {
+        const payload = JSON.parse(init.body);
+        capturedMessages = payload.messages;
+
+        return new Response(
+          JSON.stringify({
+            choices: [
+              {
+                message: {
+                  content: JSON.stringify({
+                    answer: "captured structured answer",
+                    riskNotes: [],
+                    evidenceRefs: [],
+                    plannedTools: [],
+                    verificationTarget: "model reply exists",
+                    needsConfirmation: false
+                  })
+                }
+              }
+            ]
+          }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" }
+          }
+        );
+      };
+
+      try {
+        updatePermissions(harness, { external_network: "allow" });
+        const currentConfig = harness.configService.load();
+        harness.configService.save({
+          ...currentConfig,
+          expression: {
+            density: "detailed",
+            structuredFirst: true
+          },
+          reportingGranularity: "plan-level"
+        });
+        harness.secretService.saveProviderApiKey("kimi", "kimi-secret-123");
+        const conversation = harness.store.createConversation("default", "Expression config prompt");
+
+        const result = await harness.executionFlow.run({
+          conversationId: conversation.id,
+          mode: "default",
+          text: "Explain the current execution setup.",
+          enableRetrievalForTurn: false
+        });
+
+        assert.equal(result.assistantMessage.content, "captured structured answer");
+        assert.ok(Array.isArray(capturedMessages));
+        assert.equal(capturedMessages[0].role, "system");
+        assert.equal(capturedMessages[0].content.includes("density=detailed"), true);
+        assert.equal(capturedMessages[0].content.includes("structuredFirst=true"), true);
+        assert.equal(capturedMessages[0].content.includes("reportingGranularity=plan-level"), true);
+        assert.equal(
+          capturedMessages[0].content.includes(
+            "Return only valid JSON with exactly these keys: answer, riskNotes, evidenceRefs, plannedTools, verificationTarget, needsConfirmation."
+          ),
+          true
+        );
+      } finally {
+        global.fetch = originalFetch;
+        harness.cleanup();
+      }
+    }
+  },
+  {
+    name: "ExecutionFlow parses structured draft JSON into the final assistant reply",
+    fn: async () => {
+      const harness = createHarness();
+      const restoreFetch = mockKimiReply(
+        JSON.stringify({
+          answer: "Parsed structured answer",
+          riskNotes: ["needs follow-up"],
+          evidenceRefs: ["证据1"],
+          plannedTools: ["search"],
+          verificationTarget: "final answer recorded",
+          needsConfirmation: false
+        })
+      );
+
+      try {
+        updatePermissions(harness, { external_network: "allow" });
+        harness.secretService.saveProviderApiKey("kimi", "kimi-secret-123");
+        const conversation = harness.store.createConversation("default", "Structured draft parsing");
+
+        const result = await harness.executionFlow.run({
+          conversationId: conversation.id,
+          mode: "default",
+          text: "Summarize the latest execution result.",
+          enableRetrievalForTurn: false
+        });
+
+        assert.equal(result.assistantMessage.content, "Parsed structured answer");
+        assert.deepEqual(result.assistantMessage.metadata.riskNotes, ["needs follow-up"]);
+        assert.deepEqual(result.assistantMessage.metadata.evidenceRefs, ["证据1"]);
+        assert.deepEqual(result.assistantMessage.metadata.plannedTools, ["search"]);
+        assert.equal(result.assistantMessage.metadata.verificationTarget, "final answer recorded");
+        assert.equal(result.assistantMessage.metadata.needsConfirmation, false);
+        assert.equal(result.audit.riskNotes, "needs follow-up");
+        assert.equal(result.verification.status, "passed");
+      } finally {
+        restoreFetch();
+        harness.cleanup();
+      }
+    }
+  },
+  {
+    name: "ExecutionFlow falls back to plain text when structured draft JSON is malformed",
+    fn: async () => {
+      const harness = createHarness();
+      const restoreFetch = mockKimiReply("plain text fallback reply");
+
+      try {
+        updatePermissions(harness, { external_network: "allow" });
+        harness.secretService.saveProviderApiKey("kimi", "kimi-secret-123");
+        const conversation = harness.store.createConversation("default", "Malformed structured draft");
+
+        const result = await harness.executionFlow.run({
+          conversationId: conversation.id,
+          mode: "default",
+          text: "Give me a direct answer.",
+          enableRetrievalForTurn: false
+        });
+
+        assert.equal(result.assistantMessage.content, "plain text fallback reply");
+        assert.equal(result.assistantMessage.metadata.structuredDraftFallback, true);
+        assert.deepEqual(result.assistantMessage.metadata.riskNotes, []);
+        assert.deepEqual(result.assistantMessage.metadata.evidenceRefs, []);
+        assert.deepEqual(result.assistantMessage.metadata.plannedTools, []);
+        assert.equal(result.assistantMessage.metadata.needsConfirmation, false);
+        assert.equal(result.audit.riskNotes, "");
+        assert.equal(result.verification.status, "passed");
+      } finally {
+        restoreFetch();
+        harness.cleanup();
+      }
+    }
   }
 ];
 

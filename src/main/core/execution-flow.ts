@@ -7,10 +7,12 @@ import {
   ExecutionPlan,
   ExecutionResult,
   HostExecPendingAction,
+  ModelExpressionConfig,
   PendingAction,
   RequestClassification,
   RetrievedSnippet,
   StateSnapshot,
+  StructuredExecutionDraft,
   TraceEntry,
   VerificationResult,
   WorkspaceWritePendingAction
@@ -46,6 +48,12 @@ interface AssistantMessageMetadata extends Record<string, unknown> {
   pendingActionSummary?: string;
   pendingActionTargetPath?: string;
   writtenPath?: string;
+  riskNotes?: string[];
+  evidenceRefs?: string[];
+  plannedTools?: string[];
+  verificationTarget?: string;
+  needsConfirmation?: boolean;
+  structuredDraftFallback?: boolean;
   providerError?: boolean;
 }
 
@@ -283,6 +291,85 @@ const buildWorkspaceDraftFallback = (requestText: string): string =>
     "- Replace this placeholder content with a refined version if needed."
   ].join("\n");
 
+const buildExpressionConfig = (
+  config: ReturnType<ConfigService["load"]>
+): ModelExpressionConfig => ({
+  density: config.expression.density,
+  structuredFirst: config.expression.structuredFirst,
+  reportingGranularity: config.reportingGranularity
+});
+
+const extractJsonPayload = (value: string): string => {
+  const trimmed = value.trim();
+  const fencedMatch = trimmed.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
+  return fencedMatch ? fencedMatch[1].trim() : trimmed;
+};
+
+const toStringArray = (value: unknown): string[] =>
+  Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string").map((item) => item.trim()).filter(Boolean)
+    : [];
+
+const buildStructuredDraftFallback = (
+  rawText: string,
+  plan: ExecutionPlan | null
+): StructuredExecutionDraft => ({
+  answer: rawText.trim(),
+  riskNotes: [],
+  evidenceRefs: [],
+  plannedTools: [],
+  verificationTarget: plan?.verificationTarget ?? "",
+  needsConfirmation: false
+});
+
+const parseStructuredExecutionDraft = (
+  rawText: string,
+  plan: ExecutionPlan | null
+): { draft: StructuredExecutionDraft; usedFallback: boolean } => {
+  const jsonCandidate = extractJsonPayload(rawText);
+
+  try {
+    const parsed = JSON.parse(jsonCandidate) as Record<string, unknown>;
+    if (typeof parsed !== "object" || parsed === null || typeof parsed.answer !== "string") {
+      return {
+        draft: buildStructuredDraftFallback(rawText, plan),
+        usedFallback: true
+      };
+    }
+
+    return {
+      draft: {
+        answer: parsed.answer.trim() || rawText.trim(),
+        riskNotes: toStringArray(parsed.riskNotes),
+        evidenceRefs: toStringArray(parsed.evidenceRefs),
+        plannedTools: toStringArray(parsed.plannedTools),
+        verificationTarget:
+          typeof parsed.verificationTarget === "string"
+            ? parsed.verificationTarget
+            : plan?.verificationTarget ?? "",
+        needsConfirmation: typeof parsed.needsConfirmation === "boolean" ? parsed.needsConfirmation : false
+      },
+      usedFallback: false
+    };
+  } catch {
+    return {
+      draft: buildStructuredDraftFallback(rawText, plan),
+      usedFallback: true
+    };
+  }
+};
+
+const formatPlanForModel = (plan: ExecutionPlan | null): string =>
+  plan
+    ? [
+        "Current execution plan:",
+        `- Goal: ${plan.goal}`,
+        `- Steps: ${plan.steps.length > 0 ? plan.steps.join(" | ") : "none"}`,
+        `- Likely tools: ${plan.likelyTools.length > 0 ? plan.likelyTools.join(", ") : "none"}`,
+        `- Verification target: ${plan.verificationTarget}`
+      ].join("\n")
+    : "Current execution plan: none";
+
 const buildPendingActionProposalText = (pendingAction: PendingAction): string => {
   if (pendingAction.kind === "workspace_write") {
     const preview = pendingAction.content.trim().slice(0, 600);
@@ -319,6 +406,8 @@ const buildAssistantMessageMetadata = (params: {
   retrievalEnabled?: boolean;
   pendingAction?: PendingAction | null;
   writtenPath?: string;
+  structuredDraft?: StructuredExecutionDraft | null;
+  structuredDraftFallback?: boolean;
   providerError?: boolean;
 }): AssistantMessageMetadata => {
   const { input, classification, snippets, toolResult, retrievalEnabled, pendingAction, writtenPath, providerError } =
@@ -356,6 +445,18 @@ const buildAssistantMessageMetadata = (params: {
     metadata.writtenPath = writtenPath;
   }
 
+  if (params.structuredDraft) {
+    metadata.riskNotes = params.structuredDraft.riskNotes;
+    metadata.evidenceRefs = params.structuredDraft.evidenceRefs;
+    metadata.plannedTools = params.structuredDraft.plannedTools;
+    metadata.verificationTarget = params.structuredDraft.verificationTarget;
+    metadata.needsConfirmation = params.structuredDraft.needsConfirmation;
+  }
+
+  if (params.structuredDraftFallback) {
+    metadata.structuredDraftFallback = true;
+  }
+
   if (providerError) {
     metadata.providerError = true;
   }
@@ -375,6 +476,7 @@ export class ExecutionFlow {
     this.deps.store.setConversationMode(input.conversationId, input.mode);
 
     const config = this.deps.configService.load();
+    const expressionConfig = buildExpressionConfig(config);
     const history = this.deps.store.listRecentMessages(input.conversationId, 12);
     const traceLog: TraceEntry[] = [];
     const knowledgeSources = this.deps.store.listKnowledgeSources();
@@ -476,6 +578,7 @@ export class ExecutionFlow {
         const pendingAction = await this.createWorkspaceWriteProposal({
           input,
           config,
+          expressionConfig,
           history,
           traceLog
         });
@@ -844,6 +947,8 @@ export class ExecutionFlow {
 
     try {
       const contextParts: string[] = [];
+      contextParts.push(`User request:\n${input.text}`);
+      contextParts.push(formatPlanForModel(plan));
 
       if (snippets.length > 0) {
         const evidenceBlock = snippets
@@ -856,30 +961,48 @@ export class ExecutionFlow {
         contextParts.push(`工具执行结果 [${toolResult.toolName}]: ${toolResult.summary}`);
       }
 
+      contextParts.push(
+        [
+          "Return a structured execution draft for this turn.",
+          "Use evidenceRefs to cite retrieved evidence labels when relevant.",
+          "If there is no risk or evidence, return empty arrays for those fields."
+        ].join("\n")
+      );
       const enrichedUserText =
         contextParts.length > 0 ? `${contextParts.join("\n\n")}\n\n用户问题: ${input.text}` : input.text;
 
       trace(traceLog, "model", "calling model with assembled context");
 
-      const replyText = await this.deps.modelAdapter.generateReply({
+      const rawReplyText = await this.deps.modelAdapter.generateReply({
         config,
+        expression: expressionConfig,
         history,
-        userText: enrichedUserText
+        userText: enrichedUserText,
+        responseMode: "structured-draft"
       });
+      const { draft, usedFallback } = parseStructuredExecutionDraft(rawReplyText, plan);
 
-      const verification = verify(classification, snippets, toolResult, replyText);
+      trace(
+        traceLog,
+        "model",
+        usedFallback ? "structured draft malformed, used plain text fallback" : "structured draft parsed successfully"
+      );
+
+      const verification = verify(classification, snippets, toolResult, draft.answer);
       trace(traceLog, "verification", `status=${verification.status} detail=${verification.detail}`);
 
       const assistantMessage = this.deps.store.addMessage(
         input.conversationId,
         "assistant",
-        replyText,
+        draft.answer,
         buildAssistantMessageMetadata({
           input,
           classification,
           snippets,
           toolResult,
-          retrievalEnabled: retrievalPreferred
+          retrievalEnabled: retrievalPreferred,
+          structuredDraft: draft,
+          structuredDraftFallback: usedFallback
         })
       );
 
@@ -905,7 +1028,7 @@ export class ExecutionFlow {
         retrievalUsed: snippets.length > 0,
         toolsUsed: toolResult ? [toolResult.toolName] : [],
         resultType: "answer",
-        riskNotes: verification.status === "failed" ? verification.detail : ""
+        riskNotes: verification.status === "failed" ? verification.detail : draft.riskNotes.join("; ")
       });
 
       return {
@@ -1074,10 +1197,11 @@ export class ExecutionFlow {
   private async createWorkspaceWriteProposal(params: {
     input: ExecutionInput;
     config: ReturnType<ConfigService["load"]>;
+    expressionConfig: ModelExpressionConfig;
     history: ChatMessage[];
     traceLog: TraceEntry[];
   }): Promise<WorkspaceWritePendingAction> {
-    const { input, config, history, traceLog } = params;
+    const { input, config, expressionConfig, history, traceLog } = params;
     const draftPrompt = [
       "你正在为一个待确认的本地工作区写入动作生成文件内容。",
       "请只返回要写入 Markdown 文件的正文，不要加解释，不要写代码围栏。",
@@ -1096,6 +1220,7 @@ export class ExecutionFlow {
       trace(traceLog, "model", "drafting workspace artifact content");
       const content = await this.deps.modelAdapter.generateReply({
         config,
+        expression: expressionConfig,
         history,
         userText: draftPrompt
       });

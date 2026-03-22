@@ -184,3 +184,18 @@ export interface InitializationPayload {
   knowledgeSources: KnowledgeSource[];
   workspaceRoot: string;
 }
+
+export interface ModelExpressionConfig {
+  density: EnsoConfig["expression"]["density"];
+  structuredFirst: EnsoConfig["expression"]["structuredFirst"];
+  reportingGranularity: EnsoConfig["reportingGranularity"];
+}
+
+export interface StructuredExecutionDraft {
+  answer: string;
+  riskNotes: string[];
+  evidenceRefs: string[];
+  plannedTools: string[];
+  verificationTarget: string;
+  needsConfirmation: boolean;
+}
