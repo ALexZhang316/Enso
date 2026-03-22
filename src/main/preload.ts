@@ -23,6 +23,8 @@ const bridge: EnsoBridge = {
   listAudits: (conversationId?: string) => ipcRenderer.invoke("enso:audit:list", conversationId),
   resolvePendingConfirmation: (conversationId: string) =>
     ipcRenderer.invoke("enso:confirmation:resolve", conversationId),
+  rejectPendingConfirmation: (conversationId: string) =>
+    ipcRenderer.invoke("enso:confirmation:reject", conversationId),
   submitRequest: (input: ExecutionInput) => ipcRenderer.invoke("enso:request:submit", input),
   getAppInfo: () => ({
     name: "Enso",

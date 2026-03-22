@@ -18,6 +18,8 @@ interface IpcDependencies {
   workspaceService: WorkspaceService;
 }
 
+const ts = (): string => new Date().toISOString();
+
 const buildInitializationPayload = (
   store: EnsoStore,
   config: EnsoConfig,
@@ -220,6 +222,64 @@ export const registerIpcHandlers = ({
       messages: store.listMessages(conversationId),
       state: result.state,
       audit: result.audit
+    };
+  });
+
+  ipcMain.handle("enso:confirmation:reject", (_event, conversationId: string) => {
+    const conversation = store.getConversation(conversationId);
+    if (!conversation) {
+      throw new Error("未找到该会话。");
+    }
+
+    const currentState = store.getState(conversationId);
+    if (!currentState.pendingConfirmation || !currentState.pendingAction) {
+      throw new Error("没有待确认的动作。");
+    }
+
+    const rejectedAt = ts();
+    const actionLabel =
+      currentState.pendingAction.kind === "workspace_write" ? "工作区写入" : "工作区命令执行";
+    const trace = [
+      ...currentState.trace,
+      { phase: "gate", summary: "confirmation rejected by user", timestamp: rejectedAt },
+      { phase: "verification", summary: "status=blocked detail=action rejected by user", timestamp: rejectedAt },
+      { phase: "persist", summary: "rejected confirmation state written", timestamp: rejectedAt }
+    ] as const;
+    const verification = {
+      status: "blocked" as const,
+      detail: "action rejected by user"
+    };
+
+    store.addMessage(conversationId, "assistant", `已取消待确认操作：${actionLabel}。`, {
+      mode: conversation.mode,
+      handlingClass: "action-adjacent",
+      retrievalUsed: false,
+      toolName: null
+    });
+
+    const nextState = store.upsertState({
+      ...currentState,
+      pendingConfirmation: false,
+      pendingAction: null,
+      taskStatus: "completed",
+      updatedAt: rejectedAt,
+      trace: [...trace],
+      verification
+    });
+
+    const audit = store.addAudit({
+      conversationId,
+      mode: conversation.mode,
+      retrievalUsed: currentState.retrievalUsed,
+      toolsUsed: currentState.toolsCalled,
+      resultType: "proposal",
+      riskNotes: "action rejected by user"
+    });
+
+    return {
+      messages: store.listMessages(conversationId),
+      state: nextState,
+      audit
     };
   });
 

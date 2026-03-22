@@ -140,6 +140,11 @@ export const mockBridge: EnsoBridge = {
     state: mockState,
     audit: mockAudit
   }),
+  rejectPendingConfirmation: async () => ({
+    messages: mockMessages,
+    state: mockState,
+    audit: mockAudit
+  }),
   submitRequest: async () => ({
     assistantMessage: mockMessages[1],
     state: mockState,

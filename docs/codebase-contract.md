@@ -27,7 +27,7 @@ Summary:
 ## Current workflow state
 
 - The repo keeps the simple loop `PREFLIGHT -> PLAN -> WORK -> VERIFY -> POSTFLIGHT -> DONE`.
-- `npm run preflight`, `npm run verify`, and `npm run postflight` are green after the permission-boundary rework.
+- `npm run preflight`, `npm run verify`, and `npm run postflight` are green after the execution-chain wiring, tool-reliability, and UI cleanup rounds.
 - `scripts/bootstrap-git.ps1` is the supported Git/GitHub bootstrap path when `.git` is missing; it now requires GitHub CLI authentication and links the local `gh` default repository to `origin`.
 - For doc-only work, a recorded red baseline plus `node scripts/check-docs-updated.cjs` is an acceptable verification fallback when those unrelated regressions prevent full postflight from going green.
 
@@ -102,6 +102,9 @@ src/
     types.ts
 tasks/
   0002-permission-boundary-rework.md
+  0003-exec-chain-wiring.md
+  0004-tool-reliability.md
+  0005-ui-cleanup-panels.md
   INDEX.md
   TEMPLATE.md
 ```
@@ -111,26 +114,26 @@ tasks/
 ### Core runtime
 
 - `src/main/core/execution-flow.ts`
-  Owns the planner -> executor -> verifier turn flow, pending confirmation resolution, trace writing, and persistence handoff.
+  Owns the planner -> executor -> verifier turn flow, structured execution-draft parsing, pending confirmation resolution, trace writing, and persistence handoff.
 
 ### Main-process services
 
 - `config-service.ts`
   Loads, normalizes, validates, and saves TOML config.
 - `host-exec-service.ts`
-  Validates and executes bounded read-only host commands under the current workspace rules.
+  Validates and executes bounded read-only host commands under the current workspace rules, captures stdout/stderr/exit code, and enforces a configurable timeout.
 - `knowledge-service.ts`
   Imports local documents, chunks them, and retrieves evidence through the store.
 - `model-adapter.ts`
-  Wraps provider-backed text generation.
+  Wraps provider-backed text generation, injects expression/reporting preferences into the system prompt, and supports structured execution-draft output mode.
 - `secret-service.ts`
   Stores provider keys using Electron safe storage.
 - `store.ts`
   Owns SQLite persistence for conversations, messages, state, audits, and knowledge.
 - `tool-service.ts`
-  Decides and runs bounded tool calls.
+  Decides and runs bounded tool calls and returns structured `ToolRunResult` payloads.
 - `workspace-service.ts`
-  Manages the Enso-owned local workspace root and bounded writes.
+  Manages the Enso-owned local workspace root, explicit in-workspace path resolution, and bounded writes.
 
 ### Provider layer
 
@@ -146,18 +149,18 @@ Provider wiring lives under `src/main/providers/`.
 ### Shared contract layer
 
 - `src/shared/modes.ts`
-  Defines `default`, `deep-dialogue`, `decision`, and `research`.
+  Defines `default`, `deep-dialogue`, `decision`, and `research` with cleaned renderer-facing labels and descriptions.
 - `src/shared/providers.ts`
   Defines provider presets exposed in the app.
 - `src/shared/types.ts`
-  Defines core runtime, config, trace, verification, and permission types.
+  Defines core runtime, config, trace, verification, and permission types plus the cleaned shared permission labels used by the shell.
 
 ### Renderer contract
 
 - `src/renderer/App.tsx`
-  Owns the fixed three-panel shell and the renderer-visible state for conversations, mode toggles, config, plan, trace, verification, pending confirmations, evidence, and audit signals.
+  Owns the fixed three-panel shell and the renderer-visible state for conversations, mode toggles, config, plan, trace, verification, pending confirmations, evidence, and audit signals, including refresh after request completion and confirmation resolution/rejection.
 - `src/renderer/components/`
-  Holds LeftPanel, CenterPanel, RightPanel and local UI primitives.
+  Holds LeftPanel, CenterPanel, RightPanel and local UI primitives. CenterPanel owns the visible confirm/reject action card; RightPanel renders live plan/trace/verification/audit panels from the current IPC snapshot.
 - `src/renderer/lib/labels.ts`
   Pure mapping functions for display labels.
 
@@ -271,16 +274,20 @@ CREATE TABLE app_state (
 );
 ```
 
-## Active task file
+## Active task files
 
-Current tracked repo-local task file:
-- `tasks/0002-permission-boundary-rework.md` (done; retained as the latest completed implementation brief)
+Current tracked repo-local task files:
+- `tasks/0002-permission-boundary-rework.md` (completed reference task)
+- `tasks/0003-exec-chain-wiring.md`
+- `tasks/0004-tool-reliability.md`
+- `tasks/0005-ui-cleanup-panels.md`
 
 ## Known active issues
 
 - Runtime permission enforcement now covers workspace_write, host_exec_readonly, and external_network with real allow/confirm/block semantics. Advanced permission dimensions (model_call/local_egress split, intent-source classification) are deferred.
+- Tool orchestration is still intentionally narrow: one tool at a time, no cascades, no autonomous retries.
 - `npm run verify` and `npm run postflight` are green.
-- Some runtime labels and descriptions in `src/shared/modes.ts` and `src/shared/types.ts` still contain garbled text and should be normalized in a future cleanup round.
+- Some renderer strings outside `src/shared/modes.ts` and `src/shared/types.ts` still contain garbled legacy text and should be normalized in a future cleanup round.
 - Reference-only docs (`execution-flow.md`, `module-spec-table.md`, `ui-layout.md`, `windows-product-spec.md`) have been removed; their behavioral rules are now in `docs/spec/`.
 
 ## Maintenance rule

@@ -299,6 +299,17 @@ const App = (): JSX.Element => {
     await loadAuditRecords(targetId);
   };
 
+  const handleRejectPendingConfirmation = async (): Promise<void> => {
+    if (!activeConversationId || isSubmitting) return;
+    const result = await window.enso.rejectPendingConfirmation(activeConversationId);
+    setMessages(result.messages);
+    setStateSnapshot(result.state);
+    setAuditSummary(result.audit);
+    setLastRunInfo("已拒绝并取消待确认操作。");
+    const targetId = auditFilterCurrentConversation ? activeConversationId : undefined;
+    await loadAuditRecords(targetId);
+  };
+
   const handleSaveSettings = async (): Promise<void> => {
     if (!settingsDraft) return;
     try {
@@ -424,6 +435,12 @@ const App = (): JSX.Element => {
           auditFilterCurrentConversation={auditFilterCurrentConversation}
           onSend={() => {
             void handleSend();
+          }}
+          onResolvePendingConfirmation={() => {
+            void handleResolvePendingConfirmation();
+          }}
+          onRejectPendingConfirmation={() => {
+            void handleRejectPendingConfirmation();
           }}
           onImportKnowledge={() => {
             void handleImportKnowledge();

@@ -102,16 +102,16 @@ export const ACTION_TYPES: ActionType[] = [
 ];
 
 export const ACTION_TYPE_LABELS: Record<ActionType, string> = {
-  workspace_write: "工作区写入",
-  host_exec_readonly: "本地只读命令",
-  host_exec_destructive: "本地破坏性命令",
-  external_network: "外部网络"
+  workspace_write: "\u5de5\u4f5c\u533a\u5199\u5165",
+  host_exec_readonly: "\u672c\u5730\u53ea\u8bfb\u547d\u4ee4",
+  host_exec_destructive: "\u672c\u5730\u7834\u574f\u6027\u547d\u4ee4",
+  external_network: "\u5916\u90e8\u7f51\u7edc"
 };
 
 export const PERMISSION_LEVEL_LABELS: Record<PermissionLevel, string> = {
-  allow: "允许",
-  confirm: "确认",
-  block: "禁止"
+  allow: "\u5141\u8bb8",
+  confirm: "\u786e\u8ba4",
+  block: "\u7981\u6b62"
 };
 
 export interface EnsoConfig {

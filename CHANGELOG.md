@@ -1,5 +1,17 @@
 # CHANGELOG
 
+## 2026-03-23 - Execution chain wiring, tool reliability, and UI confirmation cleanup
+### What changed
+1. Wired expression preferences (`density`, `structuredFirst`, `reportingGranularity`) into `ExecutionFlow` and `ModelAdapter`, and switched the model-facing execution draft to a structured JSON contract with graceful plain-text fallback.
+2. Expanded tool execution so `tool-service` now emits structured tool results, `workspace-service` exposes explicit in-workspace path validation and real writes, and `host-exec-service` captures stdout/stderr/exit code with a configurable timeout.
+3. Cleaned up the shell-facing shared mode/permission labels, added a center-pane confirmation card with confirm/reject actions, and added renderer/main-process wiring for rejecting pending confirmations with a visible chat result.
+4. Extended regression coverage across integration and UI tests for expression prompt injection, structured draft parsing, malformed draft fallback, workspace-write rejection, structured host-exec results, timeout handling, right-rail plan/trace rendering, and center-pane confirm/reject flows.
+
+### Why it changed
+- The execution chain was still ignoring persisted expression settings and relying on free-form model output where a typed draft was expected.
+- Tool execution needed to move from partial stubs to structured, verifiable results before the planner -> executor -> verifier backbone can be trusted.
+- The shell already exposed pending confirmations and right-rail state, but the center-pane interaction path and shared labels still had obvious product-level rough edges.
+
 ## 2026-03-22 - Collaboration protocol internalized and workflow docs aligned
 ### What changed
 1. Added `docs/collaboration-protocol.md` to internalize the Alex / Claude / Codex role split, review flow, handoff rules, and actual Enso path ownership inside the repository.

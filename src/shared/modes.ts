@@ -1,23 +1,23 @@
 export const MODES = [
   {
     id: "default",
-    label: "默认",
-    description: "平衡回答、轻量检索与轻量工具使用的日常模式。"
+    label: "\u9ed8\u8ba4",
+    description: "\u5e73\u8861\u56de\u7b54\u3001\u8f7b\u91cf\u68c0\u7d22\u4e0e\u8f7b\u91cf\u5de5\u5177\u4f7f\u7528\u7684\u65e5\u5e38\u6a21\u5f0f\u3002"
   },
   {
     id: "deep-dialogue",
-    label: "深度对话",
-    description: "以连续性为核心的长对话，减少不必要的追问。"
+    label: "\u6df1\u5ea6\u5bf9\u8bdd",
+    description: "\u4ee5\u8fde\u7eed\u6027\u4e3a\u6838\u5fc3\u7684\u957f\u5bf9\u8bdd\u6a21\u5f0f\uff0c\u51cf\u5c11\u4e0d\u5fc5\u8981\u7684\u8ffd\u95ee\u3002"
   },
   {
     id: "decision",
-    label: "决策",
-    description: "对选项进行比较，明确区分事实、假设与判断。"
+    label: "\u51b3\u7b56",
+    description: "\u5bf9\u9009\u9879\u8fdb\u884c\u6bd4\u8f83\uff0c\u660e\u786e\u533a\u5206\u4e8b\u5b9e\u3001\u5047\u8bbe\u4e0e\u5224\u65ad\u3002"
   },
   {
     id: "research",
-    label: "研究",
-    description: "以证据为中心进行综合分析，回答可追溯来源。"
+    label: "\u7814\u7a76",
+    description: "\u4ee5\u8bc1\u636e\u4e3a\u4e2d\u5fc3\u8fdb\u884c\u7efc\u5408\u5206\u6790\uff0c\u56de\u7b54\u53ef\u8ffd\u6eaf\u6765\u6e90\u3002"
   }
 ] as const;
 

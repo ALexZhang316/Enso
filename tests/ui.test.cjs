@@ -114,6 +114,8 @@ const run = async () => {
     await firstPage.getByTestId("composer-retrieval-toggle").check();
     await firstPage.getByTestId("composer-send-button").click();
     await firstPage.getByTestId("evidence-panel").getByText("ui-knowledge.md", { exact: true }).waitFor();
+    await firstPage.getByTestId("plan-panel").getByText("retrieve from local knowledge").waitFor();
+    await firstPage.getByTestId("trace-panel").getByText("returned 1 snippets").waitFor();
     await firstPage.getByTestId("chat-message-list").getByText("已检索 1 条证据", { exact: true }).waitFor();
     await firstPage.getByTestId("composer-input").fill("Delete the README.md file.");
     await firstPage.getByTestId("composer-send-button").click();
@@ -125,6 +127,7 @@ const run = async () => {
     await firstPage.getByTestId("audit-summary-panel").getByText("提案").waitFor();
     await firstPage.getByTestId("audit-summary-panel").getByText("unsupported action blocked").waitFor();
     assert.equal(await firstPage.getByTestId("resolve-confirmation-button").count(), 0);
+    assert.equal(await firstPage.getByTestId("center-confirmation-card").count(), 0);
 
     const outputsDirForExec = path.join(userDataDir, "workspace", "outputs");
     fs.mkdirSync(outputsDirForExec, { recursive: true });
@@ -134,8 +137,9 @@ const run = async () => {
     await firstPage.getByTestId("composer-send-button").click();
     await firstPage.getByText("检测到主机命令执行请求").waitFor();
     await firstPage.getByTestId("pending-action-panel").getByText("Get-ChildItem outputs", { exact: true }).waitFor();
+    await firstPage.getByTestId("center-confirm-button").getByText("确认并执行工作区命令").waitFor();
     await firstPage.getByTestId("resolve-confirmation-button").getByText("确认并执行工作区命令").waitFor();
-    await firstPage.getByTestId("resolve-confirmation-button").click();
+    await firstPage.getByTestId("center-confirm-button").click();
     await firstPage.getByText("已根据确认执行工作区命令").waitFor();
     await firstPage.getByText("ui-exec-safe.txt").waitFor();
     await firstPage.getByTestId("verification-panel").getByText("通过").waitFor();
@@ -158,7 +162,7 @@ const run = async () => {
     await firstPage.getByTestId("composer-input").fill("请写一份测试纪要文件");
     await firstPage.getByTestId("composer-send-button").click();
     await firstPage.getByText("检测到工作区写入请求").waitFor();
-    await firstPage.getByTestId("resolve-confirmation-button").click();
+    await firstPage.getByTestId("center-confirm-button").click();
     await firstPage.getByText("已根据确认执行工作区写入").waitFor();
 
     const outputsDir = path.join(userDataDir, "workspace", "outputs");
@@ -167,6 +171,14 @@ const run = async () => {
     const latestOutput = path.join(outputsDir, outputFiles[0]);
     const outputContent = fs.readFileSync(latestOutput, "utf8");
     assert.equal(outputContent.includes("自动草稿"), true);
+
+    await firstPage.getByTestId("composer-input").fill("Run `Get-ChildItem outputs`");
+    await firstPage.getByTestId("composer-send-button").click();
+    await firstPage.getByTestId("center-confirmation-card").waitFor();
+    await firstPage.getByTestId("center-reject-button").click();
+    await firstPage.getByText("已取消待确认操作").waitFor();
+    await firstPage.getByTestId("pending-action-panel").getByText("无待确认动作").waitFor();
+    assert.equal(await firstPage.getByTestId("center-confirmation-card").count(), 0);
 
     await firstApp.close();
 

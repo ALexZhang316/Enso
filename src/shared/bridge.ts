@@ -57,6 +57,7 @@ export interface EnsoBridge {
   retrieveKnowledge: (query: string) => Promise<RetrievedSnippet[]>;
   listAudits: (conversationId?: string) => Promise<AuditSummary[]>;
   resolvePendingConfirmation: (conversationId: string) => Promise<ResolveConfirmationPayload>;
+  rejectPendingConfirmation: (conversationId: string) => Promise<ResolveConfirmationPayload>;
   submitRequest: (input: ExecutionInput) => Promise<SubmitRequestPayload>;
   getAppInfo: () => { name: string; version: string };
 }

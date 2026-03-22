@@ -47,6 +47,8 @@ export interface CenterPanelProps {
   auditRecords: AuditSummary[];
   auditFilterCurrentConversation: boolean;
   onSend: () => void;
+  onResolvePendingConfirmation: () => void;
+  onRejectPendingConfirmation: () => void;
   onImportKnowledge: () => void;
   onComposerTextChange: (text: string) => void;
   onRetrievalToggle: (enabled: boolean) => void;
@@ -74,6 +76,7 @@ const CenterPanel = (props: CenterPanelProps): JSX.Element => {
     submitError,
     lastRunInfo,
     importStatus,
+    stateSnapshot,
     appVersion,
     settingsDraft,
     settingsStatus,
@@ -82,6 +85,8 @@ const CenterPanel = (props: CenterPanelProps): JSX.Element => {
     auditRecords,
     auditFilterCurrentConversation,
     onSend,
+    onResolvePendingConfirmation,
+    onRejectPendingConfirmation,
     onImportKnowledge,
     onComposerTextChange,
     onRetrievalToggle,
@@ -215,6 +220,55 @@ const CenterPanel = (props: CenterPanelProps): JSX.Element => {
               </ScrollArea>
             </CardContent>
           </Card>
+
+          {stateSnapshot.pendingConfirmation && stateSnapshot.pendingAction && (
+            <Card className="shrink-0" data-testid="center-confirmation-card">
+              <CardContent className="p-3 space-y-2.5">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="text-[12px] font-semibold text-foreground">{"待确认操作"}</div>
+                    <div className="mt-0.5 text-[11px] text-muted-foreground">
+                      {stateSnapshot.pendingAction.summary}
+                    </div>
+                  </div>
+                  <Badge variant="outline">
+                    {stateSnapshot.pendingAction.kind === "workspace_write" ? "工作区写入" : "工作区命令"}
+                  </Badge>
+                </div>
+
+                {stateSnapshot.pendingAction.kind === "workspace_write" ? (
+                  <div className="rounded-xl bg-black/[0.03] p-2.5 text-[11px] text-muted-foreground break-all">
+                    {stateSnapshot.pendingAction.targetPath}
+                  </div>
+                ) : (
+                  <div className="rounded-xl bg-black/[0.03] p-2.5 space-y-1 text-[11px] text-muted-foreground break-all">
+                    <div>{stateSnapshot.pendingAction.workingDirectory}</div>
+                    <div>{stateSnapshot.pendingAction.command}</div>
+                  </div>
+                )}
+
+                <div className="flex gap-2">
+                  <Button
+                    data-testid="center-confirm-button"
+                    onClick={onResolvePendingConfirmation}
+                    disabled={isLoading || isSubmitting}
+                  >
+                    {stateSnapshot.pendingAction.kind === "workspace_write"
+                      ? "确认并执行工作区写入"
+                      : "确认并执行工作区命令"}
+                  </Button>
+                  <Button
+                    data-testid="center-reject-button"
+                    variant="outline"
+                    onClick={onRejectPendingConfirmation}
+                    disabled={isLoading || isSubmitting}
+                  >
+                    {"拒绝并取消"}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           <Card className="shrink-0">
             <CardContent className="p-3">
