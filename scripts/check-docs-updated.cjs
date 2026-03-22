@@ -27,15 +27,16 @@ const REQUIRED_DOCS = [
 const SCANNED_FILES = [
   "AGENTS.md",
   "CLAUDE.md",
-  "docs/current-baseline.md",
-  "docs/execution-flow.md",
+  "docs/baseline.md",
   "docs/codebase-contract.md",
   "docs/architecture.md",
-  "docs/module-spec-table.md",
-  "docs/ui-layout.md",
-  "docs/iteration-guidance.md",
-  "docs/windows-product-spec.md",
   "docs/environment-and-github-bootstrap.md",
+  "docs/spec/brain.md",
+  "docs/spec/permission.md",
+  "docs/spec/context.md",
+  "docs/spec/tools.md",
+  "docs/spec/ui.md",
+  "docs/spec/audit.md",
   "config/default.toml"
 ];
 
@@ -59,14 +60,9 @@ const HISTORY_FILES = new Set(["CHANGELOG.md", "docs/codebase-contract.md"]);
 
 // Versioned doc files (should all share the same version)
 const VERSIONED_DOCS = [
-  "docs/current-baseline.md",
-  "docs/execution-flow.md",
+  "docs/baseline.md",
   "docs/codebase-contract.md",
   "docs/architecture.md",
-  "docs/module-spec-table.md",
-  "docs/ui-layout.md",
-  "docs/iteration-guidance.md",
-  "docs/windows-product-spec.md",
   "docs/environment-and-github-bootstrap.md"
 ];
 

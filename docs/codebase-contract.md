@@ -6,24 +6,15 @@ This file records the current repo-local contract for the codebase as it exists 
 It is not a running changelog.
 Prefer current code over stale prose, and update this file when directory structure, module ownership, schema, or known active issues materially change.
 
-## Live source docs
+## Document authority
 
-When live docs conflict, use:
-1. `docs/current-baseline.md`
-2. `docs/execution-flow.md`
-3. `docs/architecture.md`
+See `AGENTS.md` for the full document authority tiers.
 
-## Reference-only docs
-
-These docs may explain details or give supporting context, but they do not override the three live source docs:
-- `docs/windows-product-spec.md`
-- `docs/module-spec-table.md`
-- `docs/ui-layout.md`
-- `docs/openclaw-reference-notes.md`
-
-Removed during the current cleanup round:
-- `docs/iteration-guidance.md`
-- `docs/revision-notes-2026-03-09.md`
+Summary:
+- Tier 1 (live sources): `docs/baseline.md`, `docs/architecture.md`
+- Tier 2 (behavioral specs): `docs/spec/*.md`
+- Tier 3 (code-layer contract): this file
+- Tier 4 (reference): `docs/openclaw-reference-notes.md`, `docs/environment-and-github-bootstrap.md`
 
 ## Workflow docs
 
@@ -44,15 +35,20 @@ Removed during the current cleanup round:
 config/
   default.toml
 docs/
+  baseline.md
   architecture.md
   codebase-contract.md
-  current-baseline.md
   environment-and-github-bootstrap.md
-  execution-flow.md
-  module-spec-table.md
   openclaw-reference-notes.md
-  ui-layout.md
-  windows-product-spec.md
+  spec/
+    brain.md
+    permission.md
+    context.md
+    tools.md
+    ui.md
+    audit.md
+  reviews/
+  handoffs/
 scripts/
   bootstrap-git.ps1
   check-docs-updated.cjs
@@ -88,8 +84,14 @@ src/
     browser-mock.ts
     index.css
     main.tsx
-    components/ui/
-    lib/utils.ts
+    components/
+      LeftPanel.tsx
+      CenterPanel.tsx
+      RightPanel.tsx
+      ui/
+    lib/
+      labels.ts
+      utils.ts
   shared/
     bridge.ts
     modes.ts
@@ -151,8 +153,10 @@ Provider wiring lives under `src/main/providers/`.
 
 - `src/renderer/App.tsx`
   Owns the fixed three-panel shell and the renderer-visible state for conversations, mode toggles, config, plan, trace, verification, pending confirmations, evidence, and audit signals.
-- `src/renderer/components/ui/`
-  Holds the local UI primitives used by the shell.
+- `src/renderer/components/`
+  Holds LeftPanel, CenterPanel, RightPanel and local UI primitives.
+- `src/renderer/lib/labels.ts`
+  Pure mapping functions for display labels.
 
 ## Current config contract
 
@@ -276,12 +280,12 @@ Historical completed task files were removed during the cleanup round to reduce 
 - Runtime permission enforcement now covers workspace_write, host_exec_readonly, and external_network with real allow/confirm/block semantics. Advanced permission dimensions (model_call/local_egress split, intent-source classification) are deferred.
 - `npm run verify` and `npm run postflight` are green.
 - Some runtime labels and descriptions in `src/shared/modes.ts` and `src/shared/types.ts` still contain garbled text and should be normalized in a future cleanup round.
-- Reference-only docs still exist as separate files and still carry some overlapping explanatory material, even though they no longer have source-of-truth authority.
+- Reference-only docs (`execution-flow.md`, `module-spec-table.md`, `ui-layout.md`, `windows-product-spec.md`) have been removed; their behavioral rules are now in `docs/spec/`.
 
 ## Maintenance rule
 
 Update this file when any of the following change materially:
-- live or reference doc authority
+- document authority tiers
 - directory structure
 - module ownership
 - provider/config contract

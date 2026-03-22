@@ -1,42 +1,17 @@
 # CLAUDE.md
 
-## Internalized handoff
+Claude-specific constraints supplement the shared project docs.
+Only use this file when the active coding client actually reads `CLAUDE.md`.
 
-This repository already contains the active handoff set.
-Project-internal documents are the only active source of truth.
-Do not rely on any external zip file during implementation or handoff.
+## Reading order
 
-Read in this order before making changes:
-1. `AGENTS.md`
-2. `docs/current-baseline.md`
-3. `docs/execution-flow.md`
-4. `docs/architecture.md`
-5. `docs/codebase-contract.md`
-6. `docs/environment-and-github-bootstrap.md`
+1. `AGENTS.md` - repo-local workflow, doc authority tiers, product boundaries
+2. `docs/baseline.md` - product identity and strategic direction
+3. `docs/architecture.md` - component boundary map
+4. `docs/codebase-contract.md` - code-layer contract
+5. `docs/spec/` - behavioral specs (brain, permission, context, tools, ui, audit)
 
-Use this file after the shared project docs for Claude-specific constraints.
-Only use it when the active coding client actually reads `CLAUDE.md`.
-
-## Project context
-
-This repository contains a single-user local-first Windows desktop personal agent.
-
-Primary goal:
-- solve real local tasks under strong user control
-
-Supported interaction posture:
-- default mode always available
-- optional manual modes: Deep Dialogue / Decision / Research
-
-These modes are behavior biases, not the product identity.
-The product identity is an execution-first personal agent.
-
-The product is intentionally narrow. It is not:
-- a generic AI portal
-- a multi-agent framework
-- a social-channel assistant
-- a companion persona shell
-- a SaaS shell
+For environment setup: `docs/environment-and-github-bootstrap.md`
 
 ## Dev workflow enforcement
 
@@ -64,24 +39,6 @@ After finishing code changes:
 
 Task lifecycle and detailed rules are in AGENTS.md.
 
-## Implementation rules
-
-Follow the markdown docs under `docs/`.
-
-When docs conflict, use:
-1. `docs/current-baseline.md`
-2. `docs/execution-flow.md`
-3. `docs/architecture.md`
-
-The rest are reference-only docs:
-- `docs/windows-product-spec.md`
-- `docs/module-spec-table.md`
-- `docs/ui-layout.md`
-- `docs/openclaw-reference-notes.md`
-
-For environment setup, native rebuild prerequisites, and GitHub initialization when `.git` is missing, use:
-- `docs/environment-and-github-bootstrap.md`
-
 ## Text encoding hygiene
 
 - Keep repository text files in UTF-8.
@@ -103,30 +60,6 @@ For environment setup, native rebuild prerequisites, and GitHub initialization w
 - Keep execution flow explicit and inspectable
 - Keep tool access bounded and user-legible
 
-## OpenClaw-aligned execution rule
-
-Enso should borrow OpenClaw at the architecture level, not the product-shape level.
-
-Must borrow:
-- local control-plane thinking
-- typed first-class tools
-- workspace-centered execution
-- explicit permission gate and approval boundary
-- visible execution trace and verification
-- strict config validation
-
-Must not borrow:
-- messaging-channel expansion
-- companion persona framing
-- social-surface product strategy
-- omnipresence as product value
-- multi-agent product identity for the current stage
-
-Implementation consequence:
-- prefer strengthening `planner -> executor -> verifier` over adding more chat polish
-- prefer explicit tool policy over vague agent-like improvisation
-- prefer proposal / dry-run / blocked result over hidden side effects
-
 ## What to optimize for
 
 - reliability over charm
@@ -134,21 +67,6 @@ Implementation consequence:
 - stable execution core over broad feature surface
 - visible state, plan, and verification
 - local ownership of config, state, logs, workspace, and knowledge orchestration
-
-## Preserve or strengthen in future iterations
-
-- runnable Windows desktop app skeleton
-- fixed 3-panel UI
-- default mode + manual optional mode switcher
-- local config/state/audit persistence
-- local workspace root
-- file import entry
-- minimal knowledge ingestion + retrieval
-- one reliable single-request chain
-- bounded workspace write/exec path
-- visible execution trace
-- README
-- TODO/LIMITATIONS
 
 ## Fixed tech stack for the current stage
 

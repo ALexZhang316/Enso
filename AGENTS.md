@@ -8,35 +8,47 @@ This file supplements the global AGENTS rules with repo-specific constraints.
 ## Read this repo in order
 
 1. `AGENTS.md`
-2. `docs/current-baseline.md`
-3. `docs/execution-flow.md`
-4. `docs/architecture.md`
-5. `docs/codebase-contract.md`
-6. `docs/environment-and-github-bootstrap.md`
-7. `CLAUDE.md` only if the active coding client actually reads `CLAUDE.md`
-
-## Use these docs to break ties
-
-1. `docs/current-baseline.md`
-2. `docs/execution-flow.md`
+2. `docs/baseline.md`
 3. `docs/architecture.md`
+4. `docs/codebase-contract.md`
+5. `docs/environment-and-github-bootstrap.md`
+6. `CLAUDE.md` only if the active coding client actually reads `CLAUDE.md`
 
-All other docs are reference material.
-They can explain implementation details or historical context, but they do not override the three live source docs above.
+## Document authority tiers
 
-Reference-only docs:
-- `docs/windows-product-spec.md`
-- `docs/module-spec-table.md`
-- `docs/ui-layout.md`
-- `docs/openclaw-reference-notes.md`
+### Tier 1 - Live sources (break ties with these, in order)
+
+1. `docs/baseline.md` - product identity, mode system, capability target
+2. `docs/architecture.md` - component boundary map, mode table, operator boundary
+
+### Tier 2 - Behavioral specs (Opus produces, Codex implements)
+
+All files under `docs/spec/`:
+- `brain.md` - execution flow (14-step canonical sequence, trace phases)
+- `permission.md` - permission model (action types, gate rules, confirmation)
+- `context.md` - knowledge/retrieval/state contract
+- `tools.md` - tool orchestration (6 tool types, routing, failure)
+- `ui.md` - UI interaction and layout contract
+- `audit.md` - audit event spec
+
+### Tier 3 - Code-layer contract
+
+- `docs/codebase-contract.md` - directory structure, module ownership, schema, known issues
+
+### Tier 4 - Reference and operational
+
+- `docs/openclaw-reference-notes.md` - architectural extraction guide
+- `docs/environment-and-github-bootstrap.md` - environment setup, native rebuild, GitHub init
+
+### Workflow and review directories
+
+- `docs/reviews/` - review artifacts
+- `docs/handoffs/` - branch handoff documents
 
 If uncertainty remains:
 - choose the simpler implementation
 - prefer stubs over speculative expansion
 - do not add new product behavior
-
-Operational bootstrap:
-- use `docs/environment-and-github-bootstrap.md` for environment setup, native rebuild prerequisites, and GitHub initialization when `.git` is missing
 
 ## Repo direction
 
@@ -190,8 +202,8 @@ After changes that materially affect behavior, limitations, workflow contract, o
 Also update these when they are directly affected:
 - `AGENTS.md`
 - `CLAUDE.md`
-- `docs/current-baseline.md`
-- `docs/execution-flow.md`
+- `docs/baseline.md`
+- `docs/architecture.md`
 
 Do not force cosmetic updates when a file's actual source-of-truth content did not change.
 

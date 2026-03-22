@@ -1,254 +1,95 @@
 # Architecture v0.3.4
 
-## One-line architecture view
+## 一句话架构
 
-Main chat window on Windows
--> request parser
--> planner
--> execution engine
--> verifier
--> visible result + audit
+主聊天窗口 -> 请求解析 -> 规划器 -> 执行引擎 -> 验证器 -> 可见结果 + 审计
 
-All under local policy, local state, and local workspace control.
+所有环节受本地策略、本地状态、本地工作区控制。
 
-## System intent
+## 组件边界图
 
-Enso is not a companion shell and not a social assistant.
-It is a local-first personal execution kernel exposed through a desktop chat control surface.
+```text
++------------------+     +------------------+     +------------------+
+|   Interface      |     |   Core Runtime   |     |   Supporting     |
+|   Layer          |     |                  |     |   Systems        |
++------------------+     +------------------+     +------------------+
+| Desktop UI       |     | Request Parser   |     | Config/Policy    |
+|  - conversation  |---->|  - classify      |     |  - TOML load     |
+|  - file import   |     |  - handling class|     |  - schema valid  |
+|  - mode switch   |     +--------+---------+     +------------------+
+|  - plan/state    |              |               | Knowledge (RAG)  |
+|  - confirmation  |              v               |  - file import   |
++------------------+     +--------+---------+     |  - chunking      |
+                         | Planner          |     |  - FTS retrieval |
+                         |  - goal          |     +------------------+
+                         |  - steps         |     | Workspace        |
+                         |  - likely tools  |     |  - local root    |
+                         |  - verify target |     |  - bounded write |
+                         +--------+---------+     +------------------+
+                                  |               | State            |
+                                  v               |  - plan          |
+                         +--------+---------+     |  - trace         |
+                         | Execution Engine |     |  - pending       |
+                         |  - retrieval     |     |  - verification  |
+                         |  - tool calls    |     +------------------+
+                         |  - bounded loop  |     | Audit            |
+                         |  - stop on gate  |     |  - per-request   |
+                         +--------+---------+     |  - gate records  |
+                                  |               +------------------+
+                                  v               | Provider Layer   |
+                         +--------+---------+     |  - Kimi          |
+                         | Verifier         |     |  - OpenAI        |
+                         |  - artifact check|     |  - DeepSeek      |
+                         |  - evidence check|     |  - Anthropic     |
+                         |  - exit status   |     |  - Gemini        |
+                         +--------+---------+     +------------------+
+                                  |
+                                  v
+                         +--------+---------+
+                         | Gate Check       |
+                         |  - allow/confirm |
+                         |  - block/reject  |
+                         +------------------+
+```
 
-Primary architectural goals:
-- clear separation between planning, execution, and verification
-- visible and auditable behavior
-- typed and bounded tool use
-- strong workspace boundary
-- mode-specific behavior bias without splitting the core system
+## 核心运行时
 
-## Core subsystems
+- **请求解析器**: 分类为 handling class (pure-dialogue / retrieval-enhanced / tool-assisted / action-adjacent)。不自动切换模式。
+- **规划器**: 产出有界可检视的计划（goal / steps / likelyTools / verificationTarget）。
+- **执行引擎**: 按计划、模式偏置、权限策略、工作区规则执行。遇到确认要求 / 失败阈值 / 策略阻止时停止。
+- **验证器**: 检查声称的结果是否真实存在。
+- **门控检查**: 按 per-action permission level 决定 allow / confirm / block。
 
-### Interface layer
-Desktop UI for:
-- conversation
-- file import
-- mode switching
-- plan / state / audit visibility
-- confirmation prompts
+## 支持系统
 
-### Request parser
-Reads the current user turn and classifies it.
-Produces a handling class such as:
-- pure dialogue
-- retrieval-enhanced
-- tool-assisted
-- execution-heavy
-- action-adjacent
+- **配置/策略**: TOML 加载、schema 验证。无效配置不允许静默改变行为。
+- **知识层 (RAG)**: 本地文件导入 -> 分块 -> SQLite FTS 检索。向量/嵌入延后。
+- **工作区**: 本地执行区域，写入默认安全区。
+- **状态层**: 当前任务状态、计划、工具记录、中间输出、待确认、验证状态。
+- **审计层**: 输入/模式/分类/计划/检索/工具/验证/响应/风险标记。
+- **提供商层**: 多提供商抽象，当前支持 Kimi / OpenAI / DeepSeek / Anthropic / Gemini。
 
-The parser must respect the active mode but must not auto-switch it.
+## 模式系统
 
-### Planner
-Produces a bounded, inspectable plan.
-At minimum:
-- goal
-- steps
-- likely tools
-- verification target
+模式是行为偏置，不是产品身份。始终有且仅有一个活跃模式。
 
-### Execution engine
-Runs retrieval and tool actions according to:
-- current plan
-- active mode bias
-- permission policy
-- workspace rules
-- current state
+| 模式 | 工具倾向 | 检索倾向 | 核心特征 |
+|------|---------|---------|---------|
+| Default | 平衡 | 平衡 | 中性日常姿态 |
+| Deep Dialogue | 轻量 | 低 | 连续性、概念友好 |
+| Decision | 按需 | 中等 | 决策支持、权衡 |
+| Research | 积极 | 高 | 证据密集、文档中心 |
 
-Stops on:
-- confirmation requirement
-- failure threshold
-- policy block
-- completion
+## 操作员边界
 
-### Verifier
-Checks whether the claimed result actually exists or actually happened.
-Examples:
-- file exists
-- command exited successfully
-- output matches requested shape
-- retrieved evidence supports the answer
+单用户系统。单 Enso profile 内的操作员是可信的。不设计为敌对多租户边界。
 
-### Core reasoning layer
-Provides understanding, planning, synthesis, summarization, judgment, and repair suggestions.
-Uses one main model with mode-specific prompting/orchestration.
+## 行为契约详细规则
 
-### Internal decision engine
-This is always present.
-It decides things like:
-- whether retrieval is needed
-- whether tools are needed
-- what action depth is justified
-- whether to stop, continue, or request confirmation
-
-Do not confuse this with the user-facing **Decision mode**.
-Decision mode is a posture bias for helping the user make decisions.
-The internal decision engine is a core runtime responsibility in every mode.
-
-## Supporting systems
-
-### Policy / configuration layer
-Stores:
-- expression config
-- behavior config
-- safety / permission policy
-- tool policy
-- workspace policy
-- domain config
-
-Config must be schema-validated.
-Invalid config must never silently change behavior.
-
-### Knowledge layer (RAG)
-- document store (local file import)
-- index: SQLite FTS over chunked content (vector similarity deferred)
-- retrieval pipeline: FTS ranking with keyword fallback
-- evidence injection
-
-Answers must distinguish:
-- retrieved evidence
-- model inference
-- tool-observed facts
-
-### Workspace layer
-Dedicated local execution area for Enso.
-Suggested roots:
-- `workspace/tasks/`
-- `workspace/scratch/`
-- `workspace/outputs/`
-- `workspace/cache/`
-- `workspace/logs/`
-
-The workspace is the default safe zone for writes.
-
-### State layer
-Stores where the current task stands:
-- workflow node
-- current plan
-- tools used
-- intermediate outputs
-- pending confirmations
-- verification status
-- rollback points
-
-### Audit / logging layer
-Records:
-- input
-- selected mode
-- handling class
-- plan
-- retrieval usage
-- tools used
-- tool outputs
-- verification result
-- final response
-- stop reason
-- next step
-- risk markers
-
-## Tool system
-
-Tool classes:
-- read
-- search
-- compute
-- workspace-write
-- exec
-- external-action
-
-Per-action permission levels (allow / confirm / block):
-- `workspace_write` (default: confirm)
-- `host_exec_readonly` (default: confirm)
-- `host_exec_destructive` (default: block)
-- `external_network` (default: block)
-
-Workspace reads are implicitly allowed (no side effects).
-
-## Mode system
-
-Modes remain manual and lightweight.
-They shape behavior bias, not product identity.
-Exactly one mode is active at a time.
-
-### Default
-Neutral everyday posture.
-Balanced across answer quality, light retrieval, and light tool use.
-No explicit selection required.
-
-### Deep Dialogue
-Continuity-heavy and concept-friendly.
-Low unnecessary questioning.
-Tool-light by default.
-Should preserve thought continuity and avoid therapy-template language.
-Memory use should favor continuity support rather than aggressive long-term writing.
-
-### Decision
-Decision-support posture.
-Its job is to help the user decide, not to represent the system's internal runtime decision logic.
-Should emphasize:
-- options
-- constraints
-- tradeoffs
-- recommendation framing
-- fact / assumption / judgment separation
-
-### Research
-Evidence-heavy and document-centric.
-Should emphasize:
-- retrieval
-- source comparison
-- disagreement handling
-- evidence vs interpretation separation
-- research-task continuity more than personal memory growth
-
-## Memory and persistence
-
-Keep:
-- configuration persistence
-- knowledge persistence
-- state persistence
-- workspace persistence
-- audit persistence
-
-Do not enable auto-growing long-term personality memory by default.
-
-Optional:
-- manually maintained background profile slot
-- manually curated workflow templates
-
-Modes may influence memory tendency:
-- Deep Dialogue reads continuity-supporting background more readily
-- Decision prefers user preference / constraint memory when relevant
-- Research prefers task-context memory and cautious personal-memory writing
-- Default stays balanced
-
-## Operator boundary
-
-This is a single-user system.
-Within one Enso profile, the operator is trusted.
-The product is not designed as a hostile multi-tenant boundary.
-If multiple trust boundaries are ever needed, split them at the OS user / profile / runtime level.
-
-## Permission and risk model
-
-Per-action permission map. Each action type has one of three levels:
-- allow: direct execution, no interruption
-- confirm: present proposal, execute after single user confirmation
-- block: code-level rejection, not executable
-
-Action types and defaults:
-- workspace_write -> confirm
-- host_exec_readonly -> confirm
-- host_exec_destructive -> block
-- external_network -> block
-
-Pure dialogue and read-only retrieval/computation are always allowed without gating.
-
-## One-line definition
-
-A local-first, execution-first, permission-gated personal agent kernel for complex desktop problem solving, with first-class tools, visible state, verification, auditability, and mode-based behavior bias.
+完整行为契约在 `docs/spec/` 下的模块 spec 文件中：
+- `brain.md` - 执行流程
+- `permission.md` - 权限模型
+- `context.md` - 知识/检索/状态
+- `tools.md` - 工具编排
+- `ui.md` - UI 交互
+- `audit.md` - 审计事件

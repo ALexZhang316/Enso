@@ -1,5 +1,20 @@
 # CHANGELOG
 
+## 2026-03-22 - Documentation restructuring with modular spec layer
+### What changed
+1. Created `docs/spec/` directory with 6 modular behavioral spec files: `brain.md` (execution flow), `permission.md` (permission model), `context.md` (knowledge/retrieval/state), `tools.md` (tool orchestration), `ui.md` (UI interaction), `audit.md` (audit events).
+2. Merged `docs/current-baseline.md` and `docs/windows-product-spec.md` into `docs/baseline.md`.
+3. Deleted redundant docs: `execution-flow.md`, `module-spec-table.md`, `ui-layout.md`, `windows-product-spec.md`, `current-baseline.md`.
+4. Introduced a 4-tier document authority system in `AGENTS.md`: live sources > behavioral specs > code-layer contract > reference.
+5. Created `docs/reviews/` and `docs/handoffs/` directories for future collaboration artifacts.
+6. Simplified `CLAUDE.md` to a focused Claude-specific constraint file with pointer to `AGENTS.md`.
+7. Updated `README.md`, `docs/codebase-contract.md`, and `scripts/check-docs-updated.cjs` to reflect the new structure.
+
+### Why it changed
+- Behavioral rules were scattered across multiple overlapping docs with no clear ownership boundary.
+- The new spec layer separates behavioral contracts (what the system must do) from component boundaries (where things live), aligning with the three-role collaboration protocol: Opus writes specs, Codex implements, Alex decides.
+- Consolidating baseline docs and deleting redundant files reduces maintenance cost and eliminates conflicting information.
+
 ## 2026-03-22 - GitHub CLI becomes required bootstrap dependency
 ### What changed
 1. Updated `scripts/bootstrap-git.ps1` to require both `git` and GitHub CLI (`gh`) before bootstrap work begins.

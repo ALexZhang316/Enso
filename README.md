@@ -7,44 +7,20 @@ Do not rely on any external zip file during implementation or handoff.
 ## Onboarding order
 
 1. `AGENTS.md`
-2. `docs/current-baseline.md`
-3. `docs/execution-flow.md`
-4. `docs/architecture.md`
-5. `docs/codebase-contract.md`
-6. `docs/environment-and-github-bootstrap.md`
-7. `CLAUDE.md` only if the active coding client actually reads `CLAUDE.md`
-
-## Why this baseline exists
-
-The older direction over-weighted dialogue posture and under-weighted the execution core.
-The revised direction keeps the parts worth preserving:
-- single-user
-- Windows desktop
-- local-first control plane
-- auditable behavior
-- permission-gated actions
-- configurable behavior
-
-But changes the center of gravity to:
-- high-value tool use
-- complex problem solving
-- bounded local execution
-- visible planning, state, and verification
-- heavy user customization
-
-## Live source docs
-
-When documents conflict, use this order:
-
-1. `docs/current-baseline.md`
-2. `docs/execution-flow.md`
+2. `docs/baseline.md`
 3. `docs/architecture.md`
+4. `docs/codebase-contract.md`
+5. `docs/environment-and-github-bootstrap.md`
+6. `CLAUDE.md` only if the active coding client actually reads `CLAUDE.md`
 
-All other docs are reference-only:
-- `docs/windows-product-spec.md`
-- `docs/module-spec-table.md`
-- `docs/ui-layout.md`
-- `docs/openclaw-reference-notes.md`
+## Document authority tiers
+
+| Tier | Scope | Files |
+|------|-------|-------|
+| 1 | Live sources | `docs/baseline.md`, `docs/architecture.md` |
+| 2 | Behavioral specs | `docs/spec/brain.md`, `permission.md`, `context.md`, `tools.md`, `ui.md`, `audit.md` |
+| 3 | Code-layer contract | `docs/codebase-contract.md` |
+| 4 | Reference | `docs/openclaw-reference-notes.md`, `docs/environment-and-github-bootstrap.md` |
 
 ## Project identity
 
@@ -120,11 +96,8 @@ Default Git binding:
 6. Launch the built app with `npm run start`
 
 Automated checks:
+- `npm run test:unit`
 - `npm run test:integration`
 - `npm run test:ui`
 - `npm run test:all`
 - `npm run rebuild:native` if `better-sqlite3` has an ABI mismatch
-
-## Deprecation note
-
-Early pre-start planning files such as `docs/implementation-kickoff.md` are no longer active documents in this repository baseline.

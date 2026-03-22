@@ -16,17 +16,14 @@
 - The permission model defined in `tasks/0002-permission-boundary-rework.md` is now implemented at the runtime level. Advanced features (model_call / local_egress split, intent-source classification, untrusted-content rules) are deferred to a future iteration.
 - Workflow friction has been reduced further by pruning repo-local workflow wording and deferring generic execution behavior back to the global AGENTS rules, but execution speed still depends on agents actually prioritizing direct implementation over extra process artifacts on clear tasks.
 - Bounded autopilot is now the intended workflow mode, but actual multi-hour unattended progress still depends on tool/runtime limits outside the repo.
-- The repo now has only three live source docs, and two stale reference docs were deleted, but the remaining reference-only docs still carry some overlapping explanatory material that has not yet been merged or archived.
+- Documentation has been restructured into a 4-tier authority system with modular behavioral specs under `docs/spec/`. Redundant docs have been deleted. Some spec files may still need refinement as the implementation evolves.
 - `README.md` is intentionally retained as a human-readable synced overview, so some high-level duplication with the live docs is accepted by design.
 
 ## Completed (Previously Deferred, Now Done)
 
 - The repo workflow contract now defers generic execution behavior to the global AGENTS rules and keeps only repo-specific workflow constraints locally.
 - The repo workflow contract now removes redundant handoff/process wording that did not add repo-specific guidance.
-- The repo now limits live source-of-truth authority to three docs: `current-baseline`, `execution-flow`, and `architecture`.
-- `windows-product-spec.md` is now pruned down to desktop-specific scope and local-first details instead of repeating product identity and mode semantics.
-- `module-spec-table.md` is now a pure module inventory instead of repeating product direction.
-- `ui-layout.md` is now explicitly the single detailed layout reference for the Windows shell.
+- Document authority is now a 4-tier system: live sources (`baseline.md`, `architecture.md`) > behavioral specs (`docs/spec/`) > code-layer contract > reference. Old separate docs (`current-baseline.md`, `execution-flow.md`, `module-spec-table.md`, `ui-layout.md`, `windows-product-spec.md`) were consolidated or deleted.
 - `docs/codebase-contract.md` is now a clean current-state contract again instead of a layered history file with garbled legacy content.
 - Outdated completed task files were removed from `tasks/`, leaving only the active task brief and task metadata files.
 - `tasks/TEMPLATE.md` now mirrors the simplified workflow contract instead of hardcoding all-green preflight, verify, and postflight assumptions for every task.
