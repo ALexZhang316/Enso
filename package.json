@@ -36,6 +36,7 @@
     "@iarna/toml": "^2.2.5",
     "@langchain/core": "^0.3.69",
     "@langchain/openai": "^0.6.9",
+    "@node-rs/jieba": "^2.0.1",
     "better-sqlite3": "^11.8.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

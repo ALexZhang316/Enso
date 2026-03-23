@@ -172,7 +172,6 @@ const tests = [
 
         assert.equal(DEFAULT_MODE, "default");
         assert.equal(config.modeDefaults.defaultMode, "default");
-        assert.equal(config.modeDefaults.retrievalByMode.default, false);
         assert.equal(conversation.mode, "default");
       } finally {
         harness.cleanup();
@@ -217,13 +216,7 @@ const tests = [
           harness.configPath,
           [
             "[modeDefaults]",
-            'defaultMode = "boom"',
-            "",
-            "[modeDefaults.retrievalByMode]",
-            "default = false",
-            '"deep-dialogue" = false',
-            "decision = true",
-            "research = true"
+            'defaultMode = "boom"'
           ].join("\n"),
           "utf8"
         );
@@ -237,11 +230,12 @@ const tests = [
     }
   },
   {
-    name: "ConfigService rejects non-boolean retrieval flags in config.toml",
+    name: "ConfigService ignores legacy retrievalByMode in config.toml without crashing",
     fn: async () => {
       const harness = createHarness();
 
       try {
+        // 旧版 config 可能仍包含 retrievalByMode 段，加载时应静默忽略
         fs.writeFileSync(
           harness.configPath,
           [
@@ -257,12 +251,8 @@ const tests = [
           "utf8"
         );
 
-        assert.throws(
-          () => harness.configService.load(),
-          (error) =>
-            error instanceof ConfigValidationError &&
-            error.message.includes("modeDefaults.retrievalByMode.default")
-        );
+        const config = harness.configService.load();
+        assert.equal(config.modeDefaults.defaultMode, "default");
       } finally {
         harness.cleanup();
       }
@@ -855,7 +845,7 @@ const tests = [
     }
   },
   {
-    name: "ExecutionFlow uses config retrieval defaults and fails verification without evidence",
+    name: "ExecutionFlow uses mode retrieval defaults and fails verification without evidence",
     fn: async () => {
       const harness = createHarness();
       const restoreFetch = mockKimiReply("reply without evidence");
@@ -867,22 +857,11 @@ const tests = [
         fs.writeFileSync(docPath, "Enso keeps local artifacts in the workspace.", "utf8");
         await harness.knowledgeService.ingestFile(docPath);
 
-        const currentConfig = harness.configService.load();
-        harness.configService.save({
-          ...currentConfig,
-          modeDefaults: {
-            ...currentConfig.modeDefaults,
-            retrievalByMode: {
-              ...currentConfig.modeDefaults.retrievalByMode,
-              default: true
-            }
-          }
-        });
-
-        const conversation = harness.store.createConversation("default", "Config retrieval default");
+        // decision 模式硬编码 retrievalDefault: true，无需 config 设置
+        const conversation = harness.store.createConversation("decision", "Mode retrieval default");
         const result = await harness.executionFlow.run({
           conversationId: conversation.id,
-          mode: "default",
+          mode: "decision",
           text: "query with no matching chunks",
           enableRetrievalForTurn: false
         });
@@ -1384,6 +1363,85 @@ const tests = [
         assert.ok(
           results[0].content.includes("target-keyword"),
           "snippet should include the matched term, not just the beginning of content"
+        );
+      } finally {
+        harness.cleanup();
+      }
+    }
+  },
+  {
+    name: "KnowledgeService jieba segmentation improves Chinese multi-word retrieval",
+    fn: async () => {
+      const harness = createHarness();
+
+      try {
+        const sourceId = harness.store.addKnowledgeSource(
+          "chinese-doc.md",
+          path.join(harness.tempDir, "chinese-doc.md")
+        );
+        // chunk 0：包含"人工智能"这个完整词组
+        harness.store.insertKnowledgeChunk(
+          sourceId,
+          0,
+          "人工智能技术在近年来取得了显著的发展，深度学习和自然语言处理是其中最重要的方向。"
+        );
+        // chunk 1：包含"人工"和"智能"但不是"人工智能"这个词组
+        harness.store.insertKnowledgeChunk(
+          sourceId,
+          1,
+          "这个工厂采用了人工操作和智能设备相结合的方式来提高效率。"
+        );
+        // chunk 2：完全不相关
+        harness.store.insertKnowledgeChunk(
+          sourceId,
+          2,
+          "今天的天气很好，适合出门散步和锻炼身体。"
+        );
+        harness.store.updateKnowledgeSourceChunkCount(sourceId, 3);
+
+        // 查询"人工智能"——jieba 应该把它识别为一个词
+        const snippets = harness.knowledgeService.retrieve("人工智能", 3);
+
+        assert.ok(snippets.length >= 1, "should find at least one result for '人工智能'");
+        // 第一个结果应该是包含"人工智能"完整词组的 chunk
+        assert.ok(
+          snippets[0].content.includes("人工智能"),
+          "top result should contain the exact phrase '人工智能'"
+        );
+      } finally {
+        harness.cleanup();
+      }
+    }
+  },
+  {
+    name: "KnowledgeService jieba handles mixed Chinese-English queries",
+    fn: async () => {
+      const harness = createHarness();
+
+      try {
+        const sourceId = harness.store.addKnowledgeSource(
+          "mixed-doc.md",
+          path.join(harness.tempDir, "mixed-doc.md")
+        );
+        harness.store.insertKnowledgeChunk(
+          sourceId,
+          0,
+          "Enso 是一个本地优先的桌面代理，支持自然语言处理和知识检索功能。"
+        );
+        harness.store.insertKnowledgeChunk(
+          sourceId,
+          1,
+          "React and TypeScript are used for building modern web applications."
+        );
+        harness.store.updateKnowledgeSourceChunkCount(sourceId, 2);
+
+        // 中英混合查询
+        const snippets = harness.knowledgeService.retrieve("Enso 知识检索", 2);
+
+        assert.ok(snippets.length >= 1, "should find results for mixed query");
+        assert.ok(
+          snippets[0].content.includes("Enso"),
+          "top result should contain 'Enso'"
         );
       } finally {
         harness.cleanup();

@@ -124,7 +124,6 @@ export interface EnsoConfig {
   permissions: Record<ActionType, PermissionLevel>;
   modeDefaults: {
     defaultMode: ModeId;
-    retrievalByMode: Record<ModeId, boolean>;
   };
 }
 

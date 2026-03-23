@@ -11,6 +11,7 @@ import {
   RetrievedSnippet,
   StateSnapshot
 } from "../../shared/types";
+import { segmentChinese } from "./segmenter";
 
 const now = (): string => new Date().toISOString();
 
@@ -539,9 +540,12 @@ export class EnsoStore {
       .run(chunkId, sourceId, chunkIndex, content, JSON.stringify(metadata));
 
     if (this.knowledgeSearchIndexAvailable) {
+      // 对中文内容做 jieba 分词后再写入 FTS5，
+      // 让 unicode61 tokenizer 按空格切出词级 token 而非单字
+      const segmented = segmentChinese(content);
       this.db
         .prepare("INSERT INTO knowledge_chunks_fts (chunk_id, source_id, content) VALUES (?, ?, ?)")
-        .run(chunkId, sourceId, content);
+        .run(chunkId, sourceId, segmented);
     }
   }
 

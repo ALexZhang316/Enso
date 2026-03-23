@@ -1,5 +1,5 @@
 import path from "node:path";
-import { ModeId } from "../../shared/modes";
+import { ModeId, getRetrievalDefault } from "../../shared/modes";
 import {
   AuditSummary,
   ChatMessage,
@@ -516,7 +516,7 @@ export class ExecutionFlow {
     const knowledgeSources = this.deps.store.listKnowledgeSources();
     const hasKnowledge = knowledgeSources.length > 0;
     const hostExecCommand = extractHostExecCommand(input.text);
-    const retrievalPreferred = input.enableRetrievalForTurn || config.modeDefaults.retrievalByMode[input.mode];
+    const retrievalPreferred = input.enableRetrievalForTurn || getRetrievalDefault(input.mode);
     const classification = classifyRequest(input.text, hasKnowledge, retrievalPreferred);
     const workspaceWriteIntent =
       classification.handlingClass === "action-adjacent" && isWorkspaceWriteIntent(input.text);

@@ -17,9 +17,3 @@ external_network = "block"
 
 [modeDefaults]
 defaultMode = "default"
-
-[modeDefaults.retrievalByMode]
-default = false
-"deep-dialogue" = false
-decision = true
-research = true

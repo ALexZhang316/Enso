@@ -1,5 +1,18 @@
 # CHANGELOG
 
+## 2026-03-23 - CJK Chinese word segmentation for retrieval
+### What changed
+1. Added `@node-rs/jieba` (Rust-based native binding) for proper Chinese word segmentation.
+2. Created `src/main/services/segmenter.ts` as a standalone module exposing `segmentChinese` and `segmentTerms`, avoiding circular dependencies between store and knowledge-service.
+3. `knowledge-service.ts` `extractTerms` now uses jieba to split Chinese queries into real words (e.g. "人工智能技术" → ["人工智能", "技术"]) instead of treating consecutive CJK characters as a single token.
+4. `store.ts` `insertKnowledgeChunk` now pre-segments Chinese content with jieba before writing to FTS5, so the `unicode61` tokenizer splits on word boundaries rather than individual characters.
+5. Added 2 new integration tests: Chinese multi-word retrieval and mixed Chinese-English queries.
+
+### Why it changed
+- The previous regex-based term extraction treated consecutive Chinese characters as one monolithic token, so partial matches were impossible.
+- FTS5's `unicode61` tokenizer splits CJK text into individual characters, losing word-level semantics and making BM25 scoring meaningless for Chinese.
+- Pre-segmenting on both the index and query sides is the standard approach for CJK + FTS5.
+
 ## 2026-03-23 - Host exec safety tightening and tool-chain state alignment
 ### What changed
 1. Tightened `HostExecService` Git validation so only read-only inspection forms are allowed. `git branch` is limited to listing flags, `git remote` is limited to listing output, and `git diff` / `git show` now block file-writing `--output` variants.

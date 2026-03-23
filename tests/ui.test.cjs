@@ -75,7 +75,7 @@ const run = async () => {
   try {
     fs.writeFileSync(
       invalidConfigPath,
-      DEFAULT_CONFIG_TOML.replace("decision = true", 'decision = "yes"'),
+      DEFAULT_CONFIG_TOML.replace('workspace_write = "confirm"', 'workspace_write = "yes"'),
       "utf8"
     );
 
@@ -85,7 +85,7 @@ const run = async () => {
 
     await invalidPage.getByTestId("init-error-card").waitFor();
     await invalidPage.getByTestId("init-error-message").getByText("config.toml").waitFor();
-    await invalidPage.getByTestId("init-error-message").getByText("retrievalByMode.decision").waitFor();
+    await invalidPage.getByTestId("init-error-message").getByText("permissions.workspace_write").waitFor();
 
     fs.writeFileSync(invalidConfigPath, DEFAULT_CONFIG_TOML, "utf8");
     await invalidPage.getByTestId("init-error-reload-button").click();

@@ -1,7 +1,10 @@
 ﻿import fs from "node:fs";
 import path from "node:path";
 import { KnowledgeSource, RetrievedSnippet } from "../../shared/types";
+import { hasChinese, segmentTerms } from "./segmenter";
 import { EnsoStore } from "./store";
+
+// ---------- 停用词 ----------
 
 // 中文常见停用词（的、了、是、在……），过滤后让检索聚焦于实义词
 const ZH_STOPWORDS = new Set([
@@ -20,13 +23,41 @@ const EN_STOPWORDS = new Set([
   "how", "what", "when", "where", "which", "who", "can", "will"
 ]);
 
-const extractTerms = (query: string): string[] =>
-  query
-    .toLowerCase()
-    .split(/[^a-z0-9_\u4e00-\u9fa5]+/)
-    .map((term) => term.trim())
-    .filter((term) => term.length >= 2 && !ZH_STOPWORDS.has(term) && !EN_STOPWORDS.has(term))
-    .slice(0, 10);
+// ---------- 查询词提取 ----------
+
+/**
+ * 从查询文本中提取检索词。
+ * 中文部分用 jieba 分词（通过 segmenter 模块），英文部分用正则按空格/标点拆分。
+ * 过滤停用词和过短的 token，最多返回 10 个词。
+ */
+const extractTerms = (query: string): string[] => {
+  const lower = query.toLowerCase();
+  const terms: string[] = [];
+
+  if (hasChinese(lower)) {
+    // 用 jieba 分词处理整个查询（jieba 对英文也能正确按空格切分）
+    const words = segmentTerms(lower);
+    for (const word of words) {
+      // 跳过纯标点/空白
+      if (/^[^a-z0-9\u4e00-\u9fa5]+$/.test(word)) continue;
+      if (word.length >= 2 && !ZH_STOPWORDS.has(word) && !EN_STOPWORDS.has(word)) {
+        terms.push(word);
+      }
+    }
+  } else {
+    // 纯英文/数字：保持原逻辑
+    const tokens = lower.split(/[^a-z0-9_]+/);
+    for (const token of tokens) {
+      const trimmed = token.trim();
+      if (trimmed.length >= 2 && !EN_STOPWORDS.has(trimmed)) {
+        terms.push(trimmed);
+      }
+    }
+  }
+
+  // 去重并限制数量
+  return [...new Set(terms)].slice(0, 10);
+};
 
 export class KnowledgeService {
   constructor(private readonly store: EnsoStore) {}

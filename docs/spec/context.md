@@ -25,13 +25,14 @@
 
 ### 检索方法
 
-当前阶段使用 SQLite FTS5 + 关键词回退：
+当前阶段使用 jieba 中文分词 + SQLite FTS5 + 关键词回退：
 
-1. 将查询拆分为 terms
-2. 优先使用 FTS5 BM25 排序
-3. FTS5 不可用时回退到 LIKE 关键词匹配
-4. 对结果计算综合分数：phrase boost + term match + BM25
-5. 按分数降序返回 top-N 片段
+1. 将查询用 jieba 分词拆分为 terms（中文按词粒度，英文按空格/标点）
+2. 索引端：内容写入 FTS5 前经过 jieba 预分词（空格分隔），让 unicode61 tokenizer 按词级切分
+3. 优先使用 FTS5 BM25 排序
+4. FTS5 不可用时回退到 LIKE 关键词匹配
+5. 对结果计算综合分数：phrase boost + term match + BM25
+6. 按分数降序返回 top-N 片段
 
 向量/嵌入检索延后。
 

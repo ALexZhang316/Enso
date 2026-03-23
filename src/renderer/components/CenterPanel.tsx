@@ -1,6 +1,6 @@
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { ModeId, OPTIONAL_MODES } from "@shared/modes";
+import { ModeId } from "@shared/modes";
 import { PROVIDER_PRESETS, PROVIDER_PRESET_MAP, ProviderId } from "@shared/providers";
 import {
   ACTION_TYPES,
@@ -635,40 +635,6 @@ const CenterPanel = (props: CenterPanelProps): JSX.Element => {
                       </select>
                     </div>
                   ))}
-                </div>
-
-                <Separator />
-
-                <div className="space-y-2">
-                  <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                    {"\u6a21\u5f0f\u9ed8\u8ba4\u503c"}
-                  </div>
-                  <div className="space-y-1">
-                    <div className="text-[12px] text-muted-foreground">
-                      {"\u6309\u6a21\u5f0f\u542f\u7528\u68c0\u7d22"}
-                    </div>
-                    {OPTIONAL_MODES.map((mode) => (
-                      <label key={mode.id} className="flex items-center gap-2 text-[12px] text-muted-foreground">
-                        <input
-                          type="checkbox"
-                          checked={settingsDraft.modeDefaults.retrievalByMode[mode.id]}
-                          onChange={(event) =>
-                            onSettingsDraftChange({
-                              ...settingsDraft,
-                              modeDefaults: {
-                                ...settingsDraft.modeDefaults,
-                                retrievalByMode: {
-                                  ...settingsDraft.modeDefaults.retrievalByMode,
-                                  [mode.id]: event.target.checked
-                                }
-                              }
-                            })
-                          }
-                        />
-                        {mode.label}
-                      </label>
-                    ))}
-                  </div>
                 </div>
 
                 <div className="text-[12px] text-muted-foreground" data-testid="settings-status">

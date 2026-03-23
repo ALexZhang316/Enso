@@ -1,7 +1,7 @@
 import * as TOML from "@iarna/toml";
 import fs from "node:fs";
 import path from "node:path";
-import { DEFAULT_MODE, MODES } from "../../shared/modes";
+import { DEFAULT_MODE } from "../../shared/modes";
 import { DEFAULT_PROVIDER_ID, PROVIDER_PRESET_MAP } from "../../shared/providers";
 import { EnsoConfig, ACTION_TYPES, PermissionLevel } from "../../shared/types";
 
@@ -10,7 +10,6 @@ type PartialConfig = Partial<EnsoConfig> & {
 };
 
 const kimiPreset = PROVIDER_PRESET_MAP[DEFAULT_PROVIDER_ID];
-const MODE_IDS = MODES.map((mode) => mode.id);
 const DENSITY_VALUES = ["concise", "standard", "detailed"] as const;
 const REPORTING_GRANULARITY_VALUES = ["plan-level", "result-level"] as const;
 const PERMISSION_LEVEL_VALUES = ["allow", "confirm", "block"] as const;
@@ -37,13 +36,7 @@ export const DEFAULT_ENSO_CONFIG: EnsoConfig = {
     external_network: "block"
   },
   modeDefaults: {
-    defaultMode: DEFAULT_MODE,
-    retrievalByMode: {
-      default: false,
-      "deep-dialogue": false,
-      decision: true,
-      research: true
-    }
+    defaultMode: DEFAULT_MODE
   }
 };
 
@@ -100,8 +93,7 @@ const normalizeConfig = (partial: PartialConfig, configPath: string): EnsoConfig
   let reportingGranularity = DEFAULT_ENSO_CONFIG.reportingGranularity;
   const permissions = { ...DEFAULT_ENSO_CONFIG.permissions };
   const modeDefaults = {
-    defaultMode: DEFAULT_ENSO_CONFIG.modeDefaults.defaultMode,
-    retrievalByMode: { ...DEFAULT_ENSO_CONFIG.modeDefaults.retrievalByMode }
+    defaultMode: DEFAULT_ENSO_CONFIG.modeDefaults.defaultMode
   };
 
   if (partial.provider !== undefined) {
@@ -160,25 +152,9 @@ const normalizeConfig = (partial: PartialConfig, configPath: string): EnsoConfig
   }
 
   if (partial.modeDefaults !== undefined) {
-    const modeDefaultsSection = expectObject(partial.modeDefaults, "modeDefaults", configPath);
     // defaultMode is always "default" -- ignore TOML value
     modeDefaults.defaultMode = DEFAULT_MODE;
-    if (hasOwn(modeDefaultsSection, "retrievalByMode")) {
-      const retrievalByModeSection = expectObject(
-        modeDefaultsSection.retrievalByMode,
-        "modeDefaults.retrievalByMode",
-        configPath
-      );
-      for (const modeId of MODE_IDS) {
-        if (hasOwn(retrievalByModeSection, modeId)) {
-          modeDefaults.retrievalByMode[modeId] = expectBoolean(
-            retrievalByModeSection[modeId],
-            `modeDefaults.retrievalByMode.${modeId}`,
-            configPath
-          );
-        }
-      }
-    }
+    // retrievalByMode 已硬编码到 modes.ts，不再从 config 读取
   }
 
   return {

@@ -5,7 +5,7 @@
 - Collaboration review artifacts and branch handoff docs are now defined in-repo, but their creation is still manual; there is no automation that forces `docs/reviews/` or `docs/handoffs/` entries to exist when a change would benefit from them.
 - GitHub bootstrap now assumes GitHub CLI (`gh`) is installed and authenticated; if a machine is offline or not signed in yet, `npm run bootstrap:git` will stop until `gh auth login` succeeds.
 - Request execution is a constrained skeleton, not a production reasoning engine.
-- Retrieval now uses Markdown-aware chunking, stopword filtering, and match-centered snippet extraction over local SQLite FTS (still no embedding/vector similarity yet).
+- Retrieval now uses jieba Chinese word segmentation, Markdown-aware chunking, stopword filtering, and match-centered snippet extraction over local SQLite FTS (still no embedding/vector similarity yet).
 - Tool execution now supports chain orchestration (up to 3 tools per request), and assistant metadata/state persist the full chain. Chains are still sequential and rule-based, not model-directed.
 - Gate checks still use heuristic detection for action-adjacent turns, though the wording filter is narrower and less prone to false positives.
 - Permission model covers four action types (workspace_write, host_exec_readonly, host_exec_destructive, external_network) with allow/confirm/block levels. Runtime enforcement is active, confirmed actions are revalidated before execution, and the UI now supports both confirm and reject paths for pending actions.
@@ -65,5 +65,5 @@
 - ~~Improve retrieval quality further.~~ Done: Markdown-aware chunking, stopword filtering, match-centered snippets. Embedding/vector similarity remains deferred.
 - ~~Expand tool orchestration beyond the current single-tool path.~~ Done: chain execution up to 3 tools per request. Model-directed tool selection remains deferred.
 - ~~Broaden safe host-exec coverage.~~ Done: expanded from 9 to 30+ read-only patterns, with subcommand/flag validation for Git inspection forms. Write/exec commands remain blocked.
-- Consider adding Chinese word segmentation (jieba or similar) to improve CJK retrieval term extraction beyond character-level splitting.
+- ~~Consider adding Chinese word segmentation (jieba or similar) to improve CJK retrieval term extraction beyond character-level splitting.~~ Done: `@node-rs/jieba` integrated for both query-side term extraction and index-side FTS5 pre-segmentation.
 - Consider model-directed tool selection to replace the current rule-based hint matching.

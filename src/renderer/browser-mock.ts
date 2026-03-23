@@ -28,13 +28,7 @@ const mockConfig = {
     external_network: "block" as const
   },
   modeDefaults: {
-    defaultMode: DEFAULT_MODE,
-    retrievalByMode: {
-      default: false,
-      "deep-dialogue": false,
-      decision: true,
-      research: true
-    }
+    defaultMode: DEFAULT_MODE
   }
 };
 

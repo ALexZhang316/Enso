@@ -76,6 +76,7 @@ src/
       knowledge-service.ts
       model-adapter.ts
       secret-service.ts
+      segmenter.ts
       store.ts
       tool-service.ts
       workspace-service.ts
@@ -101,10 +102,7 @@ src/
     providers.ts
     types.ts
 tasks/
-  0002-permission-boundary-rework.md
-  0003-exec-chain-wiring.md
-  0004-tool-reliability.md
-  0005-ui-cleanup-panels.md
+  0001-cjk-segmentation.md
   INDEX.md
   TEMPLATE.md
 ```
@@ -123,7 +121,9 @@ tasks/
 - `host-exec-service.ts`
   Validates and executes bounded read-only host commands under the current workspace rules, including subcommand-level Git inspection checks, captures stdout/stderr/exit code, and enforces a configurable timeout.
 - `knowledge-service.ts`
-  Imports local documents, chunks them, and retrieves evidence through the store.
+  Imports local documents, chunks them, and retrieves evidence through the store. Query term extraction uses jieba segmentation for Chinese text.
+- `segmenter.ts`
+  Standalone jieba wrapper exposing `segmentChinese` (pre-segment text for FTS5 indexing) and `segmentTerms` (extract word tokens for queries). Isolated to avoid circular dependencies.
 - `model-adapter.ts`
   Wraps provider-backed text generation, injects expression/reporting preferences into the system prompt, and supports structured execution-draft output mode.
 - `secret-service.ts`
