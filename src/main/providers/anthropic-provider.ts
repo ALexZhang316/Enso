@@ -38,7 +38,8 @@ export class AnthropicProvider implements TextGenerationProvider {
         },
         body: JSON.stringify({
           model: request.model,
-          max_tokens: MAX_TOKENS,
+          max_tokens: request.maxTokens ?? MAX_TOKENS,
+          ...(request.temperature !== undefined ? { temperature: request.temperature } : {}),
           ...(system ? { system } : {}),
           messages
         })

@@ -77,7 +77,9 @@ export class OpenAiCompatibleProvider implements TextGenerationProvider {
         },
         body: JSON.stringify({
           model: request.model,
-          messages: this.prepareMessages(request.messages)
+          messages: this.prepareMessages(request.messages),
+          ...(request.temperature !== undefined ? { temperature: request.temperature } : {}),
+          ...(request.maxTokens !== undefined ? { max_tokens: request.maxTokens } : {})
         })
       });
 

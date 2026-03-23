@@ -22,8 +22,10 @@ import { Input } from "@renderer/components/ui/input";
 import { ScrollArea } from "@renderer/components/ui/scroll-area";
 import { Separator } from "@renderer/components/ui/separator";
 import { Textarea } from "@renderer/components/ui/textarea";
-import { boolLabel, modeLabel, resultTypeLabel, roleLabel } from "@renderer/lib/labels";
+import { boolLabel, modeLabel, resultTypeLabel } from "@renderer/lib/labels";
 import { CenterView } from "./LeftPanel";
+import alexAvatarUrl from "@renderer/assets/alex-avatar.jpg";
+import ensoAvatarUrl from "@renderer/assets/enso-avatar.png";
 
 export interface CenterPanelProps {
   centerView: CenterView;
@@ -142,25 +144,25 @@ const CenterPanel = (props: CenterPanelProps): JSX.Element => {
                       const isSystem = message.role === "system";
 
                       return (
-                        <div key={message.id} className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
+                        <div key={message.id} className={`flex ${isUser ? "justify-end" : "justify-start"} gap-2.5`}>
+                          {/* 助手消息左侧：禅圈头像，名字在右上 */}
+                          {!isUser && !isSystem && (
+                            <div className="shrink-0 mt-1">
+                              <div className="flex items-start gap-0.5">
+                                <img src={ensoAvatarUrl} alt="Enso" className="w-7 h-7 rounded-full object-cover" />
+                                <span className="text-[9px] font-medium text-muted-foreground/50 leading-none">Enso</span>
+                              </div>
+                            </div>
+                          )}
                           <div
                             className={`rounded-2xl px-4 py-2.5 text-[13px] leading-relaxed ${
                               isUser
                                 ? "bg-primary text-white max-w-[85%] rounded-br-md"
                                 : isSystem
                                   ? "bg-orange-50 text-orange-800 max-w-[90%] border border-orange-100"
-                                  : "bg-white shadow-[0_0.5px_2px_rgba(0,0,0,0.06)] max-w-[90%] rounded-bl-md"
+                                  : "bg-white shadow-[0_0.5px_2px_rgba(0,0,0,0.06)] max-w-[85%] rounded-bl-md"
                             }`}
                           >
-                            {!isUser && (
-                              <div
-                                className={`mb-1 text-[10px] font-medium tracking-wide ${
-                                  isSystem ? "text-orange-500" : "text-muted-foreground/50"
-                                }`}
-                              >
-                                {roleLabel(message.role)}
-                              </div>
-                            )}
                             <ReactMarkdown
                               remarkPlugins={[remarkGfm]}
                               components={{
@@ -212,6 +214,15 @@ const CenterPanel = (props: CenterPanelProps): JSX.Element => {
                               </div>
                             )}
                           </div>
+                          {/* 用户消息右侧：头像，名字在左上 */}
+                          {isUser && (
+                            <div className="shrink-0 mt-1">
+                              <div className="flex items-start gap-0.5">
+                                <span className="text-[9px] font-medium text-muted-foreground/50 leading-none">Alex</span>
+                                <img src={alexAvatarUrl} alt="Alex" className="w-7 h-7 rounded-full object-cover" />
+                              </div>
+                            </div>
+                          )}
                         </div>
                       );
                     })
@@ -280,7 +291,7 @@ const CenterPanel = (props: CenterPanelProps): JSX.Element => {
                     className="min-h-[72px] max-h-[160px]"
                     value={composerText}
                     onChange={(event) => onComposerTextChange(event.target.value)}
-                    disabled={isLoading || isSubmitting}
+                    disabled={isLoading}
                   />
                 </div>
                 <div className="flex flex-col gap-1.5">
@@ -425,6 +436,94 @@ const CenterPanel = (props: CenterPanelProps): JSX.Element => {
           <CardContent className="flex-1 min-h-0 p-0">
             <ScrollArea className="h-full px-4 pb-4">
               <div className="space-y-4 text-sm">
+                <div className="space-y-2">
+                  <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    {"回复风格"}
+                  </div>
+                  <label className="space-y-1">
+                    <div className="text-[12px] text-muted-foreground">{"回复密度"}</div>
+                    <select
+                      data-testid="settings-density-select"
+                      className="h-9 w-full rounded-[10px] bg-black/[0.04] px-3 text-[13px] text-foreground transition-colors focus:outline-none focus:ring-2 focus:ring-primary/30"
+                      value={settingsDraft.expression.density}
+                      onChange={(event) =>
+                        onSettingsDraftChange({
+                          ...settingsDraft,
+                          expression: {
+                            ...settingsDraft.expression,
+                            density: event.target.value as EnsoConfig["expression"]["density"]
+                          }
+                        })
+                      }
+                    >
+                      <option value="concise">{"精简"}</option>
+                      <option value="standard">{"标准"}</option>
+                      <option value="detailed">{"详尽"}</option>
+                    </select>
+                  </label>
+                  <label className="flex items-center gap-2 text-[12px] text-muted-foreground">
+                    <input
+                      type="checkbox"
+                      checked={settingsDraft.expression.structuredFirst}
+                      onChange={(event) =>
+                        onSettingsDraftChange({
+                          ...settingsDraft,
+                          expression: { ...settingsDraft.expression, structuredFirst: event.target.checked }
+                        })
+                      }
+                    />
+                    {"优先使用表格和列表"}
+                  </label>
+                  <label className="flex items-center gap-2 text-[12px] text-muted-foreground">
+                    <input
+                      type="checkbox"
+                      data-testid="settings-granularity-checkbox"
+                      checked={settingsDraft.reportingGranularity === "plan-level"}
+                      onChange={(event) =>
+                        onSettingsDraftChange({
+                          ...settingsDraft,
+                          reportingGranularity: event.target.checked ? "plan-level" : "result-level"
+                        })
+                      }
+                    />
+                    {"计划模式"}
+                  </label>
+                </div>
+
+                <Separator />
+
+                <div className="space-y-2">
+                  <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    {"\u6743\u9650"}
+                  </div>
+                  {ACTION_TYPES.map((actionType: ActionType) => (
+                    <div key={actionType} className="flex items-center justify-between gap-2">
+                      <span className="text-[12px] text-muted-foreground">{ACTION_TYPE_LABELS[actionType]}</span>
+                      <select
+                        className="h-7 rounded-lg bg-black/[0.04] px-2 text-[11px] text-foreground transition-colors focus:outline-none focus:ring-2 focus:ring-primary/30"
+                        value={settingsDraft.permissions[actionType]}
+                        onChange={(event) =>
+                          onSettingsDraftChange({
+                            ...settingsDraft,
+                            permissions: {
+                              ...settingsDraft.permissions,
+                              [actionType]: event.target.value as PermissionLevel
+                            }
+                          })
+                        }
+                      >
+                        {(["allow", "confirm", "block"] as const).map((level) => (
+                          <option key={level} value={level}>
+                            {PERMISSION_LEVEL_LABELS[level]}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  ))}
+                </div>
+
+                <Separator />
+
                 <div className="grid grid-cols-1 gap-2">
                   <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
                     {"\u6a21\u578b\u914d\u7f6e"}
@@ -458,21 +557,6 @@ const CenterPanel = (props: CenterPanelProps): JSX.Element => {
                       ))}
                     </select>
                   </label>
-                  <div className="rounded-xl bg-primary/[0.04] p-3 text-[11px] text-muted-foreground">
-                    {
-                      "\u5207\u6362\u63d0\u4f9b\u5546\u65f6\u6a21\u578b\u548c URL \u4f1a\u81ea\u52a8\u586b\u5145\u4e3a\u8be5\u63d0\u4f9b\u5546\u7684\u9ed8\u8ba4\u503c\u3002"
-                    }
-                  </div>
-                  <div className="text-[12px] text-muted-foreground">
-                    API Key{" "}
-                    {
-                      "\u4e0d\u4f1a\u5199\u5165 TOML \u6216 SQLite \u660e\u6587\uff1b\u4fdd\u5b58\u65f6\u4f1a\u8fdb\u5165\u4e3b\u8fdb\u7a0b\u5b89\u5168\u5b58\u50a8\u3002"
-                    }
-                  </div>
-                  <div className="text-[12px] text-muted-foreground">
-                    {"\u5f53\u524d\u662f\u5426\u5df2\u4fdd\u5b58 API Key\uff1a"}
-                    {boolLabel(hasStoredApiKey)}
-                  </div>
                   <label className="space-y-1">
                     <div className="text-[12px] text-muted-foreground">{"\u6a21\u578b"}</div>
                     <select
@@ -519,6 +603,7 @@ const CenterPanel = (props: CenterPanelProps): JSX.Element => {
                       data-testid="settings-provider-apikey-input"
                       type="password"
                       value={providerApiKeyDraft}
+                      placeholder={hasStoredApiKey ? "••••••••••••••••" : ""}
                       onChange={(event) => onProviderApiKeyDraftChange(event.target.value)}
                     />
                   </label>
@@ -533,108 +618,6 @@ const CenterPanel = (props: CenterPanelProps): JSX.Element => {
                       {"\u6e05\u9664\u5df2\u5b58 API Key"}
                     </Button>
                   </div>
-                </div>
-
-                <Separator />
-
-                <div className="space-y-2">
-                  <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                    {"\u8868\u8fbe\u504f\u597d"}
-                  </div>
-                  <label className="space-y-1">
-                    <div className="text-[12px] text-muted-foreground">{"\u56de\u590d\u5bc6\u5ea6"}</div>
-                    <select
-                      data-testid="settings-density-select"
-                      className="h-9 w-full rounded-[10px] bg-black/[0.04] px-3 text-[13px] text-foreground transition-colors focus:outline-none focus:ring-2 focus:ring-primary/30"
-                      value={settingsDraft.expression.density}
-                      onChange={(event) =>
-                        onSettingsDraftChange({
-                          ...settingsDraft,
-                          expression: {
-                            ...settingsDraft.expression,
-                            density: event.target.value as EnsoConfig["expression"]["density"]
-                          }
-                        })
-                      }
-                    >
-                      <option value="concise">{"\u7cbe\u7b80"}</option>
-                      <option value="standard">{"\u6807\u51c6"}</option>
-                      <option value="detailed">{"\u8be6\u5c3d"}</option>
-                    </select>
-                  </label>
-                  <label className="flex items-center gap-2 text-[12px] text-muted-foreground">
-                    <input
-                      type="checkbox"
-                      checked={settingsDraft.expression.structuredFirst}
-                      onChange={(event) =>
-                        onSettingsDraftChange({
-                          ...settingsDraft,
-                          expression: { ...settingsDraft.expression, structuredFirst: event.target.checked }
-                        })
-                      }
-                    />
-                    {"\u7ed3\u6784\u5316\u4f18\u5148"}
-                  </label>
-                </div>
-
-                <Separator />
-
-                <div className="space-y-2">
-                  <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                    {"\u6c47\u62a5\u7c92\u5ea6"}
-                  </div>
-                  <label className="space-y-1">
-                    <select
-                      data-testid="settings-granularity-select"
-                      className="h-9 w-full rounded-[10px] bg-black/[0.04] px-3 text-[13px] text-foreground transition-colors focus:outline-none focus:ring-2 focus:ring-primary/30"
-                      value={settingsDraft.reportingGranularity}
-                      onChange={(event) =>
-                        onSettingsDraftChange({
-                          ...settingsDraft,
-                          reportingGranularity: event.target.value as EnsoConfig["reportingGranularity"]
-                        })
-                      }
-                    >
-                      <option value="plan-level">
-                        {"\u65b9\u6848\u7ea7 \u2014 \u786e\u8ba4\u4e00\u6b21\uff0c\u4e0d\u518d\u6253\u65ad"}
-                      </option>
-                      <option value="result-level">
-                        {"\u7ed3\u679c\u7ea7 \u2014 \u76f4\u63a5\u505a\u5b8c\u6c47\u62a5\u7ed3\u679c"}
-                      </option>
-                    </select>
-                  </label>
-                </div>
-
-                <Separator />
-
-                <div className="space-y-2">
-                  <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                    {"\u6743\u9650"}
-                  </div>
-                  {ACTION_TYPES.map((actionType: ActionType) => (
-                    <div key={actionType} className="flex items-center justify-between gap-2">
-                      <span className="text-[12px] text-muted-foreground">{ACTION_TYPE_LABELS[actionType]}</span>
-                      <select
-                        className="h-7 rounded-lg bg-black/[0.04] px-2 text-[11px] text-foreground transition-colors focus:outline-none focus:ring-2 focus:ring-primary/30"
-                        value={settingsDraft.permissions[actionType]}
-                        onChange={(event) =>
-                          onSettingsDraftChange({
-                            ...settingsDraft,
-                            permissions: {
-                              ...settingsDraft.permissions,
-                              [actionType]: event.target.value as PermissionLevel
-                            }
-                          })
-                        }
-                      >
-                        {(["allow", "confirm", "block"] as const).map((level) => (
-                          <option key={level} value={level}>
-                            {PERMISSION_LEVEL_LABELS[level]}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  ))}
                 </div>
 
                 <div className="text-[12px] text-muted-foreground" data-testid="settings-status">

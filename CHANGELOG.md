@@ -1,5 +1,17 @@
 # CHANGELOG
 
+## 2026-03-23 - Deep dialogue behavioral differentiation
+### What changed
+1. `modes.ts` now defines `historyWindow` and `toolBias` per mode. Deep dialogue uses a 24-message history window (vs default 12) and `toolBias: "minimal"` to suppress accidental tool triggers.
+2. `model-adapter.ts` `buildSystemPrompt` now accepts a `mode` parameter and injects mode-specific system prompts. The deep-dialogue prompt prioritizes natural conversational tone, sustained topic depth, honest intellectual engagement, and continuous context threading.
+3. `execution-flow.ts` `classifyRequest` now accepts a `toolBias` parameter. When `toolBias === "minimal"` (deep-dialogue mode), only explicit tool commands (e.g. "计算 3+5") trigger tool-assisted handling; casual mentions of tool keywords (e.g. "阅读是一种享受") stay on the pure-dialogue path.
+4. Added `getHistoryWindow()` and `getToolBias()` helper functions exported from `modes.ts`.
+5. Added 3 new integration tests covering toolBias suppression, history window configuration, and mode-specific system prompt injection. Added `mockFetchCapture` test utility for capturing model request payloads.
+
+### Why it changed
+- Deep dialogue mode needs to behave fundamentally differently from default mode: longer context, fewer interruptions, no accidental tool triggers from conversational keywords.
+- The mode-specific system prompt was designed from analysis of 1200+ real user conversations to match actual deep dialogue patterns.
+
 ## 2026-03-23 - CJK Chinese word segmentation for retrieval
 ### What changed
 1. Added `@node-rs/jieba` (Rust-based native binding) for proper Chinese word segmentation.

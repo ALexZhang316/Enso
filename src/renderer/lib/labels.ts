@@ -85,9 +85,9 @@ export const taskStatusLabel = (status: StateSnapshot["taskStatus"]): string => 
 export const roleLabel = (role: ChatMessage["role"]): string => {
   switch (role) {
     case "user":
-      return "\u7528\u6237";
+      return "Alex";
     case "assistant":
-      return "\u52a9\u624b";
+      return "Enso";
     case "system":
       return "\u7cfb\u7edf";
     default:

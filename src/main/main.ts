@@ -1,4 +1,4 @@
-﻿import { app, BrowserWindow } from "electron";
+﻿import { app, BrowserWindow, nativeImage } from "electron";
 import fs from "node:fs";
 import path from "node:path";
 import { registerIpcHandlers } from "./ipc";
@@ -29,12 +29,17 @@ process.on("unhandledRejection", (reason) => {
 });
 
 const createMainWindow = async (): Promise<void> => {
+  // 加载窗口图标：优先 256px，回退到 64px
+  // __dirname = dist/main/，项目根 = dist/main/../../ = 项目根
+  const projectRoot = path.join(__dirname, "..", "..");
+  const iconPath = [256, 64].map((s) => path.join(projectRoot, "resources", `icon-${s}.png`)).find((p) => fs.existsSync(p));
   const window = new BrowserWindow({
     width: 1500,
     height: 920,
     minWidth: 1100,
     minHeight: 700,
     backgroundColor: "#0f172a",
+    ...(iconPath ? { icon: nativeImage.createFromPath(iconPath) } : {}),
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,

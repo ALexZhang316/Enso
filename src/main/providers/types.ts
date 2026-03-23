@@ -30,6 +30,10 @@ export interface TextGenerationRequest {
   model: string;
   apiKey: string;
   messages: ProviderMessage[];
+  /** 采样温度，0~2。不传则使用各 provider 默认值 */
+  temperature?: number;
+  /** 最大生成 token 数。不传则使用各 provider 默认值 */
+  maxTokens?: number;
 }
 
 export interface TextGenerationResult {

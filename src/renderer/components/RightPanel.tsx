@@ -7,7 +7,6 @@ import { ScrollArea } from "@renderer/components/ui/scroll-area";
 import {
   boolLabel,
   densityLabel,
-  granularityLabel,
   modeLabel,
   providerLabel,
   resultTypeLabel,
@@ -65,8 +64,8 @@ const RightPanel = (props: RightPanelProps): JSX.Element => {
                 ["\u6a21\u578b", config?.provider.model ?? "--"],
                 ["\u77e5\u8bc6", `${knowledgeSources.length} \u4e2a\u6765\u6e90`],
                 ["\u5de5\u4f5c\u533a", workspaceRoot || "--"],
-                ["\u5bc6\u5ea6", config ? densityLabel(config.expression.density) : "--"],
-                ["\u6c47\u62a5", config ? granularityLabel(config.reportingGranularity) : "--"]
+                ["密度", config ? densityLabel(config.expression.density) : "--"],
+                ["风格", config ? `${config.expression.structuredFirst ? "结构化" : "散文"}${config.reportingGranularity === "plan-level" ? " · 计划" : " · 结果"}` : "--"]
               ] as const
             ).map(([label, value]) => (
               <div key={label} className="flex items-center justify-between px-3 py-2 gap-2">

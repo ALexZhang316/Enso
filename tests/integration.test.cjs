@@ -82,6 +82,22 @@ const runTest = async (name, fn) => {
   }
 };
 
+// 捕获发送给模型的消息内容，回调函数接收 messages 数组并返回回复文本
+const mockFetchCapture = (callback) => {
+  const originalFetch = global.fetch;
+  global.fetch = async (_url, options) => {
+    const body = JSON.parse(options?.body ?? "{}");
+    const replyText = callback(body.messages ?? []);
+    return new Response(
+      JSON.stringify({
+        choices: [{ message: { content: replyText } }]
+      }),
+      { status: 200, headers: { "Content-Type": "application/json" } }
+    );
+  };
+  return () => { global.fetch = originalFetch; };
+};
+
 const mockKimiReply = (text) => {
   const originalFetch = global.fetch;
   global.fetch = async () =>
@@ -1444,6 +1460,137 @@ const tests = [
           "top result should contain 'Enso'"
         );
       } finally {
+        harness.cleanup();
+      }
+    }
+  },
+  // ---------- 深度对话 toolBias=minimal 测试 ----------
+  {
+    name: "ExecutionFlow deep-dialogue mode suppresses tool trigger for casual tool keywords",
+    fn: async () => {
+      const harness = createHarness();
+      const restoreFetch = mockKimiReply("关于阅读的本质，我认为……");
+
+      try {
+        updatePermissions(harness, { external_network: "allow" });
+        harness.secretService.saveProviderApiKey("kimi", "kimi-secret-123");
+        const conversation = harness.store.createConversation("deep-dialogue", "toolBias test");
+
+        // "阅读是一种享受" 包含工具关键词"阅读"，但在深度对话模式下
+        // toolBias=minimal 应使用严格检测，不触发 tool-assisted
+        const casualResult = await harness.executionFlow.run({
+          conversationId: conversation.id,
+          mode: "deep-dialogue",
+          text: "阅读是一种享受，你怎么看？",
+          enableRetrievalForTurn: false
+        });
+
+        assert.equal(
+          casualResult.classification.handlingClass,
+          "pure-dialogue",
+          "deep-dialogue should NOT trigger tool-assisted for casual '阅读'"
+        );
+
+        // 同样的文本在 default 模式（toolBias=balanced）下应触发 tool-assisted，
+        // 因为宽松检测会匹配到"阅读"这个工具关键词
+        const defaultConv = harness.store.createConversation("default", "toolBias default test");
+        const defaultResult = await harness.executionFlow.run({
+          conversationId: defaultConv.id,
+          mode: "default",
+          text: "阅读是一种享受，你怎么看？",
+          enableRetrievalForTurn: false
+        });
+
+        assert.equal(
+          defaultResult.classification.handlingClass,
+          "tool-assisted",
+          "default mode (balanced) should trigger tool-assisted for '阅读'"
+        );
+
+        // 明确的工具指令在深度对话模式下仍然应该触发
+        const explicitConv = harness.store.createConversation("deep-dialogue", "explicit tool test");
+        const explicitResult = await harness.executionFlow.run({
+          conversationId: explicitConv.id,
+          mode: "deep-dialogue",
+          text: "计算 3+5 的结果",
+          enableRetrievalForTurn: false
+        });
+
+        assert.equal(
+          explicitResult.classification.handlingClass,
+          "tool-assisted",
+          "deep-dialogue should still trigger tool-assisted for explicit '计算 3+5'"
+        );
+      } finally {
+        restoreFetch();
+        harness.cleanup();
+      }
+    }
+  },
+  {
+    name: "ExecutionFlow deep-dialogue mode uses extended history window",
+    fn: async () => {
+      const harness = createHarness();
+
+      try {
+        updatePermissions(harness, { external_network: "allow" });
+        harness.secretService.saveProviderApiKey("kimi", "kimi-secret-123");
+        const conversation = harness.store.createConversation("deep-dialogue", "history window test");
+
+        // 插入 20 条消息（超过 default 的 12 窗口，但在 deep-dialogue 的 24 窗口内）
+        for (let i = 0; i < 20; i++) {
+          harness.store.addMessage(
+            conversation.id,
+            i % 2 === 0 ? "user" : "assistant",
+            `历史消息 ${i + 1}`
+          );
+        }
+
+        // 验证 deep-dialogue 模式下的历史窗口大小
+        const { getHistoryWindow } = require(path.join(DIST_ROOT, "shared/modes.js"));
+        assert.equal(getHistoryWindow("deep-dialogue"), 24, "deep-dialogue historyWindow should be 24");
+        assert.equal(getHistoryWindow("default"), 12, "default historyWindow should be 12");
+        assert.equal(getHistoryWindow("research"), 16, "research historyWindow should be 16");
+      } finally {
+        harness.cleanup();
+      }
+    }
+  },
+  {
+    name: "ExecutionFlow deep-dialogue mode injects mode-specific system prompt",
+    fn: async () => {
+      const harness = createHarness();
+      let capturedMessages = null;
+      const restoreFetch = mockFetchCapture((messages) => {
+        capturedMessages = messages;
+        return "深度对话回复";
+      });
+
+      try {
+        updatePermissions(harness, { external_network: "allow" });
+        harness.secretService.saveProviderApiKey("kimi", "kimi-secret-123");
+        const conversation = harness.store.createConversation("deep-dialogue", "prompt injection test");
+
+        await harness.executionFlow.run({
+          conversationId: conversation.id,
+          mode: "deep-dialogue",
+          text: "聊聊存在主义",
+          enableRetrievalForTurn: false
+        });
+
+        assert.ok(capturedMessages, "should have captured messages sent to model");
+        const systemMsg = capturedMessages.find((m) => m.role === "system");
+        assert.ok(systemMsg, "should have a system message");
+        assert.ok(
+          systemMsg.content.includes("深度对话"),
+          "system prompt should contain deep-dialogue mode instructions"
+        );
+        assert.ok(
+          systemMsg.content.includes("博学而真诚"),
+          "system prompt should contain the conversational tone instruction"
+        );
+      } finally {
+        restoreFetch();
         harness.cleanup();
       }
     }

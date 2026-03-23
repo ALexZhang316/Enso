@@ -7,7 +7,8 @@
 - Request execution is a constrained skeleton, not a production reasoning engine.
 - Retrieval now uses jieba Chinese word segmentation, Markdown-aware chunking, stopword filtering, and match-centered snippet extraction over local SQLite FTS (still no embedding/vector similarity yet).
 - Tool execution now supports chain orchestration (up to 3 tools per request), and assistant metadata/state persist the full chain. Chains are still sequential and rule-based, not model-directed.
-- Gate checks still use heuristic detection for action-adjacent turns, though the wording filter is narrower and less prone to false positives.
+- Gate checks still use heuristic detection for action-adjacent turns, though the wording filter is narrower and less prone to false positives. Tool trigger sensitivity is now mode-aware: deep-dialogue uses strict command detection (`toolBias: "minimal"`) to avoid false positives from conversational keywords.
+- Mode-specific system prompts are injected for deep-dialogue, decision, and research modes. Decision and research prompts are currently one-liners; they may need expansion as those modes mature.
 - Permission model covers four action types (workspace_write, host_exec_readonly, host_exec_destructive, external_network) with allow/confirm/block levels. Runtime enforcement is active, confirmed actions are revalidated before execution, and the UI now supports both confirm and reject paths for pending actions.
 - Host exec now validates command arguments and resolved paths, captures stdout/stderr/exit code, and applies a configurable timeout. The allowed command set has been expanded to 30+ read-only patterns including basic system info commands, npm/node inspection commands, and only safe Git inspection forms.
 - No packaging/installers included in this skeleton round.

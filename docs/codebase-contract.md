@@ -112,7 +112,7 @@ tasks/
 ### Core runtime
 
 - `src/main/core/execution-flow.ts`
-  Owns the planner -> executor -> verifier turn flow, structured execution-draft parsing, pending confirmation resolution, trace writing, and persistence handoff, including multi-tool chain state/metadata alignment.
+  Owns the planner -> executor -> verifier turn flow, structured execution-draft parsing, pending confirmation resolution, trace writing, and persistence handoff, including multi-tool chain state/metadata alignment. Request classification now accepts a `toolBias` parameter from the active mode to control tool trigger sensitivity (minimal mode uses strict command detection).
 
 ### Main-process services
 
@@ -125,7 +125,7 @@ tasks/
 - `segmenter.ts`
   Standalone jieba wrapper exposing `segmentChinese` (pre-segment text for FTS5 indexing) and `segmentTerms` (extract word tokens for queries). Isolated to avoid circular dependencies.
 - `model-adapter.ts`
-  Wraps provider-backed text generation, injects expression/reporting preferences into the system prompt, and supports structured execution-draft output mode.
+  Wraps provider-backed text generation, injects expression/reporting preferences and mode-specific behavioral prompts into the system prompt, and supports structured execution-draft output mode.
 - `secret-service.ts`
   Stores provider keys using Electron safe storage.
 - `store.ts`

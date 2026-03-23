@@ -14,6 +14,15 @@ const buildBody = (request: TextGenerationRequest): Record<string, unknown> => {
       parts: [{ text: message.content }]
     }));
 
+  // Gemini 把采样参数放在 generationConfig 里
+  const generationConfig: Record<string, unknown> = {};
+  if (request.temperature !== undefined) {
+    generationConfig.temperature = request.temperature;
+  }
+  if (request.maxTokens !== undefined) {
+    generationConfig.maxOutputTokens = request.maxTokens;
+  }
+
   return {
     ...(systemInstruction
       ? {
@@ -22,7 +31,8 @@ const buildBody = (request: TextGenerationRequest): Record<string, unknown> => {
           }
         }
       : {}),
-    contents
+    contents,
+    ...(Object.keys(generationConfig).length > 0 ? { generationConfig } : {})
   };
 };
 

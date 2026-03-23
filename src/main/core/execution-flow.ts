@@ -1,5 +1,5 @@
 import path from "node:path";
-import { ModeId, getRetrievalDefault } from "../../shared/modes";
+import { ModeId, ToolBias, getRetrievalDefault, getToolBias } from "../../shared/modes";
 import {
   AuditSummary,
   ChatMessage,
@@ -98,6 +98,13 @@ const hasRetrievalHint = (text: string): boolean => retrievalHintEn.test(text) |
 
 const hasToolHint = (text: string): boolean => toolHintEn.test(text) || toolHintZh.test(text);
 
+// 严格工具提示：仅当文本中出现明确的工具指令（如"计算 3+5"、"读取文件 xxx"）时触发，
+// 排除在对话中偶然出现工具关键词的情况（如"阅读是一种享受"不应触发）
+const explicitToolCommandEn = /\b(calculate|compute)\s+[\d(]/i;
+const explicitToolCommandZh = /^(计算|求和|读取|阅读文件)\s*/;
+const hasExplicitToolCommand = (text: string): boolean =>
+  explicitToolCommandEn.test(text) || explicitToolCommandZh.test(text);
+
 const isInformationalPrompt = (text: string): boolean =>
   informationalPromptEn.test(text) ||
   informationalActionPhraseEn.test(text) ||
@@ -146,7 +153,7 @@ const trace = (entries: TraceEntry[], phase: TraceEntry["phase"], summary: strin
   entries.push({ phase, summary, timestamp: ts() });
 };
 
-const classifyRequest = (text: string, hasKnowledge: boolean, retrievalPreferred: boolean): RequestClassification => {
+const classifyRequest = (text: string, hasKnowledge: boolean, retrievalPreferred: boolean, toolBias: ToolBias = "balanced"): RequestClassification => {
   const hostExecCommand = extractHostExecCommand(text);
 
   if (isWorkspaceWriteIntent(text) || hostExecCommand !== null || hasExplicitBlockedActionIntent(text)) {
@@ -154,7 +161,11 @@ const classifyRequest = (text: string, hasKnowledge: boolean, retrievalPreferred
   }
 
   const retrievalNeeded = hasKnowledge && (hasRetrievalHint(text) || retrievalPreferred);
-  const toolNeeded = hasToolHint(text);
+  // 根据工具倾向选择检测策略：
+  // minimal（深度对话）：仅在用户发出明确工具指令时触发，避免误判
+  // eager（研究模式）：沿用宽松检测
+  // balanced（默认）：沿用宽松检测
+  const toolNeeded = toolBias === "minimal" ? hasExplicitToolCommand(text) : hasToolHint(text);
 
   if (toolNeeded) {
     return { handlingClass: "tool-assisted", retrievalNeeded, toolNeeded: true };
@@ -517,7 +528,8 @@ export class ExecutionFlow {
     const hasKnowledge = knowledgeSources.length > 0;
     const hostExecCommand = extractHostExecCommand(input.text);
     const retrievalPreferred = input.enableRetrievalForTurn || getRetrievalDefault(input.mode);
-    const classification = classifyRequest(input.text, hasKnowledge, retrievalPreferred);
+    const toolBias = getToolBias(input.mode);
+    const classification = classifyRequest(input.text, hasKnowledge, retrievalPreferred, toolBias);
     const workspaceWriteIntent =
       classification.handlingClass === "action-adjacent" && isWorkspaceWriteIntent(input.text);
     const safeHostExecIntent =
@@ -1019,6 +1031,7 @@ export class ExecutionFlow {
       const rawReplyText = await this.deps.modelAdapter.generateReply({
         config,
         expression: expressionConfig,
+        mode: input.mode,
         history,
         userText: enrichedUserText,
         responseMode: "structured-draft"

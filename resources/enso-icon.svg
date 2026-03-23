@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- 禅圈（Ensō）：一笔画成的不完美圆，空即是满 -->
+  <defs>
+    <!-- 笔触粗细渐变：模拟毛笔从重到轻的行笔 -->
+    <filter id="ink-texture" x="-2%" y="-2%" width="104%" height="104%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.04" numOctaves="4" seed="2" result="noise"/>
+      <feDisplacementMap in="SourceGraphic" in2="noise" scale="3" xChannelSelector="R" yChannelSelector="G"/>
+    </filter>
+  </defs>
+
+  <!-- 主圆弧：从左下起笔，顺时针行至右上方留缺口 -->
+  <path
+    d="M 175 390
+       C 105 345, 62 270, 68 195
+       C 74 120, 120 65, 195 45
+       C 270 25, 345 48, 395 105
+       C 445 162, 452 245, 425 320
+       C 398 395, 340 430, 280 438"
+    fill="none"
+    stroke="#1a1a1a"
+    stroke-width="42"
+    stroke-linecap="round"
+    filter="url(#ink-texture)"
+  />
+
+  <!-- 起笔处加粗：毛笔落纸时墨重 -->
+  <path
+    d="M 175 390
+       C 155 380, 135 365, 120 345"
+    fill="none"
+    stroke="#1a1a1a"
+    stroke-width="52"
+    stroke-linecap="round"
+    filter="url(#ink-texture)"
+  />
+
+  <!-- 收笔处渐细：提笔离纸 -->
+  <path
+    d="M 280 438
+       C 260 440, 240 438, 225 432"
+    fill="none"
+    stroke="#1a1a1a"
+    stroke-width="28"
+    stroke-linecap="round"
+    filter="url(#ink-texture)"
+  />
+
+  <!-- 墨渍飞溅：行笔时的自然溅墨 -->
+  <circle cx="395" cy="98" r="6" fill="#1a1a1a" opacity="0.85"/>
+  <circle cx="410" cy="88" r="4" fill="#1a1a1a" opacity="0.7"/>
+  <circle cx="402" cy="78" r="3" fill="#1a1a1a" opacity="0.6"/>
+  <circle cx="418" cy="95" r="2.5" fill="#1a1a1a" opacity="0.5"/>
+  <circle cx="388" cy="82" r="2" fill="#1a1a1a" opacity="0.45"/>
+</svg>

@@ -250,6 +250,16 @@ const App = (): JSX.Element => {
     if (!text || !activeConversationId || isSubmitting) return;
     setSubmitError("");
     setIsSubmitting(true);
+    // 乐观更新：立即显示用户消息并清空输入框，不等模型回复
+    const optimisticUserMessage: ChatMessage = {
+      id: `optimistic-${Date.now()}`,
+      conversationId: activeConversationId,
+      role: "user",
+      content: text,
+      createdAt: new Date().toISOString()
+    };
+    setMessages((prev) => [...prev, optimisticUserMessage]);
+    setComposerText("");
     setStateSnapshot((prev) => ({ ...prev, conversationId: activeConversationId, taskStatus: "processing" }));
     try {
       const result = await window.enso.submitRequest({
@@ -258,11 +268,11 @@ const App = (): JSX.Element => {
         text,
         enableRetrievalForTurn
       });
+      // 用服务端返回的真实消息列表替换乐观更新
       setMessages(result.messages);
       setConversations(result.conversations);
       setStateSnapshot(result.state);
       setAuditSummary(result.audit);
-      setComposerText("");
       setLastRunInfo(
         `分类：${handlingClassLabel(result.classification.handlingClass)} | 检索：${boolLabel(
           result.classification.retrievalNeeded
