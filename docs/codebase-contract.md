@@ -114,14 +114,14 @@ tasks/
 ### Core runtime
 
 - `src/main/core/execution-flow.ts`
-  Owns the planner -> executor -> verifier turn flow, structured execution-draft parsing, pending confirmation resolution, trace writing, and persistence handoff.
+  Owns the planner -> executor -> verifier turn flow, structured execution-draft parsing, pending confirmation resolution, trace writing, and persistence handoff, including multi-tool chain state/metadata alignment.
 
 ### Main-process services
 
 - `config-service.ts`
   Loads, normalizes, validates, and saves TOML config.
 - `host-exec-service.ts`
-  Validates and executes bounded read-only host commands under the current workspace rules, captures stdout/stderr/exit code, and enforces a configurable timeout.
+  Validates and executes bounded read-only host commands under the current workspace rules, including subcommand-level Git inspection checks, captures stdout/stderr/exit code, and enforces a configurable timeout.
 - `knowledge-service.ts`
   Imports local documents, chunks them, and retrieves evidence through the store.
 - `model-adapter.ts`
@@ -131,7 +131,7 @@ tasks/
 - `store.ts`
   Owns SQLite persistence for conversations, messages, state, audits, and knowledge.
 - `tool-service.ts`
-  Decides and runs bounded tool calls and returns structured `ToolRunResult` payloads.
+  Decides and runs bounded rule-based tool calls, including sequential chains up to 3 tools per request, and returns structured `ToolRunResult` payloads.
 - `workspace-service.ts`
   Manages the Enso-owned local workspace root, explicit in-workspace path resolution, and bounded writes.
 
@@ -285,8 +285,9 @@ Current tracked repo-local task files:
 ## Known active issues
 
 - Runtime permission enforcement now covers workspace_write, host_exec_readonly, and external_network with real allow/confirm/block semantics. Advanced permission dimensions (model_call/local_egress split, intent-source classification) are deferred.
-- Tool orchestration is still intentionally narrow: one tool at a time, no cascades, no autonomous retries.
+- Tool orchestration now supports bounded sequential chains up to 3 tools per request, but remains rule-based, has no autonomous retries, and is not yet model-directed.
 - `npm run verify` and `npm run postflight` are green.
+- Host exec safe coverage includes additional system/npm inspection commands and carefully validated Git inspection forms. Git mutations and file-writing diff/show variants remain blocked.
 - Some renderer strings outside `src/shared/modes.ts` and `src/shared/types.ts` still contain garbled legacy text and should be normalized in a future cleanup round.
 - Reference-only docs (`execution-flow.md`, `module-spec-table.md`, `ui-layout.md`, `windows-product-spec.md`) have been removed; their behavioral rules are now in `docs/spec/`.
 

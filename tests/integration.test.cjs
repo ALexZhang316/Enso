@@ -1225,6 +1225,170 @@ const tests = [
         harness.cleanup();
       }
     }
+  },
+  {
+    name: "ToolService chain returns multiple tools for mixed requests",
+    fn: async () => {
+      const snippets = [
+        { chunkId: "c1", sourceId: "s1", sourceName: "test.md", sourcePath: "/test.md", content: "data", score: 10 }
+      ];
+      const toolService = new ToolService();
+      const chain = toolService.decideAndRunChain("搜索这个文件然后计算 2+3", snippets);
+
+      assert.ok(chain.length >= 2, `expected >=2 tools, got ${chain.length}`);
+      const toolNames = chain.map((r) => r.toolName);
+      assert.ok(toolNames.includes("search"), "chain should include search");
+      assert.ok(toolNames.includes("compute"), "chain should include compute");
+      assert.ok(chain.every((r) => r.success), "all tools should succeed");
+    }
+  },
+  {
+    name: "ToolService single-tool decideAndRun returns first chain result for backward compat",
+    fn: async () => {
+      const toolService = new ToolService();
+      const result = toolService.decideAndRun("calculate 10 * 5", []);
+
+      assert.ok(result);
+      assert.equal(result.toolName, "compute");
+      assert.equal(result.success, true);
+      assert.match(result.output, /10 \* 5 = 50/);
+    }
+  },
+  {
+    name: "ExecutionFlow persists multi-tool chain state and assistant metadata",
+    fn: async () => {
+      const harness = createHarness();
+      const restoreFetch = mockKimiReply("tool chain reply");
+
+      try {
+        updatePermissions(harness, { external_network: "allow" });
+        harness.secretService.saveProviderApiKey("kimi", "kimi-secret-123");
+
+        const docPath = path.join(harness.tempDir, "tool-chain-knowledge.txt");
+        fs.writeFileSync(docPath, "searchable evidence for calculate 2+3", "utf8");
+        await harness.knowledgeService.ingestFile(docPath);
+
+        const conversation = harness.store.createConversation("default", "Tool chain state");
+        const result = await harness.executionFlow.run({
+          conversationId: conversation.id,
+          mode: "default",
+          text: "search this file and calculate 2+3",
+          enableRetrievalForTurn: true
+        });
+
+        assert.deepEqual(result.state.toolsCalled, ["search", "compute"]);
+        assert.match(result.state.latestToolResult, /2\+3 = 5/);
+        assert.equal(result.assistantMessage.metadata.toolName, null);
+        assert.deepEqual(result.assistantMessage.metadata.toolNames, ["search", "compute"]);
+        assert.equal(result.assistantMessage.metadata.toolResultCount, 2);
+        assert.equal(result.assistantMessage.metadata.toolSummaries.length, 2);
+        assert.match(result.assistantMessage.metadata.toolSummary, /2\+3 = 5/);
+        assert.equal(result.verification.status, "passed");
+        assert.match(result.verification.detail, /tool produced results/);
+        assert.match(result.verification.detail, /tool results succeeded/);
+      } finally {
+        restoreFetch();
+        harness.cleanup();
+      }
+    }
+  },
+  {
+    name: "HostExecService allows expanded read-only commands",
+    fn: async () => {
+      const harness = createHarness();
+
+      try {
+        const hostExecService = new HostExecService(harness.workspaceRoot);
+
+        // 新增的只读命令应该被允许
+        assert.ok(hostExecService.isAllowedCommand("tree"), "tree should be allowed");
+        assert.ok(hostExecService.isAllowedCommand("hostname"), "hostname should be allowed");
+        assert.ok(hostExecService.isAllowedCommand("whoami"), "whoami should be allowed");
+        assert.ok(hostExecService.isAllowedCommand("Get-Date"), "Get-Date should be allowed");
+        assert.ok(hostExecService.isAllowedCommand("Get-Process"), "Get-Process should be allowed");
+        assert.ok(hostExecService.isAllowedCommand("Test-Path ."), "Test-Path should be allowed");
+        assert.ok(hostExecService.isAllowedCommand("Get-FileHash test.txt"), "Get-FileHash should be allowed");
+        assert.ok(hostExecService.isAllowedCommand("Measure-Object"), "Measure-Object should be allowed");
+
+        // Safe git inspection commands
+        assert.ok(hostExecService.isAllowedCommand("git status"), "git status should be allowed");
+        assert.ok(hostExecService.isAllowedCommand("git log --oneline -5"), "git log should be allowed");
+        assert.ok(hostExecService.isAllowedCommand("git diff"), "git diff should be allowed");
+        assert.ok(hostExecService.isAllowedCommand("git show HEAD~1"), "git show should be allowed");
+        assert.ok(hostExecService.isAllowedCommand("git branch"), "git branch listing should be allowed");
+        assert.ok(hostExecService.isAllowedCommand("git branch --show-current"), "git branch --show-current should be allowed");
+        assert.ok(hostExecService.isAllowedCommand("git remote"), "git remote listing should be allowed");
+        assert.ok(hostExecService.isAllowedCommand("git remote -v"), "git remote -v should be allowed");
+
+        // npm/node inspection commands
+        assert.ok(hostExecService.isAllowedCommand("npm list"), "npm list should be allowed");
+        assert.ok(hostExecService.isAllowedCommand("npm outdated"), "npm outdated should be allowed");
+        assert.ok(hostExecService.isAllowedCommand("node --version"), "node --version should be allowed");
+
+        // Unsafe git mutations or file-writing forms must stay blocked
+        assert.ok(!hostExecService.isAllowedCommand("git branch feature-test"), "git branch create should be blocked");
+        assert.ok(!hostExecService.isAllowedCommand("git branch -D feature-test"), "git branch delete should be blocked");
+        assert.ok(
+          !hostExecService.isAllowedCommand("git remote add origin https://example.com/repo.git"),
+          "git remote add should be blocked"
+        );
+        assert.ok(!hostExecService.isAllowedCommand("git remote remove origin"), "git remote remove should be blocked");
+        assert.ok(!hostExecService.isAllowedCommand("git diff --output leaked.patch"), "git diff --output should be blocked");
+        assert.ok(!hostExecService.isAllowedCommand("git show --output leaked.patch"), "git show --output should be blocked");
+
+        // Destructive commands remain blocked
+        assert.ok(!hostExecService.isAllowedCommand("git push origin main"), "git push should be blocked");
+        assert.ok(!hostExecService.isAllowedCommand("git checkout -b foo"), "git checkout should be blocked");
+        assert.ok(!hostExecService.isAllowedCommand("npm install lodash"), "npm install should be blocked");
+        assert.ok(!hostExecService.isAllowedCommand("Remove-Item test.txt"), "Remove-Item should be blocked");
+      } finally {
+        harness.cleanup();
+      }
+    }
+  },
+  {
+    name: "KnowledgeService stopword filtering improves search focus",
+    fn: async () => {
+      const harness = createHarness();
+
+      try {
+        // 导入含有实义词的知识
+        const filePath = path.join(harness.tempDir, "stopword-test.txt");
+        fs.writeFileSync(filePath, "database index optimization strategy guide", "utf8");
+        await harness.knowledgeService.ingestFile(filePath);
+
+        // "the" 和 "is" 是英文停用词，应被过滤，只用 "database" 和 "index" 搜索
+        const results = harness.knowledgeService.retrieve("what is the database index", 5);
+        assert.ok(results.length > 0, "should find results even with stopwords in query");
+        assert.ok(results[0].content.includes("database"), "result should contain real content");
+      } finally {
+        harness.cleanup();
+      }
+    }
+  },
+  {
+    name: "Store snippet extraction centers around matched terms",
+    fn: async () => {
+      const harness = createHarness();
+
+      try {
+        // 创建一个长文本，匹配词在中后部
+        const longText = "A".repeat(400) + " target-keyword " + "B".repeat(400);
+        const filePath = path.join(harness.tempDir, "long-text.txt");
+        fs.writeFileSync(filePath, longText, "utf8");
+        await harness.knowledgeService.ingestFile(filePath);
+
+        const results = harness.knowledgeService.retrieve("target-keyword", 5);
+        assert.ok(results.length > 0, "should find results");
+        // 摘录应包含匹配词，而不是只截取开头
+        assert.ok(
+          results[0].content.includes("target-keyword"),
+          "snippet should include the matched term, not just the beginning of content"
+        );
+      } finally {
+        harness.cleanup();
+      }
+    }
   }
 ];
 

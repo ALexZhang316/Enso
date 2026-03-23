@@ -75,6 +75,38 @@ const scoreByTerms = (content: string, terms: string[]): number => {
   }, 0);
 };
 
+// 围绕第一个匹配词提取上下文摘录（而不是截取 content 前 N 字符）
+// 这样用户看到的 snippet 更贴近实际匹配位置
+const extractSnippetAroundMatch = (content: string, terms: string[], maxLen = 600): string => {
+  const lowered = content.toLowerCase();
+  let earliestPos = -1;
+
+  for (const term of terms) {
+    const pos = lowered.indexOf(term);
+    if (pos !== -1 && (earliestPos === -1 || pos < earliestPos)) {
+      earliestPos = pos;
+    }
+  }
+
+  if (earliestPos === -1 || content.length <= maxLen) {
+    return content.slice(0, maxLen);
+  }
+
+  // 在匹配位置前后各留一半窗口
+  const halfWindow = Math.floor(maxLen / 2);
+  let start = Math.max(0, earliestPos - halfWindow);
+  const end = Math.min(content.length, start + maxLen);
+
+  // 如果截取到末尾了，往前补
+  if (end === content.length) {
+    start = Math.max(0, end - maxLen);
+  }
+
+  const prefix = start > 0 ? "..." : "";
+  const suffix = end < content.length ? "..." : "";
+  return `${prefix}${content.slice(start, end)}${suffix}`;
+};
+
 export class EnsoStore {
   private readonly db: Database.Database;
   private knowledgeSearchIndexAvailable = false;
@@ -550,7 +582,7 @@ export class EnsoStore {
           sourceId: row.source_id,
           sourceName: row.source_name,
           sourcePath: row.source_path,
-          content: row.content.slice(0, 600),
+          content: extractSnippetAroundMatch(row.content, terms),
           score
         } satisfies RetrievedSnippet;
       })
@@ -606,7 +638,7 @@ export class EnsoStore {
           sourceId: row.source_id,
           sourceName: row.source_name,
           sourcePath: row.source_path,
-          content: row.content.slice(0, 600),
+          content: extractSnippetAroundMatch(row.content, terms),
           score: phraseBoost + matchedDistinctTerms * 10 + termScore + bm25Score
         } satisfies RetrievedSnippet;
       })

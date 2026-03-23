@@ -5,14 +5,14 @@
 - Collaboration review artifacts and branch handoff docs are now defined in-repo, but their creation is still manual; there is no automation that forces `docs/reviews/` or `docs/handoffs/` entries to exist when a change would benefit from them.
 - GitHub bootstrap now assumes GitHub CLI (`gh`) is installed and authenticated; if a machine is offline or not signed in yet, `npm run bootstrap:git` will stop until `gh auth login` succeeds.
 - Request execution is a constrained skeleton, not a production reasoning engine.
-- Retrieval now uses local SQLite full-text search with keyword fallback over local chunks (still no embedding/vector similarity yet).
-- Tool execution now returns structured results, but orchestration is still intentionally minimal (single-tool, no cascades, no autonomous tool loops).
+- Retrieval now uses Markdown-aware chunking, stopword filtering, and match-centered snippet extraction over local SQLite FTS (still no embedding/vector similarity yet).
+- Tool execution now supports chain orchestration (up to 3 tools per request), and assistant metadata/state persist the full chain. Chains are still sequential and rule-based, not model-directed.
 - Gate checks still use heuristic detection for action-adjacent turns, though the wording filter is narrower and less prone to false positives.
 - Permission model covers four action types (workspace_write, host_exec_readonly, host_exec_destructive, external_network) with allow/confirm/block levels. Runtime enforcement is active, confirmed actions are revalidated before execution, and the UI now supports both confirm and reject paths for pending actions.
-- Host exec now validates command arguments and resolved paths, captures stdout/stderr/exit code, and applies a configurable timeout, but the allowed command set is still intentionally small and read-only.
+- Host exec now validates command arguments and resolved paths, captures stdout/stderr/exit code, and applies a configurable timeout. The allowed command set has been expanded to 30+ read-only patterns including basic system info commands, npm/node inspection commands, and only safe Git inspection forms.
 - No packaging/installers included in this skeleton round.
 - Provider backends now exist for Kimi, OpenAI, DeepSeek, Anthropic, and Gemini, but current regression coverage only proves protocol wiring with mocked responses; there is no live end-to-end smoke against real third-party accounts in CI.
-- Some renderer strings outside `src/shared/modes.ts` and `src/shared/types.ts` still contain garbled legacy text and should be normalized in a later cleanup pass.
+- ~~Some renderer strings outside `src/shared/modes.ts` and `src/shared/types.ts` still contain garbled legacy text and should be normalized in a later cleanup pass.~~ Resolved: full audit on 2026-03-23 confirmed all source files are clean UTF-8 with no garbled text remaining.
 - `npm run verify` is green after the execution-chain wiring, tool-reliability, and UI confirmation cleanup rounds.
 - The permission model defined in `tasks/0002-permission-boundary-rework.md` is now implemented at the runtime level. Advanced features (model_call / local_egress split, intent-source classification, untrusted-content rules) are deferred to a future iteration.
 - Workflow friction has been reduced further by pruning repo-local workflow wording and deferring generic execution behavior back to the global AGENTS rules, but execution speed still depends on agents actually prioritizing direct implementation over extra process artifacts on clear tasks.
@@ -60,8 +60,10 @@
 
 ## Near-Term Next Implementation Targets
 
-- Normalize the remaining garbled renderer strings outside the shared mode/type files.
+- ~~Normalize the remaining garbled renderer strings outside the shared mode/type files.~~ Done.
 - Add live smoke coverage or a manual verification checklist for the newly wired non-Kimi providers.
-- Improve retrieval quality further (consider local embedding-based similarity beyond the current SQLite FTS + keyword fallback approach).
-- Expand tool orchestration beyond the current single-tool path while preserving permission gates and verifier visibility.
-- Broaden safe host-exec coverage only if the allowlist, timeout handling, and audit surfaces stay explicit and bounded.
+- ~~Improve retrieval quality further.~~ Done: Markdown-aware chunking, stopword filtering, match-centered snippets. Embedding/vector similarity remains deferred.
+- ~~Expand tool orchestration beyond the current single-tool path.~~ Done: chain execution up to 3 tools per request. Model-directed tool selection remains deferred.
+- ~~Broaden safe host-exec coverage.~~ Done: expanded from 9 to 30+ read-only patterns, with subcommand/flag validation for Git inspection forms. Write/exec commands remain blocked.
+- Consider adding Chinese word segmentation (jieba or similar) to improve CJK retrieval term extraction beyond character-level splitting.
+- Consider model-directed tool selection to replace the current rule-based hint matching.

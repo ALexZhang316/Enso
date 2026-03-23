@@ -111,3 +111,9 @@ external_network = "block"
 5. 确认后执行必须重新验证权限
 6. host exec 必须验证命令白名单和路径边界
 7. 权限变更通过 TOML 配置生效，无需重启
+
+## Implementation Note (2026-03-23)
+
+- `host_exec_readonly` may allow additional inspection commands beyond the original minimal list, but they must remain read-only and inside the Enso workspace boundary.
+- Safe Git coverage is restricted to inspection forms only: `git status`, `git log`, `git diff` without `--output`, `git show` without `--output`, branch listing flags, and remote listing flags.
+- Git branch creation/deletion, remote mutation, and diff/show file-writing variants are blocked at the command validator before execution.

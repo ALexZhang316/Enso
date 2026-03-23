@@ -108,3 +108,10 @@ interface ToolRunResult {
 5. 工作区写入必须限制在 Enso 工作区内
 6. Host exec 必须验证命令白名单和路径边界
 7. 不允许不受控的多工具循环
+
+## Implementation Note (2026-03-23)
+
+- The current implementation supports a bounded sequential tool chain of up to 3 tool results per request.
+- Chains are still rule-based and local. There are no autonomous retries and no model-directed tool loop.
+- Tool-assisted verification must consider the full tool chain, not only the first tool result.
+- Host exec remains permission-gated and workspace-bounded. Safe Git coverage is limited to inspection forms such as `status`, `log`, `diff` without `--output`, `show` without `--output`, branch listing flags, and remote listing flags.

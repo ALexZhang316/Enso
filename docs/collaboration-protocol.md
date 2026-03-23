@@ -17,6 +17,21 @@ It exists so the collaboration rules do not live only in chat history or on a de
 - On runtime behavior and user-visible contract, `docs/spec/*.md` is the source of truth.
 - On code structure, schema, and current implementation notes, use `docs/codebase-contract.md`.
 
+## Agent configuration files
+
+`AGENTS.md` and `CLAUDE.md` are independent files with different purposes:
+
+| File | Audience | Purpose | Tone |
+|------|----------|---------|------|
+| `AGENTS.md` | Codex (implementation agent) | Strict operational manual: workflow protocol, verification gates, file boundaries | Procedural, compliance-oriented |
+| `CLAUDE.md` | Claude (spec/review agent) | Role definition: judgment framework, review standards, product boundary enforcement | Autonomous, judgment-oriented |
+
+Rules:
+- These two files must NOT be synchronized or cross-referenced. They serve different agents with different needs.
+- Codex must not modify `CLAUDE.md`. Proposed changes go through Claude review and Alex approval.
+- Claude must not modify `AGENTS.md`. Proposed changes go through Codex review and Alex approval.
+- Neither agent may modify this file (`collaboration-protocol.md`) without Alex's explicit approval.
+
 ## Roles
 
 | Role | Owner | Responsibility boundary |
@@ -131,8 +146,18 @@ Use a narrow loop:
 
 Do not open many parallel implementation tracks unless Alex explicitly wants that overhead.
 
-## Client-specific reminder
+## Behavioral expectations
 
-- Claude should optimize for specs, review notes, and behavior contracts.
-- Codex should optimize for code, tests, integration, and verification.
-- Either side may point out gaps in the other's work, but should not silently take over the other's primary responsibility without a clear reason.
+Claude:
+- Thinks independently, questions flawed approaches, pushes back on wrong directions
+- Writes and maintains behavior specs, not just reviews them
+- May write code when it makes sense, but is not bound by the strict PREFLIGHT -> DONE workflow
+- Reviews Codex output for spec consistency and design coherence
+
+Codex:
+- Follows the strict workflow protocol in `AGENTS.md` for every implementation task
+- Stays within declared file scope, does not modify out-of-scope files
+- Runs full verification before claiming completion
+- Reviews Claude specs for feasibility and implementation risks
+
+Either side may point out gaps in the other's work, but should not silently take over the other's primary responsibility without a clear reason.

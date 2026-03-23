@@ -6,11 +6,24 @@ const READ_ONLY_COMMAND_PATTERNS = [
   /^Get-ChildItem(?:\s|$)/i,
   /^dir(?:\s|$)/i,
   /^ls(?:\s|$)/i,
+  /^tree(?:\s|$)/i,
+  /^Test-Path(?:\s|$)/i,
   /^Get-Content(?:\s|$)/i,
   /^type(?:\s|$)/i,
   /^Select-String(?:\s|$)/i,
   /^findstr(?:\s|$)/i,
   /^where(?:\s|$)/i,
+  /^Get-FileHash(?:\s|$)/i,
+  /^Get-ItemProperty(?:\s|$)/i,
+  /^hostname(?:\s|$)/i,
+  /^whoami(?:\s|$)/i,
+  /^Get-Date(?:\s|$)/i,
+  /^Get-Location(?:\s|$)/i,
+  /^Get-Process(?:\s|$)/i,
+  /^systeminfo(?:\s|$)/i,
+  /^node\s+--version\b/i,
+  /^npm\s+(list|ls|outdated|--version)\b/i,
+  /^Measure-Object(?:\s|$)/i,
   /^Start-Sleep(?:\s|$)/i
 ] as const;
 
@@ -38,6 +51,52 @@ const DISALLOWED_COMMAND_PATTERNS = [
 ] as const;
 
 const DEFAULT_COMMAND_TIMEOUT_MS = 30000;
+const GIT_OUTPUT_FLAGS = new Set(["-o", "--output"]);
+const READ_ONLY_GIT_BRANCH_FLAGS = new Set([
+  "-a",
+  "--all",
+  "-r",
+  "--remotes",
+  "-v",
+  "--verbose",
+  "-vv",
+  "--list",
+  "--show-current"
+]);
+const READ_ONLY_GIT_REMOTE_FLAGS = new Set(["-v", "--verbose"]);
+
+const tokenizeCommand = (command: string): string[] => {
+  const matches = command.match(/"[^"]*"|'[^']*'|\S+/g) ?? [];
+  return matches.map((token) => token.replace(/^['"]|['"]$/g, ""));
+};
+
+const isReadOnlyGitCommand = (command: string): boolean => {
+  const parts = tokenizeCommand(command);
+  if (parts.length < 2 || parts[0].toLowerCase() !== "git") {
+    return false;
+  }
+
+  const subcommand = parts[1].toLowerCase();
+  const args = parts.slice(2);
+
+  switch (subcommand) {
+    case "status":
+    case "log":
+      return true;
+    case "diff":
+    case "show":
+      return !args.some((arg) => {
+        const normalized = arg.toLowerCase();
+        return normalized.startsWith("--output=") || GIT_OUTPUT_FLAGS.has(normalized);
+      });
+    case "branch":
+      return args.every((arg) => READ_ONLY_GIT_BRANCH_FLAGS.has(arg.toLowerCase()));
+    case "remote":
+      return args.length === 0 || args.every((arg) => READ_ONLY_GIT_REMOTE_FLAGS.has(arg.toLowerCase()));
+    default:
+      return false;
+  }
+};
 
 interface HostExecServiceOptions {
   timeoutMs?: number;
@@ -100,7 +159,9 @@ export class HostExecService {
       return false;
     }
 
-    if (!READ_ONLY_COMMAND_PATTERNS.some((pattern) => pattern.test(normalized))) {
+    const allowedByPattern = READ_ONLY_COMMAND_PATTERNS.some((pattern) => pattern.test(normalized));
+    const allowedByGitRule = isReadOnlyGitCommand(normalized);
+    if (!allowedByPattern && !allowedByGitRule) {
       return false;
     }
 
@@ -113,7 +174,7 @@ export class HostExecService {
 
   private commandArgsStayInsideWorkspace(command: string): boolean {
     const resolvedRoot = path.resolve(this.workspaceRoot);
-    const parts = command.split(/\s+/).slice(1);
+    const parts = tokenizeCommand(command).slice(1);
 
     for (const part of parts) {
       if (/^-/.test(part)) {

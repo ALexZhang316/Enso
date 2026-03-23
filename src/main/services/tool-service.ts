@@ -67,43 +67,59 @@ const buildToolRunResult = (params: {
   summary: params.summary ?? (params.success ? params.output : params.error ?? params.output)
 });
 
+// 链式工具调用最大步数，防止失控
+const MAX_TOOL_CHAIN_LENGTH = 3;
+
 export class ToolService {
   constructor(private readonly deps: ToolServiceDependencies = {}) {}
 
+  // 单工具调用（向后兼容）
   decideAndRun(requestText: string, snippets: RetrievedSnippet[]): ToolRunResult | null {
-    if (hasComputeHint(requestText)) {
-      const computed = computeExpression(requestText);
-      if (computed) {
-        return buildToolRunResult({
-          toolName: "compute",
-          success: true,
-          output: computed
-        });
-      }
-    }
+    const chain = this.decideAndRunChain(requestText, snippets);
+    return chain.length > 0 ? chain[0] : null;
+  }
 
+  // 链式多工具调用：按优先级依次尝试匹配的工具，最多 MAX_TOOL_CHAIN_LENGTH 个
+  // 例如 "搜索这个文件然后计算总价" 会同时触发 search + compute
+  decideAndRunChain(requestText: string, snippets: RetrievedSnippet[]): ToolRunResult[] {
+    const results: ToolRunResult[] = [];
+
+    // 1. 尝试 search
     if (hasSearchHint(requestText) && snippets.length > 0) {
       const output = `已检索导入知识，命中 ${snippets.length} 条相关片段。`;
-      return buildToolRunResult({
+      results.push(buildToolRunResult({
         toolName: "search",
         success: true,
         output,
         summary: output
-      });
+      }));
     }
 
+    // 2. 尝试 read
     if (hasReadHint(requestText) && snippets.length > 0) {
       const first = snippets[0];
       const output = `已读取来源 ${first.sourceName} 作为上下文证据。`;
-      return buildToolRunResult({
+      results.push(buildToolRunResult({
         toolName: "read",
         success: true,
         output,
         summary: output
-      });
+      }));
     }
 
-    return null;
+    // 3. 尝试 compute（放最后，因为计算通常依赖前面检索的数据）
+    if (hasComputeHint(requestText)) {
+      const computed = computeExpression(requestText);
+      if (computed) {
+        results.push(buildToolRunResult({
+          toolName: "compute",
+          success: true,
+          output: computed
+        }));
+      }
+    }
+
+    return results.slice(0, MAX_TOOL_CHAIN_LENGTH);
   }
 
   runWorkspaceWrite(action: WorkspaceWritePendingAction): ToolRunResult {

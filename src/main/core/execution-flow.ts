@@ -41,7 +41,10 @@ interface AssistantMessageMetadata extends Record<string, unknown> {
   retrievalUsed: boolean;
   retrievalEnabled?: boolean;
   toolName: string | null;
+  toolNames?: string[];
   toolSummary?: string;
+  toolSummaries?: string[];
+  toolResultCount?: number;
   retrievalSnippetCount?: number;
   retrievalSources?: string[];
   retrievedSnippets?: RetrievedSnippet[];
@@ -247,7 +250,7 @@ const buildPlan = (params: {
 const verify = (
   classification: RequestClassification,
   snippets: RetrievedSnippet[],
-  toolResult: ToolRunResult | null,
+  toolResults: ToolRunResult[],
   replyText: string
 ): VerificationResult => {
   if (classification.handlingClass === "action-adjacent") {
@@ -267,7 +270,13 @@ const verify = (
   }
 
   if (classification.toolNeeded) {
-    checks.push({ ok: toolResult !== null, label: "tool produced a result" });
+    checks.push({ ok: toolResults.length > 0, label: "tool produced results" });
+    if (toolResults.length > 0) {
+      checks.push({
+        ok: toolResults.every((result) => ("success" in result ? result.success : true)),
+        label: "tool results succeeded"
+      });
+    }
   }
 
   checks.push({ ok: replyText.length > 0, label: "model produced a reply" });
@@ -276,6 +285,21 @@ const verify = (
   return {
     status: checks.every((check) => check.ok) ? "passed" : "failed",
     detail
+  };
+};
+
+const summarizeToolResults = (toolResults: ToolRunResult[]): {
+  toolNames: string[];
+  toolSummaries: string[];
+  joinedSummary: string;
+} => {
+  const toolNames = toolResults.map((result) => result.toolName);
+  const toolSummaries = toolResults.map((result) => result.summary);
+
+  return {
+    toolNames,
+    toolSummaries,
+    joinedSummary: toolSummaries.join("; ")
   };
 };
 
@@ -403,6 +427,7 @@ const buildAssistantMessageMetadata = (params: {
   classification: RequestClassification;
   snippets: RetrievedSnippet[];
   toolResult: ToolRunResult | null;
+  toolResults?: ToolRunResult[];
   retrievalEnabled?: boolean;
   pendingAction?: PendingAction | null;
   writtenPath?: string;
@@ -412,20 +437,26 @@ const buildAssistantMessageMetadata = (params: {
 }): AssistantMessageMetadata => {
   const { input, classification, snippets, toolResult, retrievalEnabled, pendingAction, writtenPath, providerError } =
     params;
+  const effectiveToolResults =
+    params.toolResults && params.toolResults.length > 0 ? params.toolResults : toolResult ? [toolResult] : [];
 
   const metadata: AssistantMessageMetadata = {
     mode: input.mode,
     handlingClass: classification.handlingClass,
     retrievalUsed: snippets.length > 0,
-    toolName: toolResult?.toolName ?? null
+    toolName: effectiveToolResults.length === 1 ? effectiveToolResults[0].toolName : null
   };
 
   if (typeof retrievalEnabled === "boolean") {
     metadata.retrievalEnabled = retrievalEnabled;
   }
 
-  if (toolResult) {
-    metadata.toolSummary = toolResult.summary;
+  if (effectiveToolResults.length > 0) {
+    const { toolNames, toolSummaries, joinedSummary } = summarizeToolResults(effectiveToolResults);
+    metadata.toolNames = toolNames;
+    metadata.toolSummaries = toolSummaries;
+    metadata.toolResultCount = effectiveToolResults.length;
+    metadata.toolSummary = joinedSummary;
   }
 
   metadata.retrievedSnippets = snippets;
@@ -441,7 +472,10 @@ const buildAssistantMessageMetadata = (params: {
 
   if (writtenPath) {
     metadata.toolName = "workspace-write";
+    metadata.toolNames = ["workspace-write"];
     metadata.toolSummary = `wrote ${path.basename(writtenPath)}`;
+    metadata.toolSummaries = [metadata.toolSummary];
+    metadata.toolResultCount = 1;
     metadata.writtenPath = writtenPath;
   }
 
@@ -935,13 +969,17 @@ export class ExecutionFlow {
       trace(traceLog, "retrieval", `returned ${snippets.length} snippets`);
     }
 
+    let toolResults: ToolRunResult[] = [];
     let toolResult: ToolRunResult | null = null;
     if (classification.toolNeeded) {
-      toolResult = this.deps.toolService.decideAndRun(input.text, snippets);
+      toolResults = this.deps.toolService.decideAndRunChain(input.text, snippets);
+      toolResult = toolResults.length > 0 ? toolResults[0] : null;
       trace(
         traceLog,
         "tool",
-        toolResult ? `tool=${toolResult.toolName} summary=${toolResult.summary}` : "no tool matched"
+        toolResults.length > 0
+          ? `chain=${toolResults.map((r) => r.toolName).join("+")} count=${toolResults.length}`
+          : "no tool matched"
       );
     }
 
@@ -957,7 +995,12 @@ export class ExecutionFlow {
         contextParts.push(`以下是从本地知识库检索到的相关证据：\n\n${evidenceBlock}`);
       }
 
-      if (toolResult) {
+      if (toolResults.length > 0) {
+        const toolBlock = toolResults
+          .map((r, i) => `[工具${i + 1}: ${r.toolName}] ${r.summary}`)
+          .join("\n");
+        contextParts.push(`工具执行结果：\n${toolBlock}`);
+      } else if (toolResult) {
         contextParts.push(`工具执行结果 [${toolResult.toolName}]: ${toolResult.summary}`);
       }
 
@@ -988,7 +1031,7 @@ export class ExecutionFlow {
         usedFallback ? "structured draft malformed, used plain text fallback" : "structured draft parsed successfully"
       );
 
-      const verification = verify(classification, snippets, toolResult, draft.answer);
+      const verification = verify(classification, snippets, toolResults, draft.answer);
       trace(traceLog, "verification", `status=${verification.status} detail=${verification.detail}`);
 
       const assistantMessage = this.deps.store.addMessage(
@@ -1000,6 +1043,7 @@ export class ExecutionFlow {
           classification,
           snippets,
           toolResult,
+          toolResults,
           retrievalEnabled: retrievalPreferred,
           structuredDraft: draft,
           structuredDraftFallback: usedFallback
@@ -1008,11 +1052,13 @@ export class ExecutionFlow {
 
       trace(traceLog, "persist", "state and audit written");
 
+      const { toolNames: allToolNames, joinedSummary: latestToolSummary } = summarizeToolResults(toolResults);
+
       const nextState = this.deps.store.upsertState({
         conversationId: input.conversationId,
         retrievalUsed: snippets.length > 0,
-        toolsCalled: toolResult ? [toolResult.toolName] : [],
-        latestToolResult: toolResult?.summary ?? "",
+        toolsCalled: allToolNames,
+        latestToolResult: latestToolSummary,
         pendingConfirmation: false,
         pendingAction: null,
         taskStatus: "completed",
@@ -1026,7 +1072,7 @@ export class ExecutionFlow {
         conversationId: input.conversationId,
         mode: input.mode,
         retrievalUsed: snippets.length > 0,
-        toolsUsed: toolResult ? [toolResult.toolName] : [],
+        toolsUsed: allToolNames,
         resultType: "answer",
         riskNotes: verification.status === "failed" ? verification.detail : draft.riskNotes.join("; ")
       });
@@ -1048,6 +1094,8 @@ export class ExecutionFlow {
       const verification: VerificationResult = { status: "failed", detail: errorMessage };
       trace(traceLog, "verification", `status=failed detail=${errorMessage}`);
 
+      const { toolNames: errorToolNames, joinedSummary: errorToolSummary } = summarizeToolResults(toolResults);
+
       const assistantMessage = this.deps.store.addMessage(
         input.conversationId,
         "assistant",
@@ -1057,6 +1105,7 @@ export class ExecutionFlow {
           classification,
           snippets,
           toolResult,
+          toolResults,
           retrievalEnabled: retrievalPreferred,
           providerError: true
         })
@@ -1067,8 +1116,8 @@ export class ExecutionFlow {
       const nextState = this.deps.store.upsertState({
         conversationId: input.conversationId,
         retrievalUsed: snippets.length > 0,
-        toolsCalled: toolResult ? [toolResult.toolName] : [],
-        latestToolResult: toolResult?.summary ?? "",
+        toolsCalled: errorToolNames,
+        latestToolResult: errorToolSummary,
         pendingConfirmation: false,
         pendingAction: null,
         taskStatus: "completed",
@@ -1082,7 +1131,7 @@ export class ExecutionFlow {
         conversationId: input.conversationId,
         mode: input.mode,
         retrievalUsed: snippets.length > 0,
-        toolsUsed: toolResult ? [toolResult.toolName] : [],
+        toolsUsed: errorToolNames,
         resultType: "answer",
         riskNotes: errorMessage
       });

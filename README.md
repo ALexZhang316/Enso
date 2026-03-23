@@ -6,14 +6,16 @@ Do not rely on any external zip file during implementation or handoff.
 
 ## Onboarding order
 
-1. `AGENTS.md`
-2. `docs/collaboration-protocol.md`
-3. `docs/baseline.md`
-4. `docs/architecture.md`
-5. relevant files under `docs/spec/`
-6. `docs/codebase-contract.md`
-7. `docs/environment-and-github-bootstrap.md`
-8. `CLAUDE.md` only if the active coding client actually reads `CLAUDE.md`
+1. `docs/collaboration-protocol.md` - role split and review rules
+2. `docs/baseline.md` - product identity and direction
+3. `docs/architecture.md` - component boundary map
+4. relevant files under `docs/spec/` - behavioral source of truth
+5. `docs/codebase-contract.md` - code-layer contract
+6. `docs/environment-and-github-bootstrap.md` - environment setup
+
+Agent-specific configuration (independent files, not synchronized):
+- `AGENTS.md` - operational manual for Codex (implementation agent)
+- `CLAUDE.md` - role definition for Claude (spec/review agent)
 
 ## Document authority by scope
 

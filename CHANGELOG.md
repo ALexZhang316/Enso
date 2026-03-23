@@ -1,5 +1,30 @@
 # CHANGELOG
 
+## 2026-03-23 - Host exec safety tightening and tool-chain state alignment
+### What changed
+1. Tightened `HostExecService` Git validation so only read-only inspection forms are allowed. `git branch` is limited to listing flags, `git remote` is limited to listing output, and `git diff` / `git show` now block file-writing `--output` variants.
+2. Multi-tool turns now persist the full chain into assistant metadata via `toolNames`, `toolSummaries`, and `toolResultCount`, while keeping the existing single-tool fields for backward compatibility.
+3. Verification for tool-assisted turns now checks the whole tool chain instead of only the first tool result.
+4. Added integration coverage for blocked unsafe Git forms and end-to-end multi-tool state and metadata consistency.
+
+### Why it changed
+- The previous broad Git prefixes incorrectly treated mutating or file-writing forms as read-only host exec.
+- Tool-chain state already reached persisted state and audit, but assistant metadata and verification still reflected only the first tool result.
+
+## 2026-03-23 - Retrieval quality, tool chaining, and host exec expansion
+### What changed
+1. Improved knowledge chunking from fixed-size to Markdown-aware splitting (heading/paragraph boundaries, Chinese sentence breaks), with larger chunk size (800) and overlap (150) for better semantic coherence.
+2. Added Chinese and English stopword filtering to query term extraction, reducing noise in retrieval queries.
+3. Snippet extraction now centers around the first matched term instead of always truncating from the start of the chunk, making evidence previews more relevant.
+4. Tool orchestration now supports chain execution: a single request can trigger up to 3 tools in sequence (e.g., search + compute). The `decideAndRunChain` method replaces single-tool mode while `decideAndRun` remains backward-compatible.
+5. Expanded the host exec read-only allowlist from 9 to 30+ patterns: added `tree`, `hostname`, `whoami`, `systeminfo`, `Get-Process`, `Get-Date`, `Get-Location`, `Test-Path`, `Get-FileHash`, `Get-ItemProperty`, `Measure-Object`, safe Git inspection commands (`status`, `log`, `diff` without `--output`, `show` without `--output`, `branch` listing flags, `remote` listing flags), and read-only npm/node commands (`list`, `outdated`, `--version`).
+6. Added 5 new integration tests covering tool chaining, expanded host exec allowlist, stopword filtering, and snippet extraction centering.
+
+### Why it changed
+- Retrieval quality was limited by fixed-size chunking that ignored document structure and by noisy query terms that included common stopwords.
+- Single-tool execution prevented the system from combining search + compute in a single turn, which is a common real-world pattern.
+- The host exec allowlist was too narrow for practical use -- git/npm status queries and basic system info commands are read-only and safe.
+
 ## 2026-03-23 - Execution chain wiring, tool reliability, and UI confirmation cleanup
 ### What changed
 1. Wired expression preferences (`density`, `structuredFirst`, `reportingGranularity`) into `ExecutionFlow` and `ModelAdapter`, and switched the model-facing execution draft to a structured JSON contract with graceful plain-text fallback.
