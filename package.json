@@ -33,14 +33,14 @@
     "node": "20.x"
   },
   "dependencies": {
+    "@ai-sdk/anthropic": "^3.0.63",
+    "@ai-sdk/google": "^3.0.53",
+    "@ai-sdk/openai": "^3.0.48",
     "@iarna/toml": "^2.2.5",
-    "@langchain/core": "^0.3.69",
-    "@langchain/openai": "^0.6.9",
-    "@node-rs/jieba": "^2.0.1",
+    "ai": "^6.0.137",
     "better-sqlite3": "^11.8.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "langchain": "^0.3.33",
     "lucide-react": "^0.538.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",

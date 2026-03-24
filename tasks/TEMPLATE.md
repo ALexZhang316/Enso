@@ -31,7 +31,6 @@ draft
 - [ ] Read docs/collaboration-protocol.md
 - [ ] Read docs/baseline.md
 - [ ] Read docs/architecture.md
-- [ ] Read relevant docs/spec/*.md
 - [ ] Read docs/codebase-contract.md
 - [ ] Confirmed codebase-contract matches actual code
 - [ ] Recorded `npm run preflight` baseline, or explicitly justified reusing/skipping the full repo gate

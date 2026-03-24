@@ -1,5 +1,39 @@
 # CHANGELOG
 
+## 2026-03-24 - Enso v2 ground-up rewrite
+
+### What changed
+1. 移除 LangChain 框架，替换为 Vercel AI SDK（`ai`、`@ai-sdk/openai`、`@ai-sdk/anthropic`、`@ai-sdk/google`）。
+2. 移除 v1 全部复杂系统：执行流水线（规划器/执行引擎/验证器）、知识库/RAG、审计、权限门控、确认/拒绝流程、工作区、状态快照。
+3. 四模式系统（default/dialogue/decision/research）改为三板块隔离架构（dialogue/decision/research），移除 Default 模式。
+4. 提供商从五家（Kimi/OpenAI/DeepSeek/Anthropic/Gemini）精简为四家（OpenAI/Anthropic/Google/Kimi），移除 DeepSeek。
+5. UI 从三栏布局改为两栏布局（左面板 + 中心面板），移除右面板（计划/执行轨迹/验证结果显示）。
+6. 新增流式文本生成，通过 IPC 事件推送 chunk/end/error，支持用户取消。
+7. 新增每板块独立系统 prompt（深度对话/投资决策/科研辅助），定义在 `prompts.ts`。
+8. SQLite schema 大幅简化：仅保留 conversations、messages、app_state 三张表。
+9. 全部文档更新至 v2：architecture.md、baseline.md、codebase-contract.md、collaboration-protocol.md、CLAUDE.md、AGENTS.md、README.md、TODO_LIMITATIONS.md。
+10. 删除过时的 `docs/spec/` 目录（brain.md、permission.md、context.md、tools.md、ui.md、audit.md）。
+
+### Why it changed
+- v1 架构（13 步执行流水线、审计、权限门控、知识库）与用户实际需求严重不匹配。用户只需要三件事：深度对话、投资决策辅助、科研辅助。
+- LangChain 的复杂编排能力对这三个需求场景属于过度工程。Vercel AI SDK 更轻量、直接、多提供商支持好。
+- 能力优先取代防御优先：单用户桌面应用不需要企业级的审计、权限、验证体系。
+
+### Deleted files
+- `src/shared/modes.ts`
+- `src/main/core/execution-flow.ts`
+- `src/main/services/tool-service.ts`
+- `src/main/services/knowledge-service.ts`
+- `src/main/services/workspace-service.ts`
+- `src/main/services/host-exec-service.ts`
+- `src/main/services/segmenter.ts`
+- `src/main/providers/` (entire directory)
+- `src/renderer/components/RightPanel.tsx`
+- `src/renderer/lib/labels.ts`
+- `docs/spec/` (entire directory)
+
+---
+
 ## 2026-03-23 - Deep dialogue behavioral differentiation
 ### What changed
 1. `modes.ts` now defines `historyWindow` and `toolBias` per mode. Deep dialogue uses a 24-message history window (vs default 12) and `toolBias: "minimal"` to suppress accidental tool triggers.

@@ -1,167 +1,170 @@
-import { ModeId, OPTIONAL_MODES } from "@shared/modes";
+// Enso v2 左侧面板
+// 三个板块 Tab + 当前板块的会话列表 + 设置入口
+
+import { BoardId, BOARDS } from "@shared/boards";
 import { Conversation } from "@shared/types";
 import { Card, CardContent } from "@renderer/components/ui/card";
 import { ScrollArea } from "@renderer/components/ui/scroll-area";
 
-export type CenterView = "chat" | "knowledge" | "settings" | "audits";
-
 export interface LeftPanelProps {
-  activeMode: ModeId;
-  isLoading: boolean;
-  isSubmitting: boolean;
+  activeBoard: BoardId;
   conversations: Conversation[];
   activeConversationId: string;
-  centerView: CenterView;
-  onModeSelect: (mode: ModeId) => void;
+  isLoading: boolean;
+  isStreaming: boolean;
+  showSettings: boolean;
+  onBoardSwitch: (board: BoardId) => void;
   onCreateConversation: () => void;
   onSelectConversation: (id: string) => void;
   onRenameConversation: (conversation: Conversation) => void;
   onDeleteConversation: (id: string) => void;
   onTogglePin: (id: string) => void;
-  onToggleCenterView: (view: CenterView) => void;
+  onToggleSettings: () => void;
 }
 
 const LeftPanel = (props: LeftPanelProps): JSX.Element => {
   const {
-    activeMode,
-    isLoading,
-    isSubmitting,
+    activeBoard,
     conversations,
     activeConversationId,
-    centerView,
-    onModeSelect,
+    isLoading,
+    isStreaming,
+    showSettings,
+    onBoardSwitch,
     onCreateConversation,
     onSelectConversation,
     onRenameConversation,
     onDeleteConversation,
     onTogglePin,
-    onToggleCenterView
+    onToggleSettings
   } = props;
 
+  const disabled = isLoading || isStreaming;
+
   return (
-    <aside className="flex h-full min-h-0 flex-col gap-2.5" data-testid="left-rail">
+    <aside className="flex h-full min-h-0 flex-col gap-2.5" data-testid="left-panel">
+      {/* 板块 Tab */}
       <Card className="shrink-0">
-        <CardContent className="p-3">
-          <div className="flex gap-1.5">
-            {OPTIONAL_MODES.map((mode) => (
+        <CardContent className="p-2.5">
+          <div className="flex flex-col gap-1">
+            {BOARDS.map((board) => (
               <button
-                key={mode.id}
-                data-testid={`mode-button-${mode.id}`}
-                aria-pressed={activeMode === mode.id}
-                className={`flex-1 rounded-lg px-2 py-[7px] text-[11px] font-medium transition-all duration-200 whitespace-nowrap ${
-                  activeMode === mode.id
-                    ? "bg-primary text-primary-foreground shadow-sm"
-                    : "bg-black/[0.04] text-muted-foreground/70 hover:bg-black/[0.07] hover:text-foreground/60"
+                key={board.id}
+                data-testid={`board-tab-${board.id}`}
+                className={`w-full rounded-xl px-3 py-2.5 text-left text-[13px] transition-all duration-150 ${
+                  activeBoard === board.id
+                    ? "bg-primary text-primary-foreground font-medium shadow-sm"
+                    : "text-foreground/70 hover:bg-black/[0.04]"
                 }`}
-                onClick={() => onModeSelect(mode.id)}
-                disabled={isLoading || isSubmitting}
+                onClick={() => onBoardSwitch(board.id)}
+                disabled={disabled}
                 type="button"
               >
-                {mode.label}
+                <div className="font-medium">{board.label}</div>
+                <div className={`text-[10px] mt-0.5 ${
+                  activeBoard === board.id ? "text-primary-foreground/70" : "text-muted-foreground/50"
+                }`}>
+                  {board.description}
+                </div>
               </button>
             ))}
           </div>
         </CardContent>
       </Card>
 
+      {/* 会话列表 */}
       <Card className="min-h-0 flex-1 overflow-hidden">
         <CardContent className="flex h-full flex-col p-0">
           <div className="flex items-center justify-between px-4 pt-3 pb-1">
             <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/70">
-              {"\u4f1a\u8bdd"}
+              历史会话
             </div>
             <button
               data-testid="conversation-create-button"
               className="text-[13px] font-medium text-primary hover:text-primary/80 transition-colors"
               onClick={onCreateConversation}
+              disabled={disabled}
               type="button"
             >
-              {"\u65b0\u5efa"}
+              新建
             </button>
           </div>
           <ScrollArea className="flex-1 min-h-0 px-2 pb-2">
             <div className="space-y-0.5">
-              {conversations.map((conversation) => (
-                <div
-                  key={conversation.id}
-                  data-testid={`conversation-card-${conversation.id}`}
-                  className={`group rounded-xl px-3 py-2 text-[13px] transition-all duration-150 cursor-pointer ${
-                    conversation.id === activeConversationId
-                      ? "bg-primary text-white"
-                      : "text-foreground hover:bg-black/[0.04]"
-                  }`}
-                  onClick={() => onSelectConversation(conversation.id)}
-                  onDoubleClick={() => onRenameConversation(conversation)}
-                >
-                  <div className="flex items-center justify-between">
-                    <span className={`truncate ${conversation.pinned ? "font-medium" : ""}`}>
-                      {conversation.pinned ? "\ud83d\udccc " : ""}
-                      {conversation.title}
-                    </span>
-                    <div
-                      className={`flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity ${
-                        conversation.id === activeConversationId ? "opacity-100" : ""
-                      }`}
-                    >
-                      <button
-                        className={`rounded-md px-1.5 py-0.5 text-[10px] transition-colors ${
-                          conversation.id === activeConversationId
-                            ? "hover:bg-white/20 text-white/80"
-                            : "hover:bg-black/[0.06] text-muted-foreground"
+              {conversations.length === 0 ? (
+                <div className="px-3 py-6 text-center text-[12px] text-muted-foreground/40">
+                  暂无会话
+                </div>
+              ) : (
+                conversations.map((conv) => (
+                  <div
+                    key={conv.id}
+                    data-testid={`conversation-card-${conv.id}`}
+                    className={`group rounded-xl px-3 py-2 text-[13px] transition-all duration-150 cursor-pointer ${
+                      conv.id === activeConversationId
+                        ? "bg-primary text-white"
+                        : "text-foreground hover:bg-black/[0.04]"
+                    }`}
+                    onClick={() => onSelectConversation(conv.id)}
+                    onDoubleClick={() => onRenameConversation(conv)}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className={`truncate ${conv.pinned ? "font-medium" : ""}`}>
+                        {conv.pinned ? "📌 " : ""}
+                        {conv.title}
+                      </span>
+                      <div
+                        className={`flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity ${
+                          conv.id === activeConversationId ? "opacity-100" : ""
                         }`}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onTogglePin(conversation.id);
-                        }}
-                        type="button"
                       >
-                        {conversation.pinned ? "\u53d6\u56fa" : "\u7f6e\u9876"}
-                      </button>
-                      <button
-                        className={`rounded-md px-1.5 py-0.5 text-[10px] transition-colors ${
-                          conversation.id === activeConversationId
-                            ? "hover:bg-white/20 text-white/80"
-                            : "hover:bg-red-50 text-red-400"
-                        }`}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onDeleteConversation(conversation.id);
-                        }}
-                        type="button"
-                      >
-                        {"\u5220\u9664"}
-                      </button>
+                        <button
+                          className={`rounded-md px-1.5 py-0.5 text-[10px] transition-colors ${
+                            conv.id === activeConversationId
+                              ? "hover:bg-white/20 text-white/80"
+                              : "hover:bg-black/[0.06] text-muted-foreground"
+                          }`}
+                          onClick={(e) => { e.stopPropagation(); onTogglePin(conv.id); }}
+                          type="button"
+                        >
+                          {conv.pinned ? "取固" : "置顶"}
+                        </button>
+                        <button
+                          className={`rounded-md px-1.5 py-0.5 text-[10px] transition-colors ${
+                            conv.id === activeConversationId
+                              ? "hover:bg-white/20 text-white/80"
+                              : "hover:bg-red-50 text-red-400"
+                          }`}
+                          onClick={(e) => { e.stopPropagation(); onDeleteConversation(conv.id); }}
+                          type="button"
+                        >
+                          删除
+                        </button>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                ))
+              )}
             </div>
           </ScrollArea>
         </CardContent>
       </Card>
 
+      {/* 设置入口 */}
       <Card className="shrink-0">
-        <CardContent className="p-2 space-y-0.5">
-          {[
-            { key: "knowledge" as CenterView, label: "\u77e5\u8bc6\u5e93", testId: "nav-knowledge-button" },
-            { key: "settings" as CenterView, label: "\u8bbe\u7f6e", testId: "nav-settings-button" },
-            { key: "audits" as CenterView, label: "\u5ba1\u8ba1\u8bb0\u5f55", testId: "nav-audits-button" }
-          ].map((nav) => (
-            <button
-              key={nav.key}
-              data-testid={nav.testId}
-              className={`w-full rounded-xl px-3 py-2.5 text-left text-[13px] transition-all duration-150 ${
-                centerView === nav.key
-                  ? "bg-primary/10 text-primary font-medium"
-                  : "text-foreground/70 hover:bg-black/[0.04]"
-              }`}
-              onClick={() => onToggleCenterView(nav.key)}
-              disabled={isLoading || isSubmitting}
-              type="button"
-            >
-              {nav.label}
-            </button>
-          ))}
+        <CardContent className="p-2">
+          <button
+            data-testid="settings-button"
+            className={`w-full rounded-xl px-3 py-2.5 text-left text-[13px] transition-all duration-150 ${
+              showSettings
+                ? "bg-primary/10 text-primary font-medium"
+                : "text-foreground/70 hover:bg-black/[0.04]"
+            }`}
+            onClick={onToggleSettings}
+            type="button"
+          >
+            设置
+          </button>
         </CardContent>
       </Card>
     </aside>

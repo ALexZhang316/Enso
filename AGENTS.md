@@ -20,8 +20,7 @@ Before writing any code, read these in order:
 2. `docs/collaboration-protocol.md`
 3. `docs/baseline.md`
 4. `docs/architecture.md`
-5. Relevant files under `docs/spec/`
-6. `docs/codebase-contract.md`
+5. `docs/codebase-contract.md`
 7. `docs/environment-and-github-bootstrap.md`
 
 ## Document authority
@@ -33,15 +32,9 @@ Before writing any code, read these in order:
 
 ### Behavioral source of truth
 
-All files under `docs/spec/` define the runtime and user-visible behavior contract:
-- `brain.md` - execution flow, trace phases, verification
-- `permission.md` - permission model, gate rules, confirmation
-- `context.md` - knowledge, retrieval, context assembly, state
-- `tools.md` - tool orchestration, routing, failure handling
-- `ui.md` - shell layout and interaction
-- `audit.md` - audit event contract
+`docs/baseline.md` and `docs/architecture.md` define the product identity and runtime architecture.
 
-If this file conflicts with `docs/spec/*.md` on behavior, `docs/spec/*.md` wins.
+If this file conflicts with those documents on behavior, they win.
 
 ### Collaboration
 
@@ -53,7 +46,6 @@ If this file conflicts with `docs/spec/*.md` on behavior, `docs/spec/*.md` wins.
 
 ### Reference
 
-- `docs/openclaw-reference-notes.md` - architectural extraction guide
 - `docs/environment-and-github-bootstrap.md` - environment setup
 - `docs/reviews/` - review artifacts
 - `docs/handoffs/` - branch handoff documents
@@ -66,16 +58,13 @@ If uncertainty remains:
 ## Product boundaries (non-negotiable)
 
 Keep these:
-- Fixed three-panel desktop shell
-- Default mode always available
-- Optional manual modes: Deep Dialogue, Decision, Research
-- No automatic mode routing
-- planner -> executor -> verifier as the main execution backbone
-- Visible plan, trace, verification, and audit signals
-- Local config, session/state, audit, workspace, and knowledge metadata
-- File import and a retrieval path
-- Typed bounded tools: read, search, compute, workspace-write, exec
-- Explicit permission boundaries for higher-risk actions
+- Two-column desktop shell (left panel + center panel)
+- Three boards: dialogue, decision, research — mutually exclusive, user-selected
+- No automatic board switching or routing
+- No "default mode"
+- Streaming text generation via Vercel AI SDK
+- Local config, session/state persistence
+- Per-provider model and API key configuration
 
 Do not introduce these:
 - Hidden side-effect execution
@@ -83,8 +72,8 @@ Do not introduce these:
 - Messaging-channel expansion as a product pillar
 - Companion-persona framing as a product goal
 - Automatic long-term personality memory
-- Multi-agent product identity as a current priority
-- Product drift away from execution-first local task completion
+- Audit, permission gate, or verification systems
+- Planner/executor/verifier execution pipeline
 
 Implementation details are flexible. Product behavior is not.
 
@@ -154,13 +143,11 @@ Default:
 - Materially affected docs updated
 
 Release/milestone gate (only when claiming repo-wide health):
-- App launches, three-panel UI works, mode switching works
-- Requests can be submitted and answered
-- State, plan, and audit summaries visible
-- File import plus retrieval wired
-- Workspace used by the execution chain
-- Bounded tool execution end-to-end
-- Verifier confirms basic artifact existence
+- App launches, two-column UI works, board switching works
+- Messages can be sent and streamed back
+- Conversations can be created, selected, renamed, deleted per board
+- Model/provider selection works
+- Settings page with API key management works
 
 Do not force the release gate for every small task.
 Do not claim more than your verification proves.
@@ -179,7 +166,7 @@ The task index is `tasks/INDEX.md`.
 ## Tech stack (locked)
 
 - Electron, React + TypeScript, Tailwind CSS + shadcn/ui
-- LangChain.js (orchestration only)
+- Vercel AI SDK (`ai`, `@ai-sdk/openai`, `@ai-sdk/anthropic`, `@ai-sdk/google`)
 - better-sqlite3 + SQLite, TOML config
 - Node.js 20.x LTS, Electron stable major
 - Do not switch to Tauri, Next.js, YAML, or cloud-first architecture unless instructed.

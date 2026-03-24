@@ -1,35 +1,58 @@
-﻿import { contextBridge, ipcRenderer } from "electron";
+// Enso v2 Preload — 精简版
+// 桥接主进程 IPC 到渲染进程 window.enso
+
+import { contextBridge, ipcRenderer } from "electron";
 import { EnsoBridge } from "../shared/bridge";
-import { ModeId } from "../shared/modes";
-import { EnsoConfig, ExecutionInput } from "../shared/types";
+import { BoardId } from "../shared/boards";
+import { ProviderId } from "../shared/providers";
+import { EnsoConfig } from "../shared/types";
 
 const bridge: EnsoBridge = {
+  // 初始化
   initialize: () => ipcRenderer.invoke("enso:init"),
-  createConversation: (title?: string) => ipcRenderer.invoke("enso:conversation:create", title),
-  selectConversation: (conversationId: string) => ipcRenderer.invoke("enso:conversation:select", conversationId),
+
+  // 会话 CRUD
+  createConversation: (board: BoardId, title?: string) =>
+    ipcRenderer.invoke("enso:conversation:create", board, title),
+  selectConversation: (conversationId: string) =>
+    ipcRenderer.invoke("enso:conversation:select", conversationId),
   renameConversation: (conversationId: string, title: string) =>
     ipcRenderer.invoke("enso:conversation:rename", { conversationId, title }),
-  deleteConversation: (conversationId: string) => ipcRenderer.invoke("enso:conversation:delete", conversationId),
-  togglePinConversation: (conversationId: string) => ipcRenderer.invoke("enso:conversation:toggle-pin", conversationId),
-  setMode: (conversationId: string, mode: ModeId) => ipcRenderer.invoke("enso:mode:set", { conversationId, mode }),
+  deleteConversation: (conversationId: string) =>
+    ipcRenderer.invoke("enso:conversation:delete", conversationId),
+  togglePinConversation: (conversationId: string) =>
+    ipcRenderer.invoke("enso:conversation:toggle-pin", conversationId),
+
+  // 配置
   getConfig: () => ipcRenderer.invoke("enso:config:get"),
   saveConfig: (config: EnsoConfig) => ipcRenderer.invoke("enso:config:save", config),
-  hasProviderApiKey: (providerId: import("../shared/providers").ProviderId) =>
+  hasProviderApiKey: (providerId: ProviderId) =>
     ipcRenderer.invoke("enso:provider:key:has", providerId),
-  clearProviderApiKey: (providerId: import("../shared/providers").ProviderId) =>
+  clearProviderApiKey: (providerId: ProviderId) =>
     ipcRenderer.invoke("enso:provider:key:clear", providerId),
-  importKnowledgeFiles: () => ipcRenderer.invoke("enso:file:import"),
-  retrieveKnowledge: (query: string) => ipcRenderer.invoke("enso:knowledge:retrieve", query),
-  listAudits: (conversationId?: string) => ipcRenderer.invoke("enso:audit:list", conversationId),
-  resolvePendingConfirmation: (conversationId: string) =>
-    ipcRenderer.invoke("enso:confirmation:resolve", conversationId),
-  rejectPendingConfirmation: (conversationId: string) =>
-    ipcRenderer.invoke("enso:confirmation:reject", conversationId),
-  submitRequest: (input: ExecutionInput) => ipcRenderer.invoke("enso:request:submit", input),
-  getAppInfo: () => ({
-    name: "Enso",
-    version: "0.1.0"
-  })
+
+  // 聊天
+  sendMessage: (params) => ipcRenderer.invoke("enso:chat:send", params),
+  cancelStream: (conversationId: string) => ipcRenderer.invoke("enso:chat:cancel", conversationId),
+
+  // 流式事件监听
+  onStreamChunk: (callback) => {
+    ipcRenderer.on("enso:chat:stream-chunk", (_event, data) => callback(data));
+  },
+  onStreamEnd: (callback) => {
+    ipcRenderer.on("enso:chat:stream-end", (_event, data) => callback(data));
+  },
+  onStreamError: (callback) => {
+    ipcRenderer.on("enso:chat:stream-error", (_event, data) => callback(data));
+  },
+  removeAllStreamListeners: () => {
+    ipcRenderer.removeAllListeners("enso:chat:stream-chunk");
+    ipcRenderer.removeAllListeners("enso:chat:stream-end");
+    ipcRenderer.removeAllListeners("enso:chat:stream-error");
+  },
+
+  // 应用信息
+  getAppInfo: () => ({ name: "Enso", version: "0.2.0" })
 };
 
 contextBridge.exposeInMainWorld("enso", bridge);

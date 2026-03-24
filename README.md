@@ -1,4 +1,4 @@
-# Enso Repository Baseline v0.3.4
+# Enso Repository Baseline v2.0.0
 
 The latest handoff pack has already been internalized into this repository.
 Project-internal documents are the only active source of truth.
@@ -9,9 +9,8 @@ Do not rely on any external zip file during implementation or handoff.
 1. `docs/collaboration-protocol.md` - role split and review rules
 2. `docs/baseline.md` - product identity and direction
 3. `docs/architecture.md` - component boundary map
-4. relevant files under `docs/spec/` - behavioral source of truth
-5. `docs/codebase-contract.md` - code-layer contract
-6. `docs/environment-and-github-bootstrap.md` - environment setup
+4. `docs/codebase-contract.md` - code-layer contract
+5. `docs/environment-and-github-bootstrap.md` - environment setup
 
 Agent-specific configuration (independent files, not synchronized):
 - `AGENTS.md` - operational manual for Codex (implementation agent)
@@ -22,47 +21,39 @@ Agent-specific configuration (independent files, not synchronized):
 | Scope | Files |
 |------|-------|
 | Product and architecture | `docs/baseline.md`, `docs/architecture.md` |
-| Behavioral source of truth | `docs/spec/brain.md`, `docs/spec/permission.md`, `docs/spec/context.md`, `docs/spec/tools.md`, `docs/spec/ui.md`, `docs/spec/audit.md` |
+| Behavioral source of truth | `docs/baseline.md`, `docs/architecture.md` |
 | Collaboration and review | `docs/collaboration-protocol.md`, `docs/reviews/`, `docs/handoffs/` |
 | Code-layer contract | `docs/codebase-contract.md` |
-| Reference and operational | `docs/openclaw-reference-notes.md`, `docs/environment-and-github-bootstrap.md` |
+| Reference and operational | `docs/environment-and-github-bootstrap.md` |
 
 ## Project identity
 
 - Single-user Windows desktop app
-- Main chat window as control surface
-- Local-first control plane
-- Execution-first personal agent
-- Problem solving over personality
-- Tools, state, and verification over vibe
-- Readable audit trail
+- 三板块对话工具：深度对话、投资决策、科研辅助
+- 能力优先，不是防御优先
+- 本地数据所有权
+- 多提供商（OpenAI、Anthropic、Google、Kimi）
 
-## Mode system
+## 板块系统
 
-Enso always has a **default mode**.
-Users may optionally enable exactly one of three mutually exclusive modes:
-- Deep Dialogue
-- Decision
-- Research
+Enso 有三个严格隔离的板块，用户手动切换：
+- **深度对话 (dialogue)** — 哲学、艺术、宗教、美学
+- **投资决策 (decision)** — 美股长期资产配置
+- **科研辅助 (research)** — 临床医学文献与论文
 
-These modes are behavior biases applied to the same shared execution core.
-If no optional mode is enabled, Enso runs in default mode.
-No automatic mode routing.
+没有默认模式，没有自动路由。
 
 ## Locked implementation stack for the current stage
 
 - Electron
 - React + TypeScript
 - Tailwind CSS + shadcn/ui
-- LangChain.js
-- better-sqlite3
-- SQLite
-- TOML
-- provider abstraction with one model provider first
+- Vercel AI SDK (`ai`, `@ai-sdk/openai`, `@ai-sdk/anthropic`, `@ai-sdk/google`)
+- better-sqlite3 + SQLite
+- TOML config
 
 Node.js should stay on `20.x` for the current project stage.
 Electron should stay on the current stable major unless there is a real blocker.
-LangChain.js is glue/orchestration only and must not replace the product-defined execution flow.
 
 ## Environment and GitHub bootstrap
 

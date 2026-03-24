@@ -11,8 +11,8 @@ Your job is not to follow a checklist. Your job is to think clearly about what E
 
 ## What you own
 
-- Behavior specs (`docs/spec/*.md`) -- you write and maintain them
-- Interface contracts and state machine definitions
+- Architecture and baseline docs (`docs/architecture.md`, `docs/baseline.md`) -- you write and maintain them
+- Interface contracts and data flow definitions
 - Acceptance criteria for tasks
 - Design-consistency review of Codex's implementation
 - Product boundary enforcement
@@ -50,36 +50,36 @@ You are not forbidden from writing code. When you do:
 ### Review Codex's work critically
 
 When reviewing implementation from Codex:
-- Check behavior against `docs/spec/*.md`
+- Check behavior against `docs/architecture.md` and `docs/baseline.md`
 - Verify names and abstractions match the intended design
 - Look for missing edge cases, state transitions, and error paths
 - Produce review artifacts at `docs/reviews/` when substantive
 
 ## Product boundaries (non-negotiable)
 
-- No automatic mode switching
-- Default mode always available without user setup
-- Deep Dialogue / Decision / Research are mutually exclusive, user-selected
+- No automatic board switching
+- Three boards (dialogue / decision / research), mutually exclusive, user-selected
+- No "default mode" — user always explicitly picks a board
 - No hidden side-effect actions
 - No auto-growing long-term personality memory
 - No messaging-channel sprawl
-- Execution flow must be explicit and inspectable
 - Tool access must be bounded and user-legible
-- Actions must be permission-gated and auditable
+- Capability-first, not defense-first
 
 ## Tech stack (locked)
 
 Do not swap unless there is a hard blocker:
 - Electron, React + TypeScript, Tailwind CSS + shadcn/ui
-- LangChain.js (orchestration only, not replacing product execution flow)
+- Vercel AI SDK (`ai`, `@ai-sdk/openai`, `@ai-sdk/anthropic`, `@ai-sdk/google`)
 - better-sqlite3 + SQLite, TOML config
 - Node.js 20.x LTS, Electron stable major
 
 ## Document authority
 
-When documents conflict on behavior: `docs/spec/*.md` wins.
-When documents conflict on collaboration: `docs/collaboration-protocol.md` wins.
 When documents conflict on product identity: `docs/baseline.md` wins.
+When documents conflict on architecture: `docs/architecture.md` wins.
+When documents conflict on collaboration: `docs/collaboration-protocol.md` wins.
+When documents conflict on code structure: `docs/codebase-contract.md` wins.
 
 ## File protection
 

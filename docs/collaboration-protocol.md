@@ -1,4 +1,4 @@
-# Collaboration Protocol v0.3.4
+# Collaboration Protocol v2.0.0
 
 ## Purpose
 
@@ -14,7 +14,6 @@ It exists so the collaboration rules do not live only in chat history or on a de
 
 - On collaboration, ownership, review, and handoff questions, this file wins over `AGENTS.md` and `CLAUDE.md`.
 - On product identity and architectural boundaries, use `docs/baseline.md` and `docs/architecture.md`.
-- On runtime behavior and user-visible contract, `docs/spec/*.md` is the source of truth.
 - On code structure, schema, and current implementation notes, use `docs/codebase-contract.md`.
 
 ## Agent configuration files
@@ -58,16 +57,16 @@ In short:
 
 ## Repo mapping
 
-The collaboration split maps to the current Enso repo like this:
+The collaboration split maps to the current Enso v2 repo like this:
 
-| Area | Spec owner | Implementation owner | Main repo paths |
-|------|------------|----------------------|-----------------|
-| Brain / execution flow | `docs/spec/brain.md` | Codex | `src/main/core/execution-flow.ts`, `src/main/ipc.ts`, `src/shared/types.ts` |
-| Context / retrieval / state | `docs/spec/context.md` | Codex | `src/main/services/knowledge-service.ts`, `src/main/services/store.ts`, `src/shared/types.ts` |
-| Permission / safety | `docs/spec/permission.md` | Codex | `src/main/core/execution-flow.ts`, `src/main/services/host-exec-service.ts`, `src/main/services/config-service.ts`, renderer confirmation UI |
-| Tool orchestration | `docs/spec/tools.md` | Codex | `src/main/services/tool-service.ts`, `src/main/services/workspace-service.ts`, `src/main/services/host-exec-service.ts` |
-| UI shell and interaction | `docs/spec/ui.md` | Codex | `src/renderer/App.tsx`, `src/renderer/components/`, `src/renderer/lib/` |
-| Audit | `docs/spec/audit.md` | Codex | `src/main/services/store.ts`, `src/main/core/execution-flow.ts`, renderer audit surfaces |
+| Area | Implementation owner | Main repo paths |
+|------|----------------------|-----------------|
+| 模型适配与流式对话 | Codex | `src/main/services/model-adapter.ts`, `src/main/services/prompts.ts` |
+| IPC 与会话管理 | Codex | `src/main/ipc.ts`, `src/main/main.ts`, `src/main/preload.ts` |
+| 数据持久化 | Codex | `src/main/services/store.ts`, `src/main/services/config-service.ts`, `src/main/services/secret-service.ts` |
+| 共享类型与契约 | Codex | `src/shared/boards.ts`, `src/shared/types.ts`, `src/shared/bridge.ts`, `src/shared/providers.ts` |
+| 渲染器 UI | Codex | `src/renderer/App.tsx`, `src/renderer/components/`, `src/renderer/lib/` |
+| 文档与规范 | Claude | `docs/`, `CLAUDE.md` |
 
 Cross-cutting files such as `src/shared/types.ts`, `src/main/ipc.ts`, and broad renderer wiring must have a single explicit owner for a given branch or task.
 If ownership is unclear, Alex decides.
@@ -80,9 +79,9 @@ Trigger:
 - after Codex lands a branch-sized implementation change or reviewable milestone
 
 Focus:
-- behavior matches `docs/spec/*.md`
+- behavior matches `docs/architecture.md` and `docs/baseline.md`
 - names and abstractions still match the intended design
-- state transitions and edge cases still align with the spec
+- data flow and edge cases still align with the design
 
 Artifact:
 - `docs/reviews/<area>-<date>.md`
@@ -124,12 +123,10 @@ Do not create empty ceremony for every trivial change.
 Avoid concurrent edits to the same file set.
 Prefer branch ownership by current repo slices:
 
-- Execution core: `src/main/core/`, `src/shared/types.ts`, `src/main/ipc.ts`
-- Context and persistence: `src/main/services/knowledge-service.ts`, `src/main/services/store.ts`, related config/state files
-- Tools and safety: `src/main/services/tool-service.ts`, `src/main/services/workspace-service.ts`, `src/main/services/host-exec-service.ts`
-- Provider wiring: `src/main/providers/`, `src/main/services/model-adapter.ts`, `src/main/services/secret-service.ts`
-- Renderer shell: `src/renderer/App.tsx`, `src/renderer/components/`, `src/renderer/lib/`
-- Docs and contracts: `docs/`, `AGENTS.md`, `CLAUDE.md`, `README.md`, `tasks/`
+- 主进程服务: `src/main/services/`, `src/main/ipc.ts`, `src/main/main.ts`
+- 共享层: `src/shared/`
+- 渲染器: `src/renderer/`
+- 文档: `docs/`, `CLAUDE.md`, `AGENTS.md`
 
 If a change must cross slices, assign one owner and let the other side review instead of editing the same files in parallel.
 

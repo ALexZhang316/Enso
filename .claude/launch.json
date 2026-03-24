@@ -4,7 +4,7 @@
     {
       "name": "vite-renderer",
       "runtimeExecutable": "node",
-      "runtimeArgs": ["node_modules/vite/bin/vite.js", "--host", "localhost", "--port", "5173", "--strictPort"],
+      "runtimeArgs": ["node_modules/cross-env/src/bin/cross-env.js", "VITE_ENABLE_BROWSER_MOCK=true", "VITE_CJS_IGNORE_WARNING=true", "node", "node_modules/vite/bin/vite.js", "--host", "localhost", "--port", "5173", "--strictPort"],
       "port": 5173
     },
     {

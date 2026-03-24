@@ -1,35 +1,9 @@
-# Codebase Contract v0.3.4
+# Codebase Contract v0.4.0
 
 ## Purpose
 
 This file records the current repo-local contract for the codebase as it exists today.
-It is not a running changelog.
 Prefer current code over stale prose, and update this file when directory structure, module ownership, schema, or known active issues materially change.
-
-## Document authority
-
-See `AGENTS.md` for the full authority model.
-
-Summary:
-- Product and architecture: `docs/baseline.md`, `docs/architecture.md`
-- Behavioral source of truth: `docs/spec/*.md`
-- Collaboration protocol: `docs/collaboration-protocol.md`
-- Code-layer contract: this file
-- Reference and operational: `docs/openclaw-reference-notes.md`, `docs/environment-and-github-bootstrap.md`
-
-## Workflow docs
-
-- `AGENTS.md` is the repo-local supplement to the global AGENTS rules.
-- `CLAUDE.md` mirrors the same repo-local contract for clients that read it.
-- `docs/collaboration-protocol.md` records Alex / Claude / Codex collaboration rules, review artifacts, and handoff expectations.
-- `README.md` is a human-readable repository overview and should be kept in sync, but it is not a source-of-truth document.
-
-## Current workflow state
-
-- The repo keeps the simple loop `PREFLIGHT -> PLAN -> WORK -> VERIFY -> POSTFLIGHT -> DONE`.
-- `npm run preflight`, `npm run verify`, and `npm run postflight` are green after the execution-chain wiring, tool-reliability, and UI cleanup rounds.
-- `scripts/bootstrap-git.ps1` is the supported Git/GitHub bootstrap path when `.git` is missing; it now requires GitHub CLI authentication and links the local `gh` default repository to `origin`.
-- For doc-only work, a recorded red baseline plus `node scripts/check-docs-updated.cjs` is an acceptable verification fallback when those unrelated regressions prevent full postflight from going green.
 
 ## Current directory contract
 
@@ -37,49 +11,23 @@ Summary:
 config/
   default.toml
 docs/
-  collaboration-protocol.md
   baseline.md
   architecture.md
   codebase-contract.md
+  collaboration-protocol.md
   environment-and-github-bootstrap.md
-  openclaw-reference-notes.md
-  spec/
-    brain.md
-    permission.md
-    context.md
-    tools.md
-    ui.md
-    audit.md
-  reviews/
-  handoffs/
 scripts/
   bootstrap-git.ps1
   check-docs-updated.cjs
   enable-utf8-terminal.ps1
 src/
   main/
-    core/
-      execution-flow.ts
-    providers/
-      anthropic-provider.ts
-      deepseek-provider.ts
-      gemini-provider.ts
-      kimi-provider.ts
-      openai-compatible-provider.ts
-      openai-provider.ts
-      provider-factory.ts
-      provider-http-utils.ts
-      types.ts
     services/
       config-service.ts
-      host-exec-service.ts
-      knowledge-service.ts
       model-adapter.ts
+      prompts.ts
       secret-service.ts
-      segmenter.ts
       store.ts
-      tool-service.ts
-      workspace-service.ts
     ipc.ts
     main.ts
     preload.ts
@@ -91,111 +39,82 @@ src/
     components/
       LeftPanel.tsx
       CenterPanel.tsx
-      RightPanel.tsx
       ui/
     lib/
-      labels.ts
       utils.ts
+    assets/
+      alex-avatar.jpg
+      enso-avatar.png
   shared/
+    boards.ts
     bridge.ts
-    modes.ts
     providers.ts
     types.ts
-tasks/
-  0001-cjk-segmentation.md
-  INDEX.md
-  TEMPLATE.md
 ```
 
 ## Runtime module contract
 
-### Core runtime
-
-- `src/main/core/execution-flow.ts`
-  Owns the planner -> executor -> verifier turn flow, structured execution-draft parsing, pending confirmation resolution, trace writing, and persistence handoff, including multi-tool chain state/metadata alignment. Request classification now accepts a `toolBias` parameter from the active mode to control tool trigger sensitivity (minimal mode uses strict command detection).
-
 ### Main-process services
 
-- `config-service.ts`
-  Loads, normalizes, validates, and saves TOML config.
-- `host-exec-service.ts`
-  Validates and executes bounded read-only host commands under the current workspace rules, including subcommand-level Git inspection checks, captures stdout/stderr/exit code, and enforces a configurable timeout.
-- `knowledge-service.ts`
-  Imports local documents, chunks them, and retrieves evidence through the store. Query term extraction uses jieba segmentation for Chinese text.
-- `segmenter.ts`
-  Standalone jieba wrapper exposing `segmentChinese` (pre-segment text for FTS5 indexing) and `segmentTerms` (extract word tokens for queries). Isolated to avoid circular dependencies.
 - `model-adapter.ts`
-  Wraps provider-backed text generation, injects expression/reporting preferences and mode-specific behavioral prompts into the system prompt, and supports structured execution-draft output mode.
+  Wraps Vercel AI SDK (`ai`, `@ai-sdk/openai`, `@ai-sdk/anthropic`, `@ai-sdk/google`) for streaming text generation across four providers (OpenAI, Anthropic, Google, Kimi). Injects board-specific system prompts.
+- `prompts.ts`
+  Board-specific system prompt definitions for dialogue, decision, and research.
+- `config-service.ts`
+  Loads, normalizes, and saves TOML config. Supports per-provider model/baseUrl configuration.
 - `secret-service.ts`
-  Stores provider keys using Electron safe storage.
+  Stores provider API keys using Electron safe storage with AES-256-GCM fallback.
 - `store.ts`
-  Owns SQLite persistence for conversations, messages, state, audits, and knowledge.
-- `tool-service.ts`
-  Decides and runs bounded rule-based tool calls, including sequential chains up to 3 tools per request, and returns structured `ToolRunResult` payloads.
-- `workspace-service.ts`
-  Manages the Enso-owned local workspace root, explicit in-workspace path resolution, and bounded writes.
-
-### Provider layer
-
-Current provider implementations:
-- Kimi
-- OpenAI
-- DeepSeek
-- Anthropic
-- Gemini
-
-Provider wiring lives under `src/main/providers/`.
+  Owns SQLite persistence for conversations, messages, and app state. No audit, knowledge, or state snapshot tables.
 
 ### Shared contract layer
 
-- `src/shared/modes.ts`
-  Defines `default`, `deep-dialogue`, `decision`, and `research` with cleaned renderer-facing labels and descriptions.
+- `src/shared/boards.ts`
+  Defines three boards: `dialogue`, `decision`, `research`. Each board has temperature, maxTokens, historyWindow, and hasTools settings.
 - `src/shared/providers.ts`
-  Defines provider presets exposed in the app.
+  Defines four provider presets: `openai`, `anthropic`, `google`, `kimi`.
 - `src/shared/types.ts`
-  Defines core runtime, config, trace, verification, and permission types plus the cleaned shared permission labels used by the shell.
+  Core types: Conversation, ChatMessage, EnsoConfig, ProviderConfig, StreamChunk/End/Error, InitializationPayload.
+- `src/shared/bridge.ts`
+  IPC bridge contract between renderer and main process. Includes stream event listeners.
 
 ### Renderer contract
 
 - `src/renderer/App.tsx`
-  Owns the fixed three-panel shell and the renderer-visible state for conversations, mode toggles, config, plan, trace, verification, pending confirmations, evidence, and audit signals, including refresh after request completion and confirmation resolution/rejection.
-- `src/renderer/components/`
-  Holds LeftPanel, CenterPanel, RightPanel and local UI primitives. CenterPanel owns the visible confirm/reject action card; RightPanel renders live plan/trace/verification/audit panels from the current IPC snapshot.
-- `src/renderer/lib/labels.ts`
-  Pure mapping functions for display labels.
+  Two-column layout. Manages board switching, conversation CRUD, streaming state, model selection.
+- `src/renderer/components/LeftPanel.tsx`
+  Board tabs + conversation list + settings entry.
+- `src/renderer/components/CenterPanel.tsx`
+  Chat messages with streaming display, markdown rendering, model/provider selector, settings page.
 
 ## Current config contract
 
-### Modes
+### Boards
 
-- `default` is the implicit baseline mode.
-- Optional modes are `deep-dialogue`, `decision`, and `research`.
-- Optional modes are manual and mutually exclusive.
+Three boards, no default mode:
+- `dialogue` — deep philosophical/aesthetic conversations
+- `decision` — investment analysis and asset allocation
+- `research` — clinical medicine literature and paper writing
 
 ### Providers
 
 Current preset ids:
-- `kimi`
 - `openai`
-- `deepseek`
 - `anthropic`
-- `gemini`
+- `google`
+- `kimi`
 
-### Expression config
+Each provider has independent model, baseUrl, and API key configuration.
 
-- `density`: `concise | standard | detailed`
-- `structuredFirst`: boolean
-- top-level `reportingGranularity`: `plan-level | result-level`
+### Removed from v1
 
-### Permission config
-
-Per-action `allow | confirm | block` map for:
-- `workspace_write`
-- `host_exec_readonly`
-- `host_exec_destructive`
-- `external_network`
-
-Workspace reads are implicitly allowed.
+- Expression config (density, structuredFirst, reportingGranularity)
+- Permission config (action types, permission levels)
+- Mode defaults (defaultMode)
+- Knowledge/RAG system
+- Audit system
+- State snapshots
+- Execution flow pipeline
 
 ## Persistence contract
 
@@ -204,9 +123,10 @@ SQLite tables currently owned by `src/main/services/store.ts`:
 ```sql
 CREATE TABLE conversations (
   id TEXT PRIMARY KEY,
+  board TEXT NOT NULL,
   title TEXT NOT NULL,
-  mode TEXT NOT NULL,
   pinned INTEGER NOT NULL DEFAULT 0,
+  model TEXT NOT NULL DEFAULT '',
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
@@ -216,56 +136,8 @@ CREATE TABLE messages (
   conversation_id TEXT NOT NULL,
   role TEXT NOT NULL,
   content TEXT NOT NULL,
-  metadata_json TEXT NOT NULL DEFAULT '{}',
+  tool_name TEXT,
   created_at TEXT NOT NULL
-);
-
-CREATE TABLE state_snapshots (
-  conversation_id TEXT PRIMARY KEY,
-  retrieval_used INTEGER NOT NULL DEFAULT 0,
-  tools_called_json TEXT NOT NULL DEFAULT '[]',
-  latest_tool_result TEXT NOT NULL DEFAULT '',
-  pending_confirmation INTEGER NOT NULL DEFAULT 0,
-  pending_action_json TEXT NOT NULL DEFAULT 'null',
-  task_status TEXT NOT NULL DEFAULT 'idle',
-  updated_at TEXT NOT NULL,
-  plan_json TEXT NOT NULL DEFAULT 'null',
-  trace_json TEXT NOT NULL DEFAULT '[]',
-  verification_json TEXT NOT NULL DEFAULT 'null'
-);
-
-CREATE TABLE audits (
-  id TEXT PRIMARY KEY,
-  conversation_id TEXT NOT NULL,
-  mode TEXT NOT NULL,
-  retrieval_used INTEGER NOT NULL DEFAULT 0,
-  tools_used_json TEXT NOT NULL DEFAULT '[]',
-  result_type TEXT NOT NULL,
-  risk_notes TEXT NOT NULL DEFAULT '',
-  created_at TEXT NOT NULL
-);
-
-CREATE TABLE knowledge_sources (
-  id TEXT PRIMARY KEY,
-  name TEXT NOT NULL,
-  path TEXT NOT NULL,
-  chunk_count INTEGER NOT NULL DEFAULT 0,
-  created_at TEXT NOT NULL
-);
-
-CREATE TABLE knowledge_chunks (
-  id TEXT PRIMARY KEY,
-  source_id TEXT NOT NULL,
-  chunk_index INTEGER NOT NULL,
-  content TEXT NOT NULL,
-  metadata_json TEXT NOT NULL DEFAULT '{}'
-);
-
-CREATE VIRTUAL TABLE knowledge_chunks_fts USING fts5(
-  chunk_id UNINDEXED,
-  source_id UNINDEXED,
-  content,
-  tokenize = 'unicode61 remove_diacritics 2'
 );
 
 CREATE TABLE app_state (
@@ -274,30 +146,34 @@ CREATE TABLE app_state (
 );
 ```
 
-## Active task files
+## Dependencies
 
-Current tracked repo-local task files:
-- `tasks/0002-permission-boundary-rework.md` (completed reference task)
-- `tasks/0003-exec-chain-wiring.md`
-- `tasks/0004-tool-reliability.md`
-- `tasks/0005-ui-cleanup-panels.md`
+### Runtime
+- `ai` — Vercel AI SDK core
+- `@ai-sdk/openai` — OpenAI + Kimi (compatible) provider
+- `@ai-sdk/anthropic` — Anthropic provider
+- `@ai-sdk/google` — Google Gemini provider
+- `better-sqlite3` — SQLite database
+- `@iarna/toml` — TOML config parsing
+- `react`, `react-dom` — UI framework
+- `react-markdown`, `remark-gfm` — Markdown rendering
+- Tailwind CSS + shadcn/ui component primitives
+
+### Removed from v1
+- `@langchain/core`, `@langchain/openai`, `langchain`
+- `@node-rs/jieba` (Chinese word segmentation)
 
 ## Known active issues
 
-- Runtime permission enforcement now covers workspace_write, host_exec_readonly, and external_network with real allow/confirm/block semantics. Advanced permission dimensions (model_call/local_egress split, intent-source classification) are deferred.
-- Tool orchestration now supports bounded sequential chains up to 3 tools per request, but remains rule-based, has no autonomous retries, and is not yet model-directed.
-- `npm run verify` and `npm run postflight` are green.
-- Host exec safe coverage includes additional system/npm inspection commands and carefully validated Git inspection forms. Git mutations and file-writing diff/show variants remain blocked.
-- Some renderer strings outside `src/shared/modes.ts` and `src/shared/types.ts` still contain garbled legacy text and should be normalized in a future cleanup round.
-- Reference-only docs (`execution-flow.md`, `module-spec-table.md`, `ui-layout.md`, `windows-product-spec.md`) have been removed; their behavioral rules are now in `docs/spec/`.
+- Tool calling not yet implemented (web search, academic search, file operations). Current v2 is dialogue-only.
+- Portfolio table (investment tracking) not yet created.
+- Old SQLite databases will auto-migrate `mode` column to `board` on first load.
 
 ## Maintenance rule
 
 Update this file when any of the following change materially:
-- document authority tiers
 - directory structure
 - module ownership
 - provider/config contract
 - SQLite schema
-- active task backlog with repo-wide relevance
-- known active regressions or contract drift
+- dependency changes

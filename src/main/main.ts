@@ -1,19 +1,17 @@
-﻿import { app, BrowserWindow, nativeImage } from "electron";
+// Enso v2 主进程入口
+// 精简：只初始化 store + config + secret + modelAdapter，注册 IPC
+
+import { app, BrowserWindow, nativeImage } from "electron";
 import fs from "node:fs";
 import path from "node:path";
 import { registerIpcHandlers } from "./ipc";
-import { ExecutionFlow } from "./core/execution-flow";
 import { ConfigService } from "./services/config-service";
-import { HostExecService } from "./services/host-exec-service";
-import { KnowledgeService } from "./services/knowledge-service";
 import { ModelAdapter } from "./services/model-adapter";
 import { SecretService } from "./services/secret-service";
 import { EnsoStore } from "./services/store";
-import { ToolService } from "./services/tool-service";
-import { WorkspaceService } from "./services/workspace-service";
 
 let store: EnsoStore | null = null;
-const windows = new Set<BrowserWindow>();
+let mainWindow: BrowserWindow | null = null;
 let creatingWindow = false;
 const testUserDataPath = process.env.ENSO_USER_DATA_DIR;
 
@@ -22,22 +20,23 @@ if (testUserDataPath) {
   app.setPath("userData", testUserDataPath);
 }
 
-const delay = async (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
+const delay = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 
 process.on("unhandledRejection", (reason) => {
-  console.error("Unhandled promise rejection in main process:", reason);
+  console.error("Unhandled promise rejection:", reason);
 });
 
 const createMainWindow = async (): Promise<void> => {
-  // 加载窗口图标：优先 256px，回退到 64px
-  // __dirname = dist/main/，项目根 = dist/main/../../ = 项目根
   const projectRoot = path.join(__dirname, "..", "..");
-  const iconPath = [256, 64].map((s) => path.join(projectRoot, "resources", `icon-${s}.png`)).find((p) => fs.existsSync(p));
+  const iconPath = [256, 64]
+    .map((s) => path.join(projectRoot, "resources", `icon-${s}.png`))
+    .find((p) => fs.existsSync(p));
+
   const window = new BrowserWindow({
-    width: 1500,
-    height: 920,
-    minWidth: 1100,
-    minHeight: 700,
+    width: 1200,
+    height: 800,
+    minWidth: 900,
+    minHeight: 600,
     backgroundColor: "#0f172a",
     ...(iconPath ? { icon: nativeImage.createFromPath(iconPath) } : {}),
     webPreferences: {
@@ -47,15 +46,13 @@ const createMainWindow = async (): Promise<void> => {
       sandbox: true
     }
   });
-  windows.add(window);
+
+  mainWindow = window;
   window.on("closed", () => {
-    windows.delete(window);
+    mainWindow = null;
   });
-  window.webContents.on("did-fail-load", (_event, code, description, validatedUrl) => {
-    console.error("Main window failed to load:", { code, description, validatedUrl });
-  });
-  window.webContents.on("render-process-gone", (_event, details) => {
-    console.error("Renderer process gone:", details);
+  window.webContents.on("did-fail-load", (_event, code, description) => {
+    console.error("Window failed to load:", { code, description });
   });
 
   const devServerUrl = process.env.VITE_DEV_SERVER_URL;
@@ -70,25 +67,20 @@ const createMainWindow = async (): Promise<void> => {
         await delay(250);
       }
     }
-
-    throw lastError instanceof Error ? lastError : new Error("Failed to connect to dev server URL.");
+    throw lastError instanceof Error ? lastError : new Error("Failed to connect to dev server.");
   }
 
   await window.loadFile(path.join(__dirname, "../renderer/index.html"));
 };
 
 const ensureMainWindow = async (): Promise<void> => {
-  if (creatingWindow || windows.size > 0) {
-    return;
-  }
-
+  if (creatingWindow || mainWindow) return;
   creatingWindow = true;
   try {
     await createMainWindow();
   } catch (error) {
-    console.error("Failed to create main window:", error);
+    console.error("Failed to create window:", error);
     app.quit();
-    return;
   } finally {
     creatingWindow = false;
   }
@@ -98,33 +90,18 @@ app.whenReady().then(async () => {
   const dbPath = path.join(app.getPath("userData"), "enso.sqlite");
   const configPath = path.join(app.getPath("userData"), "config.toml");
   const secretPath = path.join(app.getPath("userData"), "secrets.json");
-  const workspaceRoot = path.join(app.getPath("userData"), "workspace");
 
   store = new EnsoStore(dbPath);
   const configService = new ConfigService(configPath, app.getAppPath());
-  const knowledgeService = new KnowledgeService(store);
-  const toolService = new ToolService();
   const secretService = new SecretService(secretPath);
-  const workspaceService = new WorkspaceService(workspaceRoot);
-  const hostExecService = new HostExecService(workspaceRoot);
   const modelAdapter = new ModelAdapter(secretService);
-  const executionFlow = new ExecutionFlow({
-    store,
-    configService,
-    knowledgeService,
-    toolService,
-    modelAdapter,
-    workspaceService,
-    hostExecService
-  });
 
   registerIpcHandlers({
     store,
     configService,
-    knowledgeService,
-    executionFlow,
+    modelAdapter,
     secretService,
-    workspaceService
+    getMainWindow: () => mainWindow
   });
 
   await ensureMainWindow();
@@ -135,9 +112,7 @@ app.whenReady().then(async () => {
 });
 
 app.on("window-all-closed", () => {
-  if (process.platform !== "darwin") {
-    app.quit();
-  }
+  if (process.platform !== "darwin") app.quit();
 });
 
 app.on("before-quit", () => {

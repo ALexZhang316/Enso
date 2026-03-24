@@ -1,295 +1,210 @@
-﻿import { dialog, ipcMain } from "electron";
-import path from "node:path";
-import { ModeId } from "../shared/modes";
-import { EnsoConfig, ExecutionInput, InitializationPayload } from "../shared/types";
-import { ExecutionFlow } from "./core/execution-flow";
+// Enso v2 IPC 处理器 — 极简版
+// 删除了知识库、审计、确认/拒绝、执行流水线等旧通道
+
+import { ipcMain, BrowserWindow } from "electron";
+import { BoardId, DEFAULT_BOARD, getBoardDef } from "../shared/boards";
+import { ProviderId } from "../shared/providers";
+import { EnsoConfig, InitializationPayload } from "../shared/types";
 import { ConfigService } from "./services/config-service";
-import { KnowledgeService } from "./services/knowledge-service";
+import { ModelAdapter } from "./services/model-adapter";
 import { SecretService } from "./services/secret-service";
 import { EnsoStore } from "./services/store";
-import { WorkspaceService } from "./services/workspace-service";
 
 interface IpcDependencies {
   store: EnsoStore;
   configService: ConfigService;
-  knowledgeService: KnowledgeService;
-  executionFlow: ExecutionFlow;
+  modelAdapter: ModelAdapter;
   secretService: SecretService;
-  workspaceService: WorkspaceService;
+  getMainWindow: () => BrowserWindow | null;
 }
 
-const ts = (): string => new Date().toISOString();
+// 追踪正在进行的流式请求，用于取消
+const activeStreams = new Map<string, AbortController>();
 
-const buildInitializationPayload = (
-  store: EnsoStore,
-  config: EnsoConfig,
-  workspaceService: WorkspaceService
-): InitializationPayload => {
-  const currentList = store.listConversations();
-  const ensured =
-    currentList.length > 0 ? currentList[0] : store.ensureDefaultConversation(config.modeDefaults.defaultMode);
-
-  const maybeActiveConversationId = store.getActiveConversationId();
-  const activeConversation = currentList.find((item) => item.id === maybeActiveConversationId) ?? ensured;
-
-  store.setActiveConversationId(activeConversation.id);
+const buildInitPayload = (store: EnsoStore, config: EnsoConfig): InitializationPayload => {
+  const conversations = store.listConversations();
+  const savedActiveId = store.getActiveConversationId();
+  const active = conversations.find((c) => c.id === savedActiveId) ?? conversations[0] ?? store.ensureDefaultConversation(DEFAULT_BOARD);
+  store.setActiveConversationId(active.id);
 
   return {
     config,
     conversations: store.listConversations(),
-    activeConversationId: activeConversation.id,
-    messages: store.listMessages(activeConversation.id),
-    state: store.getState(activeConversation.id),
-    audit: store.getLatestAudit(activeConversation.id),
-    knowledgeSources: store.listKnowledgeSources(),
-    workspaceRoot: workspaceService.getRootPath()
+    activeConversationId: active.id,
+    messages: store.listMessages(active.id)
   };
 };
 
 export const registerIpcHandlers = ({
   store,
   configService,
-  knowledgeService,
-  executionFlow,
+  modelAdapter,
   secretService,
-  workspaceService
+  getMainWindow
 }: IpcDependencies): void => {
+  // 初始化
   ipcMain.handle("enso:init", () => {
     const config = configService.load();
-    return buildInitializationPayload(store, config, workspaceService);
+    return buildInitPayload(store, config);
   });
 
-  ipcMain.handle("enso:conversation:create", (_event, title?: string) => {
-    const config = configService.load();
-    const conversation = store.createConversation(config.modeDefaults.defaultMode, title?.trim() || "新会话");
+  // 创建会话
+  ipcMain.handle("enso:conversation:create", (_event, board: BoardId, title?: string) => {
+    const conversation = store.createConversation(board, title?.trim() || "新会话");
     store.setActiveConversationId(conversation.id);
-
     return {
       conversations: store.listConversations(),
       activeConversationId: conversation.id,
-      messages: store.listMessages(conversation.id),
-      state: store.getState(conversation.id),
-      audit: store.getLatestAudit(conversation.id),
-      mode: conversation.mode
+      messages: store.listMessages(conversation.id)
     };
   });
 
+  // 选择会话
   ipcMain.handle("enso:conversation:select", (_event, conversationId: string) => {
     const conversation = store.getConversation(conversationId);
-    if (!conversation) {
-      throw new Error("未找到该会话。");
-    }
-
+    if (!conversation) throw new Error("未找到该会话。");
     store.setActiveConversationId(conversationId);
-
     return {
       activeConversationId: conversationId,
-      messages: store.listMessages(conversationId),
-      state: store.getState(conversationId),
-      audit: store.getLatestAudit(conversationId),
-      mode: conversation.mode
+      messages: store.listMessages(conversationId)
     };
   });
 
+  // 重命名
   ipcMain.handle("enso:conversation:rename", (_event, payload: { conversationId: string; title: string }) => {
     store.renameConversation(payload.conversationId, payload.title.trim());
     return store.listConversations();
   });
 
+  // 删除
   ipcMain.handle("enso:conversation:delete", (_event, conversationId: string) => {
     store.deleteConversation(conversationId);
-
     const remaining = store.listConversations();
-    const config = configService.load();
-    const nextConversation =
-      remaining.length > 0 ? remaining[0] : store.ensureDefaultConversation(config.modeDefaults.defaultMode);
-
-    store.setActiveConversationId(nextConversation.id);
-
+    const next = remaining.length > 0 ? remaining[0] : store.ensureDefaultConversation(DEFAULT_BOARD);
+    store.setActiveConversationId(next.id);
     return {
       conversations: store.listConversations(),
-      activeConversationId: nextConversation.id,
-      messages: store.listMessages(nextConversation.id),
-      state: store.getState(nextConversation.id),
-      audit: store.getLatestAudit(nextConversation.id),
-      mode: nextConversation.mode
+      activeConversationId: next.id,
+      messages: store.listMessages(next.id)
     };
   });
 
+  // 置顶
   ipcMain.handle("enso:conversation:toggle-pin", (_event, conversationId: string) => {
-    store.togglePinnedConversation(conversationId);
+    store.togglePinned(conversationId);
     return store.listConversations();
   });
 
-  ipcMain.handle("enso:mode:set", (_event, payload: { conversationId: string; mode: ModeId }) => {
-    store.setConversationMode(payload.conversationId, payload.mode);
-    return store.getConversation(payload.conversationId);
-  });
-
+  // 配置
   ipcMain.handle("enso:config:get", () => configService.load());
 
   ipcMain.handle("enso:config:save", (_event, config: EnsoConfig) => {
-    const apiKey = config.provider.apiKey?.trim();
-    if (apiKey) {
-      secretService.saveProviderApiKey(config.provider.provider, apiKey);
-    }
-
-    return configService.save({
-      ...config,
-      provider: {
-        ...config.provider,
-        apiKey: ""
+    // 保存每个提供商的 API Key 到安全存储
+    for (const [pid, pconfig] of Object.entries(config.providers)) {
+      const key = pconfig.apiKey?.trim();
+      if (key) {
+        secretService.saveProviderApiKey(pid as ProviderId, key);
       }
-    });
+    }
+    // 清除 apiKey 后保存到配置文件
+    const cleaned = { ...config };
+    cleaned.providers = { ...config.providers };
+    for (const pid of Object.keys(cleaned.providers) as ProviderId[]) {
+      cleaned.providers[pid] = { ...cleaned.providers[pid], apiKey: "" };
+    }
+    return configService.save(cleaned);
   });
 
-  ipcMain.handle("enso:provider:key:has", (_event, providerId: EnsoConfig["provider"]["provider"]) =>
+  ipcMain.handle("enso:provider:key:has", (_event, providerId: ProviderId) =>
     secretService.hasProviderApiKey(providerId)
   );
 
-  ipcMain.handle("enso:provider:key:clear", (_event, providerId: EnsoConfig["provider"]["provider"]) => {
+  ipcMain.handle("enso:provider:key:clear", (_event, providerId: ProviderId) => {
     secretService.clearProviderApiKey(providerId);
     return true;
   });
 
-  ipcMain.handle("enso:file:import", async () => {
-    const scriptedImportPaths = process.env.ENSO_TEST_IMPORT_FILES?.split(path.delimiter)
-      .map((item) => item.trim())
-      .filter(Boolean);
+  // 发送消息（流式）
+  ipcMain.handle(
+    "enso:chat:send",
+    async (
+      _event,
+      params: {
+        conversationId: string;
+        board: BoardId;
+        text: string;
+        providerId: ProviderId;
+        model: string;
+      }
+    ) => {
+      const { conversationId, board, text, providerId, model } = params;
+      const window = getMainWindow();
+      if (!window) return;
 
-    const filePaths =
-      scriptedImportPaths && scriptedImportPaths.length > 0
-        ? scriptedImportPaths
-        : (
-            await dialog.showOpenDialog({
-              title: "导入知识文件",
-              properties: ["openFile", "multiSelections"],
-              filters: [
-                { name: "文本文件", extensions: ["txt", "md", "markdown", "json", "csv"] },
-                { name: "所有文件", extensions: ["*"] }
-              ]
-            })
-          ).filePaths;
+      // 保存用户消息到数据库
+      store.addMessage(conversationId, "user", text);
+      // 记录使用的模型
+      store.updateConversationModel(conversationId, model);
 
-    if (filePaths.length === 0) {
-      return {
-        imported: [],
-        skipped: [],
-        knowledgeSources: store.listKnowledgeSources()
-      };
-    }
+      // 获取历史消息
+      const boardDef = getBoardDef(board);
+      const recentMessages = store.listRecentMessages(conversationId, boardDef.historyWindow);
 
-    const imported = [];
-    const skipped = [];
+      // 构建发给模型的消息（排除 tool 角色消息，简化处理）
+      const chatMessages = recentMessages
+        .filter((m) => m.role === "user" || m.role === "assistant")
+        .map((m) => ({
+          role: m.role as "user" | "assistant",
+          content: m.content
+        }));
 
-    for (const filePath of filePaths) {
+      // 创建 AbortController 用于取消
+      const controller = new AbortController();
+      activeStreams.set(conversationId, controller);
+
       try {
-        const source = await knowledgeService.ingestFile(filePath);
-        imported.push(source);
-      } catch {
-        skipped.push(filePath);
+        await modelAdapter.streamChat({
+          providerId,
+          model,
+          board,
+          messages: chatMessages,
+          abortSignal: controller.signal,
+          callbacks: {
+            onChunk: (delta) => {
+              if (!window.isDestroyed()) {
+                window.webContents.send("enso:chat:stream-chunk", { conversationId, delta });
+              }
+            },
+            onDone: (fullText) => {
+              // 保存助手回复到数据库
+              const msg = store.addMessage(conversationId, "assistant", fullText);
+              if (!window.isDestroyed()) {
+                window.webContents.send("enso:chat:stream-end", {
+                  conversationId,
+                  fullText,
+                  messageId: msg.id
+                });
+              }
+            },
+            onError: (error) => {
+              if (!window.isDestroyed()) {
+                window.webContents.send("enso:chat:stream-error", { conversationId, error });
+              }
+            }
+          }
+        });
+      } finally {
+        activeStreams.delete(conversationId);
       }
     }
+  );
 
-    return {
-      imported,
-      skipped,
-      knowledgeSources: store.listKnowledgeSources()
-    };
-  });
-
-  ipcMain.handle("enso:knowledge:retrieve", (_event, query: string) => {
-    return knowledgeService.retrieve(query, 5);
-  });
-
-  ipcMain.handle("enso:audit:list", (_event, conversationId?: string) => {
-    if (conversationId) {
-      return store.listAuditsByConversation(conversationId, 120);
+  // 取消流式响应
+  ipcMain.handle("enso:chat:cancel", (_event, conversationId: string) => {
+    const controller = activeStreams.get(conversationId);
+    if (controller) {
+      controller.abort();
+      activeStreams.delete(conversationId);
     }
-
-    return store.listAudits(120);
-  });
-
-  ipcMain.handle("enso:confirmation:resolve", (_event, conversationId: string) => {
-    const conversation = store.getConversation(conversationId);
-    if (!conversation) {
-      throw new Error("未找到该会话。");
-    }
-
-    const result = executionFlow.resolvePendingAction(conversationId);
-
-    return {
-      messages: store.listMessages(conversationId),
-      state: result.state,
-      audit: result.audit
-    };
-  });
-
-  ipcMain.handle("enso:confirmation:reject", (_event, conversationId: string) => {
-    const conversation = store.getConversation(conversationId);
-    if (!conversation) {
-      throw new Error("未找到该会话。");
-    }
-
-    const currentState = store.getState(conversationId);
-    if (!currentState.pendingConfirmation || !currentState.pendingAction) {
-      throw new Error("没有待确认的动作。");
-    }
-
-    const rejectedAt = ts();
-    const actionLabel =
-      currentState.pendingAction.kind === "workspace_write" ? "工作区写入" : "工作区命令执行";
-    const trace = [
-      ...currentState.trace,
-      { phase: "gate", summary: "confirmation rejected by user", timestamp: rejectedAt },
-      { phase: "verification", summary: "status=blocked detail=action rejected by user", timestamp: rejectedAt },
-      { phase: "persist", summary: "rejected confirmation state written", timestamp: rejectedAt }
-    ] as const;
-    const verification = {
-      status: "blocked" as const,
-      detail: "action rejected by user"
-    };
-
-    store.addMessage(conversationId, "assistant", `已取消待确认操作：${actionLabel}。`, {
-      mode: conversation.mode,
-      handlingClass: "action-adjacent",
-      retrievalUsed: false,
-      toolName: null
-    });
-
-    const nextState = store.upsertState({
-      ...currentState,
-      pendingConfirmation: false,
-      pendingAction: null,
-      taskStatus: "completed",
-      updatedAt: rejectedAt,
-      trace: [...trace],
-      verification
-    });
-
-    const audit = store.addAudit({
-      conversationId,
-      mode: conversation.mode,
-      retrievalUsed: currentState.retrievalUsed,
-      toolsUsed: currentState.toolsCalled,
-      resultType: "proposal",
-      riskNotes: "action rejected by user"
-    });
-
-    return {
-      messages: store.listMessages(conversationId),
-      state: nextState,
-      audit
-    };
-  });
-
-  ipcMain.handle("enso:request:submit", async (_event, input: ExecutionInput) => {
-    const result = await executionFlow.run(input);
-
-    return {
-      ...result,
-      messages: store.listMessages(input.conversationId),
-      conversations: store.listConversations()
-    };
   });
 };
