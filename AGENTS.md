@@ -166,7 +166,7 @@ The task index is `tasks/INDEX.md`.
 ## Tech stack (locked)
 
 - Electron, React + TypeScript, Tailwind CSS + shadcn/ui
-- Vercel AI SDK (`ai`, `@ai-sdk/openai`, `@ai-sdk/anthropic`, `@ai-sdk/google`)
+- Vercel AI SDK (`ai`, `@ai-sdk/openai`, `@ai-sdk/anthropic`, `@ai-sdk/google`, `@ai-sdk/moonshotai`)
 - better-sqlite3 + SQLite, TOML config
 - Node.js 20.x LTS, Electron stable major
 - Do not switch to Tauri, Next.js, YAML, or cloud-first architecture unless instructed.

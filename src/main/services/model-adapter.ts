@@ -6,6 +6,7 @@ import { streamText, LanguageModel } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
+import { createMoonshotAI } from "@ai-sdk/moonshotai";
 import { BoardId, getBoardDef } from "../../shared/boards";
 import { ProviderId } from "../../shared/providers";
 import { SecretService } from "./secret-service";
@@ -50,8 +51,8 @@ export class ModelAdapter {
         return google(modelId);
       }
       case "kimi": {
-        // Kimi (Moonshot) 兼容 OpenAI 接口
-        const kimi = createOpenAI({
+        // Kimi (Moonshot) 使用官方 AI SDK provider，处理 API 兼容性差异
+        const kimi = createMoonshotAI({
           apiKey,
           baseURL: "https://api.moonshot.cn/v1"
         });

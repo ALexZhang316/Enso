@@ -10,10 +10,10 @@ const NOW = new Date().toISOString();
 
 const mockConfig = {
   providers: {
-    openai: { provider: "openai" as const, baseUrl: "https://api.openai.com/v1", model: "gpt-4o", apiKey: "" },
-    anthropic: { provider: "anthropic" as const, baseUrl: "https://api.anthropic.com/v1", model: "claude-sonnet-4-20250514", apiKey: "" },
-    google: { provider: "google" as const, baseUrl: "https://generativelanguage.googleapis.com/v1beta", model: "gemini-2.5-pro", apiKey: "" },
-    kimi: { provider: "kimi" as const, baseUrl: "https://api.moonshot.cn/v1", model: "moonshot-v1-auto", apiKey: "" }
+    openai: { provider: "openai" as const, baseUrl: "https://api.openai.com/v1", model: "gpt-5.4", apiKey: "" },
+    anthropic: { provider: "anthropic" as const, baseUrl: "https://api.anthropic.com/v1", model: "claude-opus-4-6", apiKey: "" },
+    google: { provider: "google" as const, baseUrl: "https://generativelanguage.googleapis.com/v1beta", model: "gemini-3.1-pro-preview", apiKey: "" },
+    kimi: { provider: "kimi" as const, baseUrl: "https://api.moonshot.cn/v1", model: "kimi-k2.5", apiKey: "" }
   },
   activeProvider: "openai" as const
 };
@@ -23,7 +23,7 @@ const mockConversation = {
   board: DEFAULT_BOARD,
   title: "示例会话",
   pinned: false,
-  model: "gpt-4o",
+  model: "gpt-5.4",
   createdAt: NOW,
   updatedAt: NOW
 };
@@ -60,11 +60,13 @@ export const mockBridge: EnsoBridge = {
   saveConfig: async () => mockConfig,
   hasProviderApiKey: async () => false,
   clearProviderApiKey: async () => true,
+  getConfiguredProviders: async () => [],
   sendMessage: async () => {},
   cancelStream: async () => {},
   getAppInfo: () => ({ name: "Enso", version: "0.2.0-preview" }),
   onStreamChunk: () => {},
   onStreamEnd: () => {},
   onStreamError: () => {},
+  onConversationsChanged: () => {},
   removeAllStreamListeners: () => {}
 };

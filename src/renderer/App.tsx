@@ -3,8 +3,8 @@
 // 删除了右侧面板、知识库、审计等旧功能
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { BoardId, BOARDS, DEFAULT_BOARD } from "@shared/boards";
-import { ProviderId, PROVIDER_MAP, PROVIDER_PRESETS } from "@shared/providers";
+import { BoardId, DEFAULT_BOARD } from "@shared/boards";
+import { ProviderId, PROVIDER_MAP } from "@shared/providers";
 import { ChatMessage, Conversation, EnsoConfig } from "@shared/types";
 import LeftPanel from "@renderer/components/LeftPanel";
 import CenterPanel from "@renderer/components/CenterPanel";
@@ -28,6 +28,9 @@ const App = (): JSX.Element => {
   const [streamingText, setStreamingText] = useState("");
   const [submitError, setSubmitError] = useState("");
   const [showSettings, setShowSettings] = useState(false);
+
+  // 已配置 API Key 的厂商列表（只有这些才能在聊天中选用）
+  const [configuredProviders, setConfiguredProviders] = useState<ProviderId[]>([]);
 
   // 当前板块选择的模型提供商和模型
   const [selectedProvider, setSelectedProvider] = useState<ProviderId>("openai");
@@ -55,13 +58,18 @@ const App = (): JSX.Element => {
         setActiveConversationId(payload.activeConversationId);
         setMessages(payload.messages);
 
-        // 设置初始板块和模型
+        // 设置初始板块
         const activeConv = payload.conversations.find((c) => c.id === payload.activeConversationId);
         if (activeConv) {
           setActiveBoard(activeConv.board as BoardId);
         }
-        setSelectedProvider(payload.config.activeProvider);
-        const preset = PROVIDER_MAP[payload.config.activeProvider];
+
+        // 加载已配置 API Key 的厂商，优先选择已配置的厂商
+        const configured = await window.enso.getConfiguredProviders();
+        setConfiguredProviders(configured);
+        const initialProvider = configured.length > 0 ? configured[0] : payload.config.activeProvider;
+        setSelectedProvider(initialProvider);
+        const preset = PROVIDER_MAP[initialProvider];
         setSelectedModel(preset?.defaultModel ?? "");
       } catch (error) {
         setInitError(toErrorMessage(error, "初始化失败。"));
@@ -75,20 +83,26 @@ const App = (): JSX.Element => {
     });
   }, []);
 
-  // -- 流式事件监听 --
+  // -- IPC 事件监听（统一管理，避免 removeAllStreamListeners 误杀其他监听器） --
   useEffect(() => {
+    // 会话列表变更（主进程自动命名后推送）
+    window.enso.onConversationsChanged((convs) => {
+      setConversations(convs);
+    });
+
+    // 流式事件
     window.enso.onStreamChunk(({ delta }) => {
       setStreamingText((prev) => prev + delta);
     });
-    window.enso.onStreamEnd(({ fullText, messageId }) => {
+    window.enso.onStreamEnd(({ conversationId, fullText, messageId }) => {
       setIsStreaming(false);
       setStreamingText("");
-      // 用真实的消息替换流式文本
+      // 用真实的消息替换流式文本（使用事件中的 conversationId，避免闭包过期）
       setMessages((prev) => [
         ...prev,
         {
           id: messageId,
-          conversationId: activeConversationId,
+          conversationId,
           role: "assistant" as const,
           content: fullText,
           createdAt: new Date().toISOString()
@@ -104,7 +118,7 @@ const App = (): JSX.Element => {
     return () => {
       window.enso.removeAllStreamListeners();
     };
-  }, [activeConversationId]);
+  }, []);
 
   // -- 事件处理 --
 
@@ -112,17 +126,15 @@ const App = (): JSX.Element => {
     async (board: BoardId): Promise<void> => {
       setActiveBoard(board);
       setShowSettings(false);
-      // 切换到该板块的会话列表，选择最近的一个或创建新的
+      // 切换到该板块的会话列表，选择最近的一个；没有则显示空状态
       const boardConvs = conversations.filter((c) => c.board === board);
       if (boardConvs.length > 0) {
         const payload = await window.enso.selectConversation(boardConvs[0].id);
         setActiveConversationId(payload.activeConversationId);
         setMessages(payload.messages);
       } else {
-        const payload = await window.enso.createConversation(board);
-        setConversations(payload.conversations);
-        setActiveConversationId(payload.activeConversationId);
-        setMessages(payload.messages);
+        setActiveConversationId("");
+        setMessages([]);
       }
       setComposerText("");
       setSubmitError("");
@@ -150,11 +162,14 @@ const App = (): JSX.Element => {
   }, []);
 
   const handleRenameConversation = useCallback(async (conv: Conversation): Promise<void> => {
-    const title = window.prompt("重命名会话", conv.title)?.trim();
+    // 如果 conv.title 已经是新标题（从 CenterPanel 内联编辑传来），直接保存
+    // 否则弹出对话框让用户输入
+    const currentTitle = conversations.find((c) => c.id === conv.id)?.title ?? "";
+    const title = conv.title !== currentTitle ? conv.title : window.prompt("重命名会话", conv.title)?.trim();
     if (!title) return;
     const updated = await window.enso.renameConversation(conv.id, title);
     setConversations(updated);
-  }, []);
+  }, [conversations]);
 
   const handleDeleteConversation = useCallback(
     async (id: string): Promise<void> => {
@@ -267,6 +282,9 @@ const App = (): JSX.Element => {
           onProviderChange={setSelectedProvider}
           onModelChange={setSelectedModel}
           onConfigChange={setConfig}
+          configuredProviders={configuredProviders}
+          onConfiguredProvidersChange={setConfiguredProviders}
+          onRenameConversation={(c) => void handleRenameConversation(c)}
         />
       </div>
     </div>

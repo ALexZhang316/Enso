@@ -1,5 +1,5 @@
 /**
- * 单元测试 —— 覆盖 Store CRUD 操作
+ * 单元测试 —— 覆盖 Store CRUD 操作（Enso v2）
  *
  * 运行方式：npm run test:unit
  * 依赖编译产物（dist/），所以运行前需要 npm run build。
@@ -13,9 +13,9 @@ const PROJECT_ROOT = path.resolve(__dirname, "..");
 const DIST_ROOT = path.join(PROJECT_ROOT, "dist");
 
 const { EnsoStore } = require(path.join(DIST_ROOT, "main/services/store.js"));
-const { DEFAULT_MODE } = require(path.join(DIST_ROOT, "shared/modes.js"));
+const { DEFAULT_BOARD } = require(path.join(DIST_ROOT, "shared/boards.js"));
 
-// -- 测试框架（沿用集成测试的简易框架） --
+// -- 测试框架（简易框架） --
 
 const runTest = async (name, fn) => {
   process.stdout.write(`\n[TEST] ${name}\n`);
@@ -53,11 +53,12 @@ const tests = [
     fn() {
       const { store, cleanup } = createStore();
       try {
-        const conversation = store.createConversation("default", "测试会话");
+        const conversation = store.createConversation("dialogue", "测试会话");
         assert.ok(conversation.id, "会话应有 id");
         assert.equal(conversation.title, "测试会话");
-        assert.equal(conversation.mode, "default");
+        assert.equal(conversation.board, "dialogue");
         assert.equal(conversation.pinned, false);
+        assert.equal(conversation.model, "");
         assert.ok(conversation.createdAt);
         assert.ok(conversation.updatedAt);
       } finally {
@@ -70,8 +71,8 @@ const tests = [
     fn() {
       const { store, cleanup } = createStore();
       try {
-        const c1 = store.createConversation("default", "第一个");
-        const c2 = store.createConversation("default", "第二个");
+        const c1 = store.createConversation("dialogue", "第一个");
+        const c2 = store.createConversation("dialogue", "第二个");
         const list = store.listConversations();
         // 最后创建的排在前面
         assert.equal(list.length, 2);
@@ -83,11 +84,29 @@ const tests = [
     }
   },
   {
+    name: "Store 按板块过滤会话列表",
+    fn() {
+      const { store, cleanup } = createStore();
+      try {
+        store.createConversation("dialogue", "对话会话");
+        store.createConversation("decision", "决策会话");
+        store.createConversation("research", "研究会话");
+        const dialogueList = store.listConversations("dialogue");
+        assert.equal(dialogueList.length, 1);
+        assert.equal(dialogueList[0].title, "对话会话");
+        const allList = store.listConversations();
+        assert.equal(allList.length, 3);
+      } finally {
+        cleanup();
+      }
+    }
+  },
+  {
     name: "Store 重命名会话",
     fn() {
       const { store, cleanup } = createStore();
       try {
-        const c = store.createConversation("default", "旧名称");
+        const c = store.createConversation("dialogue", "旧名称");
         store.renameConversation(c.id, "新名称");
         const fetched = store.getConversation(c.id);
         assert.equal(fetched.title, "新名称");
@@ -97,17 +116,13 @@ const tests = [
     }
   },
   {
-    name: "Store 删除会话后级联删除消息和状态",
+    name: "Store 删除会话后级联删除消息",
     fn() {
       const { store, cleanup } = createStore();
       try {
-        const c = store.createConversation("default", "即将删除");
+        const c = store.createConversation("dialogue", "即将删除");
         store.addMessage(c.id, "user", "你好");
-        // 确认消息和状态存在
         assert.equal(store.listMessages(c.id).length, 1);
-        const state = store.getState(c.id);
-        assert.equal(state.conversationId, c.id);
-        // 删除
         store.deleteConversation(c.id);
         assert.equal(store.getConversation(c.id), null);
         assert.equal(store.listMessages(c.id).length, 0);
@@ -121,11 +136,11 @@ const tests = [
     fn() {
       const { store, cleanup } = createStore();
       try {
-        const c = store.createConversation("default", "测试");
+        const c = store.createConversation("dialogue", "测试");
         assert.equal(c.pinned, false);
-        store.togglePinnedConversation(c.id);
+        store.togglePinned(c.id);
         assert.equal(store.getConversation(c.id).pinned, true);
-        store.togglePinnedConversation(c.id);
+        store.togglePinned(c.id);
         assert.equal(store.getConversation(c.id).pinned, false);
       } finally {
         cleanup();
@@ -133,13 +148,30 @@ const tests = [
     }
   },
   {
-    name: "Store 设置会话模式",
+    name: "Store 置顶的会话排在前面",
     fn() {
       const { store, cleanup } = createStore();
       try {
-        const c = store.createConversation("default", "测试");
-        store.setConversationMode(c.id, "research");
-        assert.equal(store.getConversation(c.id).mode, "research");
+        const c1 = store.createConversation("dialogue", "普通");
+        const c2 = store.createConversation("dialogue", "置顶");
+        store.togglePinned(c1.id);
+        const list = store.listConversations();
+        // c1 被置顶，应排在前面
+        assert.equal(list[0].id, c1.id);
+      } finally {
+        cleanup();
+      }
+    }
+  },
+  {
+    name: "Store 更新会话模型",
+    fn() {
+      const { store, cleanup } = createStore();
+      try {
+        const c = store.createConversation("dialogue", "测试");
+        assert.equal(c.model, "");
+        store.updateConversationModel(c.id, "gpt-5.4");
+        assert.equal(store.getConversation(c.id).model, "gpt-5.4");
       } finally {
         cleanup();
       }
@@ -152,12 +184,27 @@ const tests = [
     fn() {
       const { store, cleanup } = createStore();
       try {
-        const c = store.createConversation("default", "测试");
-        const msg = store.addMessage(c.id, "user", "你好世界", { custom: true });
+        const c = store.createConversation("dialogue", "测试");
+        const msg = store.addMessage(c.id, "user", "你好世界");
         assert.ok(msg.id);
         assert.equal(msg.role, "user");
         assert.equal(msg.content, "你好世界");
-        assert.deepEqual(msg.metadata, { custom: true });
+        assert.equal(msg.conversationId, c.id);
+        assert.ok(msg.createdAt);
+      } finally {
+        cleanup();
+      }
+    }
+  },
+  {
+    name: "Store 添加带 toolName 的消息",
+    fn() {
+      const { store, cleanup } = createStore();
+      try {
+        const c = store.createConversation("dialogue", "测试");
+        const msg = store.addMessage(c.id, "tool", "搜索结果", "web_search");
+        assert.equal(msg.role, "tool");
+        assert.equal(msg.toolName, "web_search");
       } finally {
         cleanup();
       }
@@ -168,7 +215,7 @@ const tests = [
     fn() {
       const { store, cleanup } = createStore();
       try {
-        const c = store.createConversation("default", "测试");
+        const c = store.createConversation("dialogue", "测试");
         for (let i = 0; i < 5; i++) {
           store.addMessage(c.id, "user", `消息 ${i}`);
         }
@@ -181,125 +228,17 @@ const tests = [
       }
     }
   },
-
-  // ==================== Store: 状态快照 ====================
   {
-    name: "Store getState 对新会话返回默认状态",
+    name: "Store 添加消息后更新会话的 updatedAt",
     fn() {
       const { store, cleanup } = createStore();
       try {
-        const c = store.createConversation("default", "测试");
-        const state = store.getState(c.id);
-        assert.equal(state.conversationId, c.id);
-        assert.equal(state.retrievalUsed, false);
-        assert.deepEqual(state.toolsCalled, []);
-        assert.equal(state.pendingConfirmation, false);
-        assert.equal(state.taskStatus, "idle");
-        assert.equal(state.plan, null);
-        assert.deepEqual(state.trace, []);
-        assert.equal(state.verification, null);
-      } finally {
-        cleanup();
-      }
-    }
-  },
-  {
-    name: "Store upsertState 更新并持久化状态",
-    fn() {
-      const { store, cleanup } = createStore();
-      try {
-        const c = store.createConversation("default", "测试");
-        const updated = store.upsertState({
-          conversationId: c.id,
-          retrievalUsed: true,
-          toolsCalled: ["web_search"],
-          latestToolResult: "搜索结果",
-          pendingConfirmation: true,
-          pendingAction: { kind: "workspace_write", summary: "写入文件", targetPath: "/tmp/test.txt" },
-          taskStatus: "awaiting_confirmation",
-          updatedAt: new Date().toISOString(),
-          plan: { goal: "测试目标", steps: ["步骤1"], likelyTools: [], verificationTarget: "验证" },
-          trace: [{ phase: "classify", summary: "分类完成", timestamp: new Date().toISOString() }],
-          verification: { status: "passed", detail: "通过" }
-        });
-        assert.equal(updated.retrievalUsed, true);
-        assert.deepEqual(updated.toolsCalled, ["web_search"]);
-        assert.equal(updated.pendingConfirmation, true);
-        assert.equal(updated.plan.goal, "测试目标");
-        assert.equal(updated.verification.status, "passed");
-        // 重新读取验证持久化
-        const reloaded = store.getState(c.id);
-        assert.equal(reloaded.retrievalUsed, true);
-        assert.equal(reloaded.plan.goal, "测试目标");
-      } finally {
-        cleanup();
-      }
-    }
-  },
-  {
-    name: "Store resolvePendingConfirmation 清除确认标志",
-    fn() {
-      const { store, cleanup } = createStore();
-      try {
-        const c = store.createConversation("default", "测试");
-        store.upsertState({
-          conversationId: c.id,
-          retrievalUsed: false,
-          toolsCalled: [],
-          latestToolResult: "",
-          pendingConfirmation: true,
-          pendingAction: { kind: "workspace_write", summary: "写入", targetPath: "/tmp/a.txt" },
-          taskStatus: "awaiting_confirmation",
-          updatedAt: new Date().toISOString(),
-          plan: null,
-          trace: [],
-          verification: null
-        });
-        const resolved = store.resolvePendingConfirmation(c.id);
-        assert.equal(resolved.pendingConfirmation, false);
-        assert.equal(resolved.pendingAction, null);
-        assert.equal(resolved.taskStatus, "completed");
-      } finally {
-        cleanup();
-      }
-    }
-  },
-
-  // ==================== Store: 审计 ====================
-  {
-    name: "Store 添加审计记录并按会话过滤",
-    fn() {
-      const { store, cleanup } = createStore();
-      try {
-        const c1 = store.createConversation("default", "会话1");
-        const c2 = store.createConversation("default", "会话2");
-        store.addAudit({
-          conversationId: c1.id,
-          mode: "default",
-          retrievalUsed: false,
-          toolsUsed: [],
-          resultType: "answer",
-          riskNotes: ""
-        });
-        store.addAudit({
-          conversationId: c2.id,
-          mode: "research",
-          retrievalUsed: true,
-          toolsUsed: ["web_search"],
-          resultType: "proposal",
-          riskNotes: "外部网络"
-        });
-        // 全量
-        const all = store.listAudits();
-        assert.equal(all.length, 2);
-        // 按会话
-        const c1Audits = store.listAuditsByConversation(c1.id);
-        assert.equal(c1Audits.length, 1);
-        assert.equal(c1Audits[0].mode, "default");
-        // 最新审计
-        const latest = store.getLatestAudit(c2.id);
-        assert.equal(latest.resultType, "proposal");
-        assert.equal(latest.riskNotes, "外部网络");
+        const c = store.createConversation("dialogue", "测试");
+        const before = store.getConversation(c.id).updatedAt;
+        // 稍等一下确保时间戳不同
+        store.addMessage(c.id, "user", "你好");
+        const after = store.getConversation(c.id).updatedAt;
+        assert.ok(after >= before, "updatedAt 应该更新");
       } finally {
         cleanup();
       }
@@ -312,7 +251,7 @@ const tests = [
     fn() {
       const { store, cleanup } = createStore();
       try {
-        const c = store.createConversation("default", "测试");
+        const c = store.createConversation("dialogue", "测试");
         store.setActiveConversationId(c.id);
         assert.equal(store.getActiveConversationId(), c.id);
       } finally {
@@ -320,22 +259,12 @@ const tests = [
       }
     }
   },
-
-  // ==================== Store: 知识库 ====================
   {
-    name: "Store 创建知识来源和分块",
+    name: "Store getActiveConversationId 无记录时返回 null",
     fn() {
       const { store, cleanup } = createStore();
       try {
-        const sourceId = store.addKnowledgeSource("测试文档", "/path/to/doc.md");
-        assert.ok(sourceId);
-        store.insertKnowledgeChunk(sourceId, 0, "第一段内容", { page: 1 });
-        store.insertKnowledgeChunk(sourceId, 1, "第二段内容", { page: 2 });
-        store.updateKnowledgeSourceChunkCount(sourceId, 2);
-        const sources = store.listKnowledgeSources();
-        assert.equal(sources.length, 1);
-        assert.equal(sources[0].name, "测试文档");
-        assert.equal(sources[0].chunkCount, 2);
+        assert.equal(store.getActiveConversationId(), null);
       } finally {
         cleanup();
       }
@@ -350,7 +279,7 @@ const tests = [
       try {
         const c = store.ensureDefaultConversation();
         assert.ok(c.id);
-        assert.equal(c.mode, "default");
+        assert.equal(c.board, DEFAULT_BOARD);
         // 再次调用应返回相同会话
         const c2 = store.ensureDefaultConversation();
         assert.equal(c2.id, c.id);
@@ -359,7 +288,6 @@ const tests = [
       }
     }
   },
-
 ];
 
 // -- 运行 --

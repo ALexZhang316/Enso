@@ -120,7 +120,7 @@
 | OpenAI | `@ai-sdk/openai` | 直连 |
 | Anthropic | `@ai-sdk/anthropic` | 直连 |
 | Google | `@ai-sdk/google` | Gemini |
-| Kimi | `@ai-sdk/openai` | Moonshot，OpenAI 兼容接口 |
+| Kimi | `@ai-sdk/moonshotai` | Moonshot 官方 AI SDK provider |
 
 统一通过 Vercel AI SDK 的 `streamText` 进行流式文本生成。
 

@@ -1,3 +1,16 @@
+/**
+ * 集成测试 —— Enso v2 跨模块协作验证
+ *
+ * 覆盖范围：
+ * - ConfigService 配置加载/保存/规范化
+ * - SecretService 加密/解密/清除
+ * - Store + ConfigService + SecretService 协作
+ * - 板块（board）系统验证
+ * - 提供商（provider）定义一致性
+ *
+ * 运行方式：npm run test:integration
+ * 依赖编译产物（dist/），运行前需 npm run build。
+ */
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const os = require("node:os");
@@ -6,71 +19,17 @@ const path = require("node:path");
 const PROJECT_ROOT = path.resolve(__dirname, "..");
 const DIST_ROOT = path.join(PROJECT_ROOT, "dist");
 
-const { ConfigService, ConfigValidationError } = require(path.join(DIST_ROOT, "main/services/config-service.js"));
-const { AnthropicProvider } = require(path.join(DIST_ROOT, "main/providers/anthropic-provider.js"));
-const { DeepSeekProvider } = require(path.join(DIST_ROOT, "main/providers/deepseek-provider.js"));
-const { ExecutionFlow } = require(path.join(DIST_ROOT, "main/core/execution-flow.js"));
-const { GeminiProvider } = require(path.join(DIST_ROOT, "main/providers/gemini-provider.js"));
-const { HostExecService } = require(path.join(DIST_ROOT, "main/services/host-exec-service.js"));
-const { KnowledgeService } = require(path.join(DIST_ROOT, "main/services/knowledge-service.js"));
-const { ModelAdapter } = require(path.join(DIST_ROOT, "main/services/model-adapter.js"));
-const { createTextGenerationProvider } = require(path.join(DIST_ROOT, "main/providers/provider-factory.js"));
-const { OpenAIProvider } = require(path.join(DIST_ROOT, "main/providers/openai-provider.js"));
+// v2 模块导入
+const { ConfigService, DEFAULT_ENSO_CONFIG } = require(path.join(DIST_ROOT, "main/services/config-service.js"));
 const { SecretService } = require(path.join(DIST_ROOT, "main/services/secret-service.js"));
 const { EnsoStore } = require(path.join(DIST_ROOT, "main/services/store.js"));
-const { ToolService } = require(path.join(DIST_ROOT, "main/services/tool-service.js"));
-const { WorkspaceService } = require(path.join(DIST_ROOT, "main/services/workspace-service.js"));
-const { DEFAULT_MODE } = require(path.join(DIST_ROOT, "shared/modes.js"));
-const { PROVIDER_PRESETS } = require(path.join(DIST_ROOT, "shared/providers.js"));
-const { KimiProvider } = require(path.join(DIST_ROOT, "main/providers/kimi-provider.js"));
-const { ProviderError } = require(path.join(DIST_ROOT, "main/providers/types.js"));
+const { BOARDS, BOARD_MAP, DEFAULT_BOARD, getBoardDef } = require(path.join(DIST_ROOT, "shared/boards.js"));
+const { PROVIDER_PRESETS, PROVIDER_MAP, DEFAULT_PROVIDER } = require(path.join(DIST_ROOT, "shared/providers.js"));
 
-const createHarness = () => {
-  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "enso-test-"));
-  const dbPath = path.join(tempDir, "enso.sqlite");
-  const configPath = path.join(tempDir, "config.toml");
-  const secretPath = path.join(tempDir, "secrets.json");
-  const workspaceRoot = path.join(tempDir, "workspace");
-  const store = new EnsoStore(dbPath);
-  const configService = new ConfigService(configPath, PROJECT_ROOT);
-  const secretService = new SecretService(secretPath);
-  const knowledgeService = new KnowledgeService(store);
-  const toolService = new ToolService();
-  const workspaceService = new WorkspaceService(workspaceRoot);
-  const hostExecService = new HostExecService(workspaceRoot);
-  const modelAdapter = new ModelAdapter(secretService);
-  const executionFlow = new ExecutionFlow({
-    store,
-    configService,
-    knowledgeService,
-    toolService,
-    modelAdapter,
-    workspaceService,
-    hostExecService
-  });
-
-  return {
-    tempDir,
-    dbPath,
-    configPath,
-    secretPath,
-    workspaceRoot,
-    store,
-    configService,
-    secretService,
-    knowledgeService,
-    workspaceService,
-    executionFlow,
-    cleanup() {
-      store.close();
-      fs.rmSync(tempDir, { recursive: true, force: true });
-    }
-  };
-};
+// -- 测试框架 --
 
 const runTest = async (name, fn) => {
   process.stdout.write(`\n[TEST] ${name}\n`);
-
   try {
     await fn();
     process.stdout.write(`[PASS] ${name}\n`);
@@ -82,1535 +41,472 @@ const runTest = async (name, fn) => {
   }
 };
 
-// 捕获发送给模型的消息内容，回调函数接收 messages 数组并返回回复文本
-const mockFetchCapture = (callback) => {
-  const originalFetch = global.fetch;
-  global.fetch = async (_url, options) => {
-    const body = JSON.parse(options?.body ?? "{}");
-    const replyText = callback(body.messages ?? []);
-    return new Response(
-      JSON.stringify({
-        choices: [{ message: { content: replyText } }]
-      }),
-      { status: 200, headers: { "Content-Type": "application/json" } }
-    );
-  };
-  return () => { global.fetch = originalFetch; };
-};
+// 创建临时测试环境
+const createHarness = () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "enso-integ-"));
+  const dbPath = path.join(tempDir, "enso.sqlite");
+  const configPath = path.join(tempDir, "config.toml");
+  const secretPath = path.join(tempDir, "secrets.json");
 
-const mockKimiReply = (text) => {
-  const originalFetch = global.fetch;
-  global.fetch = async () =>
-    new Response(
-      JSON.stringify({
-        choices: [
-          {
-            message: {
-              content: text
-            }
-          }
-        ]
-      }),
-      {
-        status: 200,
-        headers: { "Content-Type": "application/json" }
-      }
-    );
-
-  return () => {
-    global.fetch = originalFetch;
-  };
-};
-
-const mockKimiReplyWithCount = (text) => {
-  const originalFetch = global.fetch;
-  let callCount = 0;
-  global.fetch = async () => {
-    callCount += 1;
-    return new Response(
-      JSON.stringify({
-        choices: [
-          {
-            message: {
-              content: text
-            }
-          }
-        ]
-      }),
-      {
-        status: 200,
-        headers: { "Content-Type": "application/json" }
-      }
-    );
-  };
+  const store = new EnsoStore(dbPath);
+  const configService = new ConfigService(configPath, PROJECT_ROOT);
+  const secretService = new SecretService(secretPath);
 
   return {
-    getCallCount: () => callCount,
-    restore() {
-      global.fetch = originalFetch;
+    tempDir,
+    store,
+    configService,
+    secretService,
+    configPath,
+    secretPath,
+    cleanup() {
+      store.close();
+      fs.rmSync(tempDir, { recursive: true, force: true });
     }
   };
 };
 
-const mockJsonFetch = (payload, status = 200) => {
-  const originalFetch = global.fetch;
-  global.fetch = async () =>
-    new Response(JSON.stringify(payload), {
-      status,
-      headers: { "Content-Type": "application/json" }
-    });
-
-  return () => {
-    global.fetch = originalFetch;
-  };
-};
-
-const updatePermissions = (harness, overrides) => {
-  const currentConfig = harness.configService.load();
-  return harness.configService.save({
-    ...currentConfig,
-    permissions: {
-      ...currentConfig.permissions,
-      ...overrides
-    }
-  });
-};
+// -- 测试用例 --
 
 const tests = [
+  // ==================== ConfigService ====================
   {
-    name: "Default mode remains the standalone neutral mode",
-    fn: async () => {
-      const harness = createHarness();
-
+    name: "ConfigService 首次加载时自动创建配置文件",
+    fn() {
+      const { configService, configPath, cleanup } = createHarness();
       try {
-        const config = harness.configService.load();
-        const conversation = harness.store.ensureDefaultConversation();
-
-        assert.equal(DEFAULT_MODE, "default");
-        assert.equal(config.modeDefaults.defaultMode, "default");
-        assert.equal(conversation.mode, "default");
+        assert.ok(!fs.existsSync(configPath), "配置文件不应预先存在");
+        const config = configService.load();
+        assert.ok(fs.existsSync(configPath), "load() 应创建配置文件");
+        assert.ok(config.providers, "应包含 providers 字段");
+        assert.ok(config.activeProvider, "应包含 activeProvider 字段");
       } finally {
-        harness.cleanup();
+        cleanup();
       }
     }
   },
   {
-    name: "ConfigService never persists provider API keys in config.toml",
-    fn: async () => {
-      const harness = createHarness();
-
+    name: "ConfigService 加载返回完整的四家提供商配置",
+    fn() {
+      const { configService, cleanup } = createHarness();
       try {
-        const saved = harness.configService.save({
-          ...harness.configService.load(),
-          provider: {
-            provider: "kimi",
-            baseUrl: "https://api.moonshot.cn/v1",
-            model: "kimi-k2.5",
-            apiKey: "should-not-persist"
-          }
-        });
-
-        const reloaded = harness.configService.load();
-        const rawToml = fs.readFileSync(harness.configPath, "utf8");
-
-        assert.equal(saved.provider.provider, "kimi");
-        assert.equal(reloaded.provider.model, "kimi-k2.5");
-        assert.equal(reloaded.provider.apiKey, "");
-        assert.equal(rawToml.includes("should-not-persist"), false);
+        const config = configService.load();
+        for (const preset of PROVIDER_PRESETS) {
+          const pc = config.providers[preset.id];
+          assert.ok(pc, `应包含 ${preset.id} 配置`);
+          assert.equal(pc.provider, preset.id);
+          assert.equal(pc.baseUrl, preset.defaultBaseUrl);
+          assert.equal(pc.model, preset.defaultModel);
+          assert.equal(pc.apiKey, "", "apiKey 应为空");
+        }
       } finally {
-        harness.cleanup();
+        cleanup();
       }
     }
   },
   {
-    name: "ConfigService ignores invalid defaultMode and forces default",
-    fn: async () => {
-      const harness = createHarness();
-
+    name: "ConfigService 保存时清除 apiKey",
+    fn() {
+      const { configService, configPath, cleanup } = createHarness();
       try {
-        fs.writeFileSync(
-          harness.configPath,
-          [
-            "[modeDefaults]",
-            'defaultMode = "boom"'
-          ].join("\n"),
-          "utf8"
-        );
+        const config = configService.load();
+        // 模拟用户设置了 apiKey
+        config.providers.openai.apiKey = "sk-secret-key";
+        configService.save(config);
 
-        // defaultMode is now always forced to "default", so invalid TOML values are silently ignored
-        const config = harness.configService.load();
-        assert.strictEqual(config.modeDefaults.defaultMode, "default");
+        // 读取持久化后的文件内容
+        const rawToml = fs.readFileSync(configPath, "utf8");
+        assert.ok(!rawToml.includes("sk-secret-key"), "TOML 文件中不应包含 API Key");
+
+        // 重新加载也应为空
+        const reloaded = configService.load();
+        assert.equal(reloaded.providers.openai.apiKey, "");
       } finally {
-        harness.cleanup();
+        cleanup();
       }
     }
   },
   {
-    name: "ConfigService ignores legacy retrievalByMode in config.toml without crashing",
-    fn: async () => {
-      const harness = createHarness();
-
+    name: "ConfigService 保存后保留 activeProvider 修改",
+    fn() {
+      const { configService, cleanup } = createHarness();
       try {
-        // 旧版 config 可能仍包含 retrievalByMode 段，加载时应静默忽略
-        fs.writeFileSync(
-          harness.configPath,
-          [
-            "[modeDefaults]",
-            'defaultMode = "default"',
-            "",
-            "[modeDefaults.retrievalByMode]",
-            'default = "yes"',
-            '"deep-dialogue" = false',
-            "decision = true",
-            "research = true"
-          ].join("\n"),
-          "utf8"
-        );
-
-        const config = harness.configService.load();
-        assert.equal(config.modeDefaults.defaultMode, "default");
+        const config = configService.load();
+        assert.equal(config.activeProvider, DEFAULT_PROVIDER);
+        config.activeProvider = "anthropic";
+        configService.save(config);
+        const reloaded = configService.load();
+        assert.equal(reloaded.activeProvider, "anthropic");
       } finally {
-        harness.cleanup();
+        cleanup();
       }
     }
   },
   {
-    name: "ConfigService rejects malformed TOML instead of falling back to defaults",
-    fn: async () => {
-      const harness = createHarness();
-
+    name: "ConfigService 保存后保留自定义 model 和 baseUrl",
+    fn() {
+      const { configService, cleanup } = createHarness();
       try {
-        fs.writeFileSync(harness.configPath, "[[not toml", "utf8");
+        const config = configService.load();
+        config.providers.openai.model = "gpt-4-turbo";
+        config.providers.openai.baseUrl = "https://custom-proxy.example.com/v1";
+        configService.save(config);
 
-        assert.throws(
-          () => harness.configService.load(),
-          (error) =>
-            error instanceof ConfigValidationError &&
-            error.message.includes("failed to parse TOML")
-        );
+        const reloaded = configService.load();
+        assert.equal(reloaded.providers.openai.model, "gpt-4-turbo");
+        assert.equal(reloaded.providers.openai.baseUrl, "https://custom-proxy.example.com/v1");
       } finally {
-        harness.cleanup();
+        cleanup();
       }
     }
   },
   {
-    name: "SecretService encrypts and restores the Kimi API key",
-    fn: async () => {
-      const harness = createHarness();
-
+    name: "ConfigService 兼容旧的单 provider 配置格式",
+    fn() {
+      const { configPath, cleanup } = createHarness();
       try {
-        harness.secretService.saveProviderApiKey("kimi", "kimi-secret-123");
-        const rawSecrets = fs.readFileSync(harness.secretPath, "utf8");
+        // 写入 v1 风格的配置
+        const legacyToml = [
+          '[provider]',
+          'provider = "anthropic"',
+          'baseUrl = "https://custom.example.com/v1"',
+          'model = "claude-3-opus"',
+          ''
+        ].join('\n');
+        fs.writeFileSync(configPath, legacyToml, "utf8");
 
-        assert.equal(harness.secretService.getProviderApiKey("kimi"), "kimi-secret-123");
-        assert.equal(rawSecrets.includes("kimi-secret-123"), false);
+        const configService = new ConfigService(configPath, PROJECT_ROOT);
+        const config = configService.load();
+        assert.equal(config.activeProvider, "anthropic");
+        assert.equal(config.providers.anthropic.baseUrl, "https://custom.example.com/v1");
+        assert.equal(config.providers.anthropic.model, "claude-3-opus");
       } finally {
-        harness.cleanup();
+        cleanup();
       }
     }
   },
   {
-    name: "KimiProvider maps 401 responses to auth errors",
-    fn: async () => {
-      const originalFetch = global.fetch;
-      global.fetch = async () =>
-        new Response(JSON.stringify({ error: { message: "bad key" } }), {
-          status: 401,
-          headers: { "Content-Type": "application/json" }
-        });
-
+    name: "ConfigService 忽略无效的 activeProvider 值",
+    fn() {
+      const { configPath, cleanup } = createHarness();
       try {
-        const provider = new KimiProvider();
-        await assert.rejects(
-          provider.generate({
-            provider: "kimi",
-            baseUrl: "https://api.moonshot.cn/v1",
-            model: "kimi-k2.5",
-            apiKey: "bad-key",
-            messages: [{ role: "user", content: "hello" }]
-          }),
-          (error) =>
-            error instanceof ProviderError &&
-            error.code === "auth" &&
-            error.message.toLowerCase().includes("kimi")
-        );
+        const brokenToml = 'activeProvider = "nonexistent_provider"\n';
+        fs.writeFileSync(configPath, brokenToml, "utf8");
+
+        const configService = new ConfigService(configPath, PROJECT_ROOT);
+        const config = configService.load();
+        // 应回退到默认
+        assert.equal(config.activeProvider, DEFAULT_PROVIDER);
       } finally {
-        global.fetch = originalFetch;
+        cleanup();
       }
     }
   },
   {
-    name: "OpenAIProvider extracts assistant text from chat completions",
-    fn: async () => {
-      const restoreFetch = mockJsonFetch({
-        choices: [
-          {
-            message: {
-              content: "openai reply"
-            }
-          }
-        ]
-      });
-
+    name: "ConfigService 对损坏的 TOML 回退到默认配置",
+    fn() {
+      const { configPath, cleanup } = createHarness();
       try {
-        const provider = new OpenAIProvider();
-        const result = await provider.generate({
-          provider: "openai",
-          baseUrl: "https://api.openai.com/v1",
-          model: "gpt-5.4",
-          apiKey: "openai-key",
-          messages: [{ role: "user", content: "hello" }]
-        });
+        fs.writeFileSync(configPath, "这不是有效的 TOML {{{{", "utf8");
 
-        assert.equal(result.text, "openai reply");
+        const configService = new ConfigService(configPath, PROJECT_ROOT);
+        const config = configService.load();
+        assert.equal(config.activeProvider, DEFAULT_PROVIDER);
+        assert.ok(config.providers.openai, "应包含默认 openai 配置");
       } finally {
-        restoreFetch();
+        cleanup();
+      }
+    }
+  },
+
+  // ==================== SecretService ====================
+  {
+    name: "SecretService 加密并还原 API Key",
+    fn() {
+      const { secretService, cleanup } = createHarness();
+      try {
+        const testKey = "sk-test-1234567890abcdef";
+        secretService.saveProviderApiKey("openai", testKey);
+        const retrieved = secretService.getProviderApiKey("openai");
+        assert.equal(retrieved, testKey);
+      } finally {
+        cleanup();
       }
     }
   },
   {
-    name: "DeepSeekProvider extracts assistant text from chat completions",
-    fn: async () => {
-      const restoreFetch = mockJsonFetch({
-        choices: [
-          {
-            message: {
-              content: "deepseek reply"
-            }
-          }
-        ]
-      });
-
+    name: "SecretService 分别存储不同提供商的 Key",
+    fn() {
+      const { secretService, cleanup } = createHarness();
       try {
-        const provider = new DeepSeekProvider();
-        const result = await provider.generate({
-          provider: "deepseek",
-          baseUrl: "https://api.deepseek.com/v1",
-          model: "deepseek-chat",
-          apiKey: "deepseek-key",
-          messages: [{ role: "user", content: "hello" }]
-        });
+        secretService.saveProviderApiKey("openai", "sk-openai-key");
+        secretService.saveProviderApiKey("anthropic", "sk-anthropic-key");
+        secretService.saveProviderApiKey("kimi", "sk-kimi-key");
 
-        assert.equal(result.text, "deepseek reply");
+        assert.equal(secretService.getProviderApiKey("openai"), "sk-openai-key");
+        assert.equal(secretService.getProviderApiKey("anthropic"), "sk-anthropic-key");
+        assert.equal(secretService.getProviderApiKey("kimi"), "sk-kimi-key");
+        assert.equal(secretService.getProviderApiKey("google"), null);
       } finally {
-        restoreFetch();
+        cleanup();
       }
     }
   },
   {
-    name: "AnthropicProvider extracts assistant text from messages API",
-    fn: async () => {
-      const restoreFetch = mockJsonFetch({
-        content: [
-          {
-            type: "text",
-            text: "anthropic reply"
-          }
-        ]
-      });
-
+    name: "SecretService hasProviderApiKey 正确反映存储状态",
+    fn() {
+      const { secretService, cleanup } = createHarness();
       try {
-        const provider = new AnthropicProvider();
-        const result = await provider.generate({
-          provider: "anthropic",
-          baseUrl: "https://api.anthropic.com/v1",
-          model: "claude-opus-4-6",
-          apiKey: "anthropic-key",
-          messages: [{ role: "user", content: "hello" }]
-        });
-
-        assert.equal(result.text, "anthropic reply");
+        assert.equal(secretService.hasProviderApiKey("openai"), false);
+        secretService.saveProviderApiKey("openai", "sk-test");
+        assert.equal(secretService.hasProviderApiKey("openai"), true);
       } finally {
-        restoreFetch();
+        cleanup();
       }
     }
   },
   {
-    name: "GeminiProvider extracts assistant text from generateContent",
-    fn: async () => {
-      const restoreFetch = mockJsonFetch({
-        candidates: [
-          {
-            content: {
-              parts: [
-                {
-                  text: "gemini reply"
-                }
-              ]
-            }
-          }
-        ]
-      });
-
+    name: "SecretService clearProviderApiKey 清除后无法读取",
+    fn() {
+      const { secretService, cleanup } = createHarness();
       try {
-        const provider = new GeminiProvider();
-        const result = await provider.generate({
-          provider: "gemini",
-          baseUrl: "https://generativelanguage.googleapis.com/v1beta",
-          model: "gemini-3.1-pro-preview",
-          apiKey: "gemini-key",
-          messages: [{ role: "user", content: "hello" }]
-        });
-
-        assert.equal(result.text, "gemini reply");
+        secretService.saveProviderApiKey("openai", "sk-test");
+        assert.equal(secretService.hasProviderApiKey("openai"), true);
+        secretService.clearProviderApiKey("openai");
+        assert.equal(secretService.hasProviderApiKey("openai"), false);
+        assert.equal(secretService.getProviderApiKey("openai"), null);
       } finally {
-        restoreFetch();
+        cleanup();
       }
     }
   },
   {
-    name: "Every provider preset exposed to the app has a concrete runtime implementation",
-    fn: async () => {
+    name: "SecretService 空字符串 Key 不被存储",
+    fn() {
+      const { secretService, cleanup } = createHarness();
+      try {
+        secretService.saveProviderApiKey("openai", "   ");
+        assert.equal(secretService.hasProviderApiKey("openai"), false);
+      } finally {
+        cleanup();
+      }
+    }
+  },
+  {
+    name: "SecretService 密文使用 fallback AES-256-GCM 格式",
+    fn() {
+      const { secretService, secretPath, cleanup } = createHarness();
+      try {
+        secretService.saveProviderApiKey("openai", "sk-test");
+        const raw = JSON.parse(fs.readFileSync(secretPath, "utf8"));
+        const encrypted = raw.providers.openai;
+        // 在非 Electron 环境下应使用 fallback 加密
+        assert.ok(encrypted.startsWith("fallback:"), "密文应以 fallback: 开头");
+        // 密文由 4 段组成：fallback:iv:tag:data
+        const parts = encrypted.split(":");
+        assert.equal(parts.length, 4, "fallback 密文应有 4 段");
+      } finally {
+        cleanup();
+      }
+    }
+  },
+
+  // ==================== 板块系统验证 ====================
+  {
+    name: "三个板块定义完整且互斥",
+    fn() {
+      assert.equal(BOARDS.length, 3);
+      const ids = BOARDS.map(b => b.id);
+      assert.deepEqual(ids.sort(), ["decision", "dialogue", "research"]);
+      // 每个板块都有唯一参数
+      for (const board of BOARDS) {
+        assert.ok(board.label, `${board.id} 应有 label`);
+        assert.ok(typeof board.temperature === "number", `${board.id} 应有 temperature`);
+        assert.ok(typeof board.maxTokens === "number", `${board.id} 应有 maxTokens`);
+        assert.ok(typeof board.historyWindow === "number", `${board.id} 应有 historyWindow`);
+      }
+    }
+  },
+  {
+    name: "BOARD_MAP 和 getBoardDef 与 BOARDS 数组一致",
+    fn() {
+      for (const board of BOARDS) {
+        assert.equal(BOARD_MAP[board.id].id, board.id);
+        assert.equal(getBoardDef(board.id).temperature, board.temperature);
+      }
+    }
+  },
+  {
+    name: "默认板块是 dialogue",
+    fn() {
+      assert.equal(DEFAULT_BOARD, "dialogue");
+    }
+  },
+
+  // ==================== 提供商定义验证 ====================
+  {
+    name: "四家提供商预设完整",
+    fn() {
+      assert.equal(PROVIDER_PRESETS.length, 4);
+      const ids = PROVIDER_PRESETS.map(p => p.id);
+      assert.deepEqual(ids.sort(), ["anthropic", "google", "kimi", "openai"]);
       for (const preset of PROVIDER_PRESETS) {
-        try {
-          const provider = createTextGenerationProvider(preset.id);
-          assert.equal(provider.id, preset.id);
-        } catch (error) {
-          assert.fail(
-            `Provider preset ${preset.id} must have a concrete runtime implementation: ${error instanceof Error ? error.message : error}`
-          );
-        }
+        assert.ok(preset.label, `${preset.id} 应有 label`);
+        assert.ok(preset.defaultModel, `${preset.id} 应有 defaultModel`);
+        assert.ok(preset.defaultBaseUrl, `${preset.id} 应有 defaultBaseUrl`);
+        assert.ok(preset.models.length > 0, `${preset.id} 应有至少一个模型`);
       }
     }
   },
   {
-    name: "ExecutionFlow persists a normal Kimi conversation roundtrip",
-    fn: async () => {
-      const harness = createHarness();
-      const restoreFetch = mockKimiReply("这是来自 Kimi 的真实对话链路回复。");
+    name: "PROVIDER_MAP 与 PROVIDER_PRESETS 一致",
+    fn() {
+      for (const preset of PROVIDER_PRESETS) {
+        const mapped = PROVIDER_MAP[preset.id];
+        assert.ok(mapped, `PROVIDER_MAP 应包含 ${preset.id}`);
+        assert.equal(mapped.defaultModel, preset.defaultModel);
+      }
+    }
+  },
+  {
+    name: "默认提供商存在于 PROVIDER_MAP 中",
+    fn() {
+      assert.ok(PROVIDER_MAP[DEFAULT_PROVIDER], "默认提供商应在 PROVIDER_MAP 中");
+    }
+  },
 
+  // ==================== 跨模块集成 ====================
+  {
+    name: "Store 多板块会话隔离：不同板块的会话互不干扰",
+    fn() {
+      const { store, cleanup } = createHarness();
       try {
-        updatePermissions(harness, { external_network: "allow" });
-        harness.secretService.saveProviderApiKey("kimi", "kimi-secret-123");
-        const conversation = harness.store.createConversation("deep-dialogue", "Kimi 对话测试");
+        store.createConversation("dialogue", "对话 1");
+        store.createConversation("dialogue", "对话 2");
+        store.createConversation("decision", "决策 1");
+        store.createConversation("research", "研究 1");
 
-        const result = await harness.executionFlow.run({
-          conversationId: conversation.id,
-          mode: "deep-dialogue",
-          text: "你好，Kimi。",
-          enableRetrievalForTurn: false
-        });
-
-        const messages = harness.store.listMessages(conversation.id);
-        assert.equal(messages.length, 2);
-        assert.equal(messages[0].role, "user");
-        assert.equal(messages[0].content, "你好，Kimi。");
-        assert.equal(messages[1].role, "assistant");
-        assert.equal(messages[1].content, "这是来自 Kimi 的真实对话链路回复。");
-        assert.equal(result.audit.resultType, "answer");
-        assert.equal(result.state.taskStatus, "completed");
+        assert.equal(store.listConversations("dialogue").length, 2);
+        assert.equal(store.listConversations("decision").length, 1);
+        assert.equal(store.listConversations("research").length, 1);
+        assert.equal(store.listConversations().length, 4);
       } finally {
-        restoreFetch();
-        harness.cleanup();
+        cleanup();
       }
     }
   },
   {
-    name: "ExecutionFlow keeps informational action wording on the dialogue path",
-    fn: async () => {
-      const harness = createHarness();
-      const restoreFetch = mockKimiReply("normal dialogue reply");
-
+    name: "Store + SecretService 完整生命周期：创建会话 → 存 Key → 读 Key → 清 Key",
+    fn() {
+      const { store, secretService, cleanup } = createHarness();
       try {
-        updatePermissions(harness, { external_network: "allow" });
-        harness.secretService.saveProviderApiKey("kimi", "kimi-secret-123");
-        const conversation = harness.store.createConversation("default", "Informational prompts");
+        // 创建会话
+        const conv = store.createConversation("dialogue", "测试流程");
+        store.addMessage(conv.id, "user", "你好");
+        store.updateConversationModel(conv.id, "gpt-5.4");
 
-        const updateResult = await harness.executionFlow.run({
-          conversationId: conversation.id,
-          mode: "default",
-          text: "Can you update me on the current baseline?",
-          enableRetrievalForTurn: false
-        });
-        const notesResult = await harness.executionFlow.run({
-          conversationId: conversation.id,
-          mode: "default",
-          text: "How do I write meeting notes?",
-          enableRetrievalForTurn: false
-        });
+        // 存储 API Key
+        secretService.saveProviderApiKey("openai", "sk-test-key");
+        assert.ok(secretService.hasProviderApiKey("openai"));
 
-        assert.equal(updateResult.classification.handlingClass, "pure-dialogue");
-        assert.equal(updateResult.state.pendingConfirmation, false);
-        assert.equal(updateResult.audit.resultType, "answer");
-        assert.equal(notesResult.classification.handlingClass, "pure-dialogue");
-        assert.equal(notesResult.state.pendingConfirmation, false);
-        assert.equal(notesResult.audit.resultType, "answer");
+        // 验证会话和 Key 独立
+        const fetched = store.getConversation(conv.id);
+        assert.equal(fetched.model, "gpt-5.4");
+        assert.equal(secretService.getProviderApiKey("openai"), "sk-test-key");
+
+        // 清除 Key 不影响会话
+        secretService.clearProviderApiKey("openai");
+        assert.equal(store.getConversation(conv.id).model, "gpt-5.4");
+        assert.equal(secretService.hasProviderApiKey("openai"), false);
       } finally {
-        restoreFetch();
-        harness.cleanup();
+        cleanup();
       }
     }
   },
   {
-    name: "ExecutionFlow blocks unsupported actions and persists blocked trace state",
-    fn: async () => {
-      const harness = createHarness();
-
+    name: "ConfigService + SecretService 配置和密钥分离存储",
+    fn() {
+      const { configService, secretService, configPath, secretPath, cleanup } = createHarness();
       try {
-        const conversation = harness.store.createConversation("default", "Blocked action");
+        // 保存配置和密钥
+        const config = configService.load();
+        config.activeProvider = "kimi";
+        configService.save(config);
+        secretService.saveProviderApiKey("kimi", "sk-kimi-secret");
 
-        const result = await harness.executionFlow.run({
-          conversationId: conversation.id,
-          mode: "default",
-          text: "Delete the README.md file.",
-          enableRetrievalForTurn: false
-        });
+        // 验证配置文件不含密钥
+        const tomlContent = fs.readFileSync(configPath, "utf8");
+        assert.ok(!tomlContent.includes("sk-kimi-secret"), "TOML 不应含密钥");
 
-        const persistedState = harness.store.getState(conversation.id);
-        const messages = harness.store.listMessages(conversation.id);
-        const phases = persistedState.trace.map((entry) => entry.phase);
+        // 验证密钥文件不含配置
+        const secretContent = fs.readFileSync(secretPath, "utf8");
+        assert.ok(!secretContent.includes("activeProvider"), "密钥文件不应含配置");
 
-        assert.equal(result.classification.handlingClass, "action-adjacent");
-        assert.equal(result.state.pendingConfirmation, false);
-        assert.equal(result.state.pendingAction, null);
-        assert.equal(result.state.taskStatus, "completed");
-        assert.equal(result.verification.status, "blocked");
-        assert.equal(result.verification.detail, "unsupported action blocked");
-        assert.equal(result.audit.resultType, "proposal");
-        assert.equal(result.audit.riskNotes, "unsupported action blocked");
-        assert.equal(messages.length, 2);
-        assert.equal(messages[1].content.includes("当前仅支持工作区内写入提案"), true);
-        assert.deepEqual(phases, ["classify", "plan", "gate", "verification", "persist"]);
-        assert.equal(
-          persistedState.trace.some((entry) => entry.summary.includes("unsupported action remains blocked")),
-          true
-        );
-        assert.equal(persistedState.verification.status, "blocked");
-        assert.equal(persistedState.verification.detail, "unsupported action blocked");
+        // 两者独立正确
+        const reloadedConfig = configService.load();
+        assert.equal(reloadedConfig.activeProvider, "kimi");
+        assert.equal(secretService.getProviderApiKey("kimi"), "sk-kimi-secret");
       } finally {
-        harness.cleanup();
+        cleanup();
       }
     }
   },
   {
-    name: "ExecutionFlow executes workspace writes immediately when workspace_write is allow",
-    fn: async () => {
-      const harness = createHarness();
-
+    name: "Store ensureDefaultConversation 为每个板块独立创建默认会话",
+    fn() {
+      const { store, cleanup } = createHarness();
       try {
-        updatePermissions(harness, { workspace_write: "allow" });
-        const conversation = harness.store.createConversation("default", "Workspace write allow");
-        const result = await harness.executionFlow.run({
-          conversationId: conversation.id,
-          mode: "default",
-          text: "Write a report file",
-          enableRetrievalForTurn: false
-        });
+        const d1 = store.ensureDefaultConversation("dialogue");
+        const d2 = store.ensureDefaultConversation("decision");
+        const r1 = store.ensureDefaultConversation("research");
 
-        const outputsDir = path.join(harness.workspaceRoot, "outputs");
-        const outputFiles = fs.readdirSync(outputsDir);
+        // 三个不同的会话
+        assert.notEqual(d1.id, d2.id);
+        assert.notEqual(d2.id, r1.id);
 
-        assert.equal(result.classification.handlingClass, "action-adjacent");
-        assert.equal(result.state.pendingConfirmation, false);
-        assert.equal(result.state.pendingAction, null);
-        assert.deepEqual(result.state.toolsCalled, ["workspace-write"]);
-        assert.equal(result.verification.status, "passed");
-        assert.equal(outputFiles.length, 1);
+        assert.equal(d1.board, "dialogue");
+        assert.equal(d2.board, "decision");
+        assert.equal(r1.board, "research");
+
+        // 再次调用返回已有的
+        const d1Again = store.ensureDefaultConversation("dialogue");
+        assert.equal(d1Again.id, d1.id);
       } finally {
-        harness.cleanup();
+        cleanup();
       }
     }
   },
   {
-    name: "ExecutionFlow blocks workspace writes when workspace_write is block",
-    fn: async () => {
-      const harness = createHarness();
-
-      try {
-        updatePermissions(harness, { workspace_write: "block" });
-        const conversation = harness.store.createConversation("default", "Workspace write block");
-        const result = await harness.executionFlow.run({
-          conversationId: conversation.id,
-          mode: "default",
-          text: "Write a report file",
-          enableRetrievalForTurn: false
-        });
-
-        const outputsDir = path.join(harness.workspaceRoot, "outputs");
-        const outputFiles = fs.readdirSync(outputsDir);
-
-        assert.equal(result.classification.handlingClass, "action-adjacent");
-        assert.equal(result.state.pendingConfirmation, false);
-        assert.equal(result.state.pendingAction, null);
-        assert.equal(result.verification.status, "blocked");
-        assert.equal(result.state.trace.some((entry) => entry.phase === "gate"), true);
-        assert.equal(outputFiles.length, 0);
-      } finally {
-        harness.cleanup();
+    name: "DEFAULT_ENSO_CONFIG 与 PROVIDER_PRESETS 保持同步",
+    fn() {
+      const defaults = DEFAULT_ENSO_CONFIG;
+      for (const preset of PROVIDER_PRESETS) {
+        const pc = defaults.providers[preset.id];
+        assert.ok(pc, `默认配置应包含 ${preset.id}`);
+        assert.equal(pc.provider, preset.id);
+        assert.equal(pc.baseUrl, preset.defaultBaseUrl);
+        assert.equal(pc.model, preset.defaultModel);
       }
+      assert.equal(defaults.activeProvider, DEFAULT_PROVIDER);
     }
   },
-  {
-    name: "ExecutionFlow proposes and executes safe host exec commands inside the workspace",
-    fn: async () => {
-      const harness = createHarness();
-
-      try {
-        const outputsDir = path.join(harness.workspaceRoot, "outputs");
-        fs.mkdirSync(outputsDir, { recursive: true });
-        fs.writeFileSync(path.join(outputsDir, "exec-safe.txt"), "safe", "utf8");
-
-        const conversation = harness.store.createConversation("default", "Host exec");
-        const proposal = await harness.executionFlow.run({
-          conversationId: conversation.id,
-          mode: "default",
-          text: "Run `Get-ChildItem outputs`",
-          enableRetrievalForTurn: false
-        });
-
-        assert.equal(proposal.classification.handlingClass, "action-adjacent");
-        assert.equal(proposal.state.pendingConfirmation, true);
-        assert.equal(proposal.state.pendingAction?.kind, "host_exec");
-        assert.equal(proposal.audit.resultType, "proposal");
-        assert.equal(proposal.audit.riskNotes.includes("Get-ChildItem outputs"), true);
-
-        const resolved = harness.executionFlow.resolvePendingAction(conversation.id);
-
-        assert.equal(resolved.state.pendingConfirmation, false);
-        assert.equal(resolved.state.pendingAction, null);
-        assert.deepEqual(resolved.state.toolsCalled, ["exec"]);
-        assert.equal(resolved.state.verification.status, "passed");
-        assert.equal(resolved.audit.resultType, "answer");
-        assert.equal(resolved.assistantMessage.content.includes("Get-ChildItem outputs"), true);
-        assert.equal(resolved.assistantMessage.content.includes("exec-safe.txt"), true);
-        assert.equal(resolved.assistantMessage.content.includes("退出码: 0"), true);
-      } finally {
-        harness.cleanup();
-      }
-    }
-  },
-  {
-    name: "ExecutionFlow executes safe host exec commands immediately when host_exec_readonly is allow",
-    fn: async () => {
-      const harness = createHarness();
-
-      try {
-        updatePermissions(harness, { host_exec_readonly: "allow" });
-        const outputsDir = path.join(harness.workspaceRoot, "outputs");
-        fs.mkdirSync(outputsDir, { recursive: true });
-        fs.writeFileSync(path.join(outputsDir, "allow-exec.txt"), "safe", "utf8");
-
-        const conversation = harness.store.createConversation("default", "Host exec allow");
-        const result = await harness.executionFlow.run({
-          conversationId: conversation.id,
-          mode: "default",
-          text: "Run `Get-ChildItem outputs`",
-          enableRetrievalForTurn: false
-        });
-
-        assert.equal(result.classification.handlingClass, "action-adjacent");
-        assert.equal(result.state.pendingConfirmation, false);
-        assert.equal(result.state.pendingAction, null);
-        assert.deepEqual(result.state.toolsCalled, ["exec"]);
-        assert.equal(result.verification.status, "passed");
-        assert.equal(result.assistantMessage.content.includes("allow-exec.txt"), true);
-      } finally {
-        harness.cleanup();
-      }
-    }
-  },
-  {
-    name: "ExecutionFlow blocks safe host exec commands when host_exec_readonly is block",
-    fn: async () => {
-      const harness = createHarness();
-
-      try {
-        updatePermissions(harness, { host_exec_readonly: "block" });
-        const outputsDir = path.join(harness.workspaceRoot, "outputs");
-        fs.mkdirSync(outputsDir, { recursive: true });
-        fs.writeFileSync(path.join(outputsDir, "block-exec.txt"), "safe", "utf8");
-
-        const conversation = harness.store.createConversation("default", "Host exec block");
-        const result = await harness.executionFlow.run({
-          conversationId: conversation.id,
-          mode: "default",
-          text: "Run `Get-ChildItem outputs`",
-          enableRetrievalForTurn: false
-        });
-
-        assert.equal(result.classification.handlingClass, "action-adjacent");
-        assert.equal(result.state.pendingConfirmation, false);
-        assert.equal(result.state.pendingAction, null);
-        assert.equal(result.verification.status, "blocked");
-        assert.equal(result.state.trace.some((entry) => entry.phase === "gate"), true);
-      } finally {
-        harness.cleanup();
-      }
-    }
-  },
-  {
-    name: "ExecutionFlow keeps destructive host exec commands blocked",
-    fn: async () => {
-      const harness = createHarness();
-
-      try {
-        const conversation = harness.store.createConversation("default", "Unsafe host exec");
-        const result = await harness.executionFlow.run({
-          conversationId: conversation.id,
-          mode: "default",
-          text: "Run `Remove-Item outputs\\\\exec-safe.txt`",
-          enableRetrievalForTurn: false
-        });
-
-        assert.equal(result.classification.handlingClass, "action-adjacent");
-        assert.equal(result.state.pendingConfirmation, false);
-        assert.equal(result.state.pendingAction, null);
-        assert.equal(result.verification.status, "blocked");
-        assert.equal(result.audit.resultType, "proposal");
-        assert.equal(result.audit.riskNotes, "unsupported host exec command blocked");
-        assert.equal(result.assistantMessage.content.includes("仅支持在 Enso 工作区内执行只读命令"), true);
-      } finally {
-        harness.cleanup();
-      }
-    }
-  },
-  {
-    name: "ExecutionFlow blocks host exec commands that target paths outside the workspace",
-    fn: async () => {
-      const harness = createHarness();
-
-      try {
-        updatePermissions(harness, { host_exec_readonly: "allow" });
-        const conversation = harness.store.createConversation("default", "Host exec outside workspace");
-        const result = await harness.executionFlow.run({
-          conversationId: conversation.id,
-          mode: "default",
-          text: "Run `Get-ChildItem C:\\`",
-          enableRetrievalForTurn: false
-        });
-
-        assert.equal(result.classification.handlingClass, "action-adjacent");
-        assert.equal(result.state.pendingConfirmation, false);
-        assert.equal(result.state.pendingAction, null);
-        assert.equal(result.verification.status, "blocked");
-      } finally {
-        harness.cleanup();
-      }
-    }
-  },
-  {
-    name: "KnowledgeService prioritizes exact phrase matches over loose keyword hits",
-    fn: async () => {
-      const harness = createHarness();
-
-      try {
-        const sourceId = harness.store.addKnowledgeSource(
-          "ranking.md",
-          path.join(harness.tempDir, "ranking.md")
-        );
-        harness.store.insertKnowledgeChunk(
-          sourceId,
-          0,
-          "The Enso local workspace keeps evidence visible for the operator."
-        );
-        harness.store.insertKnowledgeChunk(
-          sourceId,
-          1,
-          "Enso keeps local notes and a workspace audit trail for the operator."
-        );
-        harness.store.updateKnowledgeSourceChunkCount(sourceId, 2);
-
-        const snippets = harness.knowledgeService.retrieve("Enso local workspace", 2);
-
-        assert.equal(snippets.length, 2);
-        assert.equal(snippets[0].content.includes("Enso local workspace"), true);
-        assert.ok(snippets[0].score > snippets[1].score);
-      } finally {
-        harness.cleanup();
-      }
-    }
-  },
-  {
-    name: "ExecutionFlow honors per-turn retrieval override and persists snippet metadata",
-    fn: async () => {
-      const harness = createHarness();
-      const restoreFetch = mockKimiReply("retrieval override reply");
-
-      try {
-        updatePermissions(harness, { external_network: "allow" });
-        harness.secretService.saveProviderApiKey("kimi", "kimi-secret-123");
-        const docPath = path.join(harness.tempDir, "knowledge.md");
-        fs.writeFileSync(
-          docPath,
-          "Enso local workspace keeps evidence visible for the operator.",
-          "utf8"
-        );
-        await harness.knowledgeService.ingestFile(docPath);
-
-        const conversation = harness.store.createConversation("default", "Retrieval override");
-        const result = await harness.executionFlow.run({
-          conversationId: conversation.id,
-          mode: "default",
-          text: "Enso local workspace",
-          enableRetrievalForTurn: true
-        });
-
-        assert.equal(result.classification.retrievalNeeded, true);
-        assert.ok(result.retrievedSnippets.length > 0);
-        assert.equal(result.state.retrievalUsed, true);
-        assert.equal(result.verification.status, "passed");
-        assert.ok(Array.isArray(result.assistantMessage.metadata.retrievedSnippets));
-        assert.equal(
-          result.assistantMessage.metadata.retrievedSnippets.length,
-          result.retrievedSnippets.length
-        );
-      } finally {
-        restoreFetch();
-        harness.cleanup();
-      }
-    }
-  },
-  {
-    name: "ExecutionFlow uses mode retrieval defaults and fails verification without evidence",
-    fn: async () => {
-      const harness = createHarness();
-      const restoreFetch = mockKimiReply("reply without evidence");
-
-      try {
-        updatePermissions(harness, { external_network: "allow" });
-        harness.secretService.saveProviderApiKey("kimi", "kimi-secret-123");
-        const docPath = path.join(harness.tempDir, "knowledge.md");
-        fs.writeFileSync(docPath, "Enso keeps local artifacts in the workspace.", "utf8");
-        await harness.knowledgeService.ingestFile(docPath);
-
-        // decision 模式硬编码 retrievalDefault: true，无需 config 设置
-        const conversation = harness.store.createConversation("decision", "Mode retrieval default");
-        const result = await harness.executionFlow.run({
-          conversationId: conversation.id,
-          mode: "decision",
-          text: "query with no matching chunks",
-          enableRetrievalForTurn: false
-        });
-
-        assert.equal(result.classification.retrievalNeeded, true);
-        assert.equal(result.retrievedSnippets.length, 0);
-        assert.equal(result.verification.status, "failed");
-        assert.match(result.verification.detail, /\[fail\] retrieval returned snippets/);
-      } finally {
-        restoreFetch();
-        harness.cleanup();
-      }
-    }
-  },
-  {
-    name: "ExecutionFlow blocks remote model calls when external_network is block",
-    fn: async () => {
-      const harness = createHarness();
-      const mocked = mockKimiReplyWithCount("network should stay blocked");
-
-      try {
-        updatePermissions(harness, { external_network: "block" });
-        harness.secretService.saveProviderApiKey("kimi", "kimi-secret-123");
-        const conversation = harness.store.createConversation("default", "Network block");
-        const result = await harness.executionFlow.run({
-          conversationId: conversation.id,
-          mode: "default",
-          text: "hello",
-          enableRetrievalForTurn: false
-        });
-
-        assert.equal(result.classification.handlingClass, "pure-dialogue");
-        assert.equal(mocked.getCallCount(), 0);
-        assert.equal(result.state.pendingConfirmation, false);
-        assert.equal(result.verification.status, "blocked");
-        assert.equal(result.state.trace.some((entry) => entry.phase === "gate"), true);
-      } finally {
-        mocked.restore();
-        harness.cleanup();
-      }
-    }
-  },
-  {
-    name: "Workspace write proposals execute after confirmation inside the Enso workspace",
-    fn: async () => {
-      const harness = createHarness();
-      const restoreFetch = mockKimiReply("# 会议纪要\n\n- 已整理关键结论。");
-
-      try {
-        updatePermissions(harness, { external_network: "allow" });
-        harness.secretService.saveProviderApiKey("kimi", "kimi-secret-123");
-        const conversation = harness.store.createConversation("default", "Workspace write");
-
-        const proposal = await harness.executionFlow.run({
-          conversationId: conversation.id,
-          mode: "default",
-          text: "请写一份会议纪要文件",
-          enableRetrievalForTurn: false
-        });
-
-        assert.equal(proposal.classification.handlingClass, "action-adjacent");
-        assert.equal(proposal.state.pendingConfirmation, true);
-        assert.ok(proposal.state.pendingAction);
-        assert.equal(proposal.audit.resultType, "proposal");
-        assert.equal(fs.existsSync(proposal.state.pendingAction.targetPath), false);
-
-        const resolved = harness.executionFlow.resolvePendingAction(conversation.id);
-
-        assert.equal(resolved.state.pendingConfirmation, false);
-        assert.equal(resolved.state.pendingAction, null);
-        assert.deepEqual(resolved.state.toolsCalled, ["workspace-write"]);
-        assert.equal(resolved.state.verification.status, "passed");
-        assert.equal(resolved.audit.resultType, "answer");
-        assert.ok(fs.existsSync(proposal.state.pendingAction.targetPath));
-        assert.match(
-          fs.readFileSync(proposal.state.pendingAction.targetPath, "utf8"),
-          /会议纪要/
-        );
-      } finally {
-        restoreFetch();
-        harness.cleanup();
-      }
-    }
-  },
-  {
-    name: "ExecutionFlow injects expression config into the model system prompt",
-    fn: async () => {
-      const harness = createHarness();
-      const originalFetch = global.fetch;
-      let capturedMessages = null;
-
-      global.fetch = async (_url, init = {}) => {
-        const payload = JSON.parse(init.body);
-        capturedMessages = payload.messages;
-
-        return new Response(
-          JSON.stringify({
-            choices: [
-              {
-                message: {
-                  content: JSON.stringify({
-                    answer: "captured structured answer",
-                    riskNotes: [],
-                    evidenceRefs: [],
-                    plannedTools: [],
-                    verificationTarget: "model reply exists",
-                    needsConfirmation: false
-                  })
-                }
-              }
-            ]
-          }),
-          {
-            status: 200,
-            headers: { "Content-Type": "application/json" }
-          }
-        );
-      };
-
-      try {
-        updatePermissions(harness, { external_network: "allow" });
-        const currentConfig = harness.configService.load();
-        harness.configService.save({
-          ...currentConfig,
-          expression: {
-            density: "detailed",
-            structuredFirst: true
-          },
-          reportingGranularity: "plan-level"
-        });
-        harness.secretService.saveProviderApiKey("kimi", "kimi-secret-123");
-        const conversation = harness.store.createConversation("default", "Expression config prompt");
-
-        const result = await harness.executionFlow.run({
-          conversationId: conversation.id,
-          mode: "default",
-          text: "Explain the current execution setup.",
-          enableRetrievalForTurn: false
-        });
-
-        assert.equal(result.assistantMessage.content, "captured structured answer");
-        assert.ok(Array.isArray(capturedMessages));
-        assert.equal(capturedMessages[0].role, "system");
-        assert.equal(capturedMessages[0].content.includes("density=detailed"), true);
-        assert.equal(capturedMessages[0].content.includes("structuredFirst=true"), true);
-        assert.equal(capturedMessages[0].content.includes("reportingGranularity=plan-level"), true);
-        assert.equal(
-          capturedMessages[0].content.includes(
-            "Return only valid JSON with exactly these keys: answer, riskNotes, evidenceRefs, plannedTools, verificationTarget, needsConfirmation."
-          ),
-          true
-        );
-      } finally {
-        global.fetch = originalFetch;
-        harness.cleanup();
-      }
-    }
-  },
-  {
-    name: "ExecutionFlow parses structured draft JSON into the final assistant reply",
-    fn: async () => {
-      const harness = createHarness();
-      const restoreFetch = mockKimiReply(
-        JSON.stringify({
-          answer: "Parsed structured answer",
-          riskNotes: ["needs follow-up"],
-          evidenceRefs: ["证据1"],
-          plannedTools: ["search"],
-          verificationTarget: "final answer recorded",
-          needsConfirmation: false
-        })
-      );
-
-      try {
-        updatePermissions(harness, { external_network: "allow" });
-        harness.secretService.saveProviderApiKey("kimi", "kimi-secret-123");
-        const conversation = harness.store.createConversation("default", "Structured draft parsing");
-
-        const result = await harness.executionFlow.run({
-          conversationId: conversation.id,
-          mode: "default",
-          text: "Summarize the latest execution result.",
-          enableRetrievalForTurn: false
-        });
-
-        assert.equal(result.assistantMessage.content, "Parsed structured answer");
-        assert.deepEqual(result.assistantMessage.metadata.riskNotes, ["needs follow-up"]);
-        assert.deepEqual(result.assistantMessage.metadata.evidenceRefs, ["证据1"]);
-        assert.deepEqual(result.assistantMessage.metadata.plannedTools, ["search"]);
-        assert.equal(result.assistantMessage.metadata.verificationTarget, "final answer recorded");
-        assert.equal(result.assistantMessage.metadata.needsConfirmation, false);
-        assert.equal(result.audit.riskNotes, "needs follow-up");
-        assert.equal(result.verification.status, "passed");
-      } finally {
-        restoreFetch();
-        harness.cleanup();
-      }
-    }
-  },
-  {
-    name: "ExecutionFlow falls back to plain text when structured draft JSON is malformed",
-    fn: async () => {
-      const harness = createHarness();
-      const restoreFetch = mockKimiReply("plain text fallback reply");
-
-      try {
-        updatePermissions(harness, { external_network: "allow" });
-        harness.secretService.saveProviderApiKey("kimi", "kimi-secret-123");
-        const conversation = harness.store.createConversation("default", "Malformed structured draft");
-
-        const result = await harness.executionFlow.run({
-          conversationId: conversation.id,
-          mode: "default",
-          text: "Give me a direct answer.",
-          enableRetrievalForTurn: false
-        });
-
-        assert.equal(result.assistantMessage.content, "plain text fallback reply");
-        assert.equal(result.assistantMessage.metadata.structuredDraftFallback, true);
-        assert.deepEqual(result.assistantMessage.metadata.riskNotes, []);
-        assert.deepEqual(result.assistantMessage.metadata.evidenceRefs, []);
-        assert.deepEqual(result.assistantMessage.metadata.plannedTools, []);
-        assert.equal(result.assistantMessage.metadata.needsConfirmation, false);
-        assert.equal(result.audit.riskNotes, "");
-        assert.equal(result.verification.status, "passed");
-      } finally {
-        restoreFetch();
-        harness.cleanup();
-      }
-    }
-  }
-  ,
-  {
-    name: "ToolService returns structured compute results",
-    fn: async () => {
-      const result = new ToolService().decideAndRun("calculate 2 + 2", []);
-
-      assert.ok(result);
-      assert.equal(result.toolName, "compute");
-      assert.equal(result.success, true);
-      assert.equal(result.output, "2 + 2 = 4");
-      assert.deepEqual(result.sideEffects, []);
-      assert.equal(result.error, undefined);
-      assert.equal(result.summary, "2 + 2 = 4");
-    }
-  },
-  {
-    name: "ToolService writes real files and returns structured workspace-write results",
-    fn: async () => {
-      const harness = createHarness();
-
-      try {
-        const toolService = new ToolService({
-          workspaceService: harness.workspaceService
-        });
-        const targetPath = path.join(harness.workspaceRoot, "outputs", "tool-write.md");
-        const result = toolService.runWorkspaceWrite({
-          kind: "workspace_write",
-          summary: "write tool output",
-          targetPath,
-          content: "# Tool output\n",
-          sourceRequestText: "write tool output",
-          requestedAt: new Date().toISOString()
-        });
-
-        assert.equal(result.toolName, "workspace-write");
-        assert.equal(result.success, true);
-        assert.equal(result.output.includes(targetPath), true);
-        assert.deepEqual(result.sideEffects, [`wrote:${path.resolve(targetPath)}`]);
-        assert.equal(fs.readFileSync(targetPath, "utf8"), "# Tool output\n");
-      } finally {
-        harness.cleanup();
-      }
-    }
-  },
-  {
-    name: "WorkspaceService rejects writes outside the workspace root",
-    fn: async () => {
-      const harness = createHarness();
-
-      try {
-        const outsidePath = path.join(harness.tempDir, "outside.md");
-        assert.throws(
-          () => harness.workspaceService.writeFile(outsidePath, "blocked"),
-          /outside the Enso workspace/i
-        );
-      } finally {
-        harness.cleanup();
-      }
-    }
-  },
-  {
-    name: "ToolService returns structured host exec results with captured stdout",
-    fn: async () => {
-      const harness = createHarness();
-
-      try {
-        const hostExecService = new HostExecService(harness.workspaceRoot);
-        const toolService = new ToolService({ hostExecService });
-        const outputsDir = path.join(harness.workspaceRoot, "outputs");
-        fs.mkdirSync(outputsDir, { recursive: true });
-        fs.writeFileSync(path.join(outputsDir, "tool-exec.txt"), "tool-exec", "utf8");
-
-        const result = toolService.runHostExec(
-          hostExecService.buildHostExecProposal({
-            requestText: "Run `Get-Content outputs/tool-exec.txt`",
-            command: "Get-Content outputs/tool-exec.txt"
-          })
-        );
-
-        assert.equal(result.toolName, "exec");
-        assert.equal(result.success, true);
-        assert.equal(result.output.includes("STDOUT"), true);
-        assert.equal(result.output.includes("tool-exec"), true);
-        assert.deepEqual(result.sideEffects, ["exec:Get-Content outputs/tool-exec.txt"]);
-        assert.equal(result.error, undefined);
-      } finally {
-        harness.cleanup();
-      }
-    }
-  },
-  {
-    name: "HostExecService times out long-running commands",
-    fn: async () => {
-      const harness = createHarness();
-
-      try {
-        const hostExecService = new HostExecService(harness.workspaceRoot, { timeoutMs: 50 });
-        const action = hostExecService.buildHostExecProposal({
-          requestText: "Run `Start-Sleep -Seconds 1`",
-          command: "Start-Sleep -Seconds 1"
-        });
-        const result = hostExecService.executePendingAction(action);
-
-        assert.equal(result.timedOut, true);
-        assert.equal(result.exitCode, -1);
-        assert.equal(result.stderr.includes("timed out"), true);
-        assert.equal(hostExecService.verifyPendingAction(result), false);
-      } finally {
-        harness.cleanup();
-      }
-    }
-  },
-  {
-    name: "ToolService chain returns multiple tools for mixed requests",
-    fn: async () => {
-      const snippets = [
-        { chunkId: "c1", sourceId: "s1", sourceName: "test.md", sourcePath: "/test.md", content: "data", score: 10 }
-      ];
-      const toolService = new ToolService();
-      const chain = toolService.decideAndRunChain("搜索这个文件然后计算 2+3", snippets);
-
-      assert.ok(chain.length >= 2, `expected >=2 tools, got ${chain.length}`);
-      const toolNames = chain.map((r) => r.toolName);
-      assert.ok(toolNames.includes("search"), "chain should include search");
-      assert.ok(toolNames.includes("compute"), "chain should include compute");
-      assert.ok(chain.every((r) => r.success), "all tools should succeed");
-    }
-  },
-  {
-    name: "ToolService single-tool decideAndRun returns first chain result for backward compat",
-    fn: async () => {
-      const toolService = new ToolService();
-      const result = toolService.decideAndRun("calculate 10 * 5", []);
-
-      assert.ok(result);
-      assert.equal(result.toolName, "compute");
-      assert.equal(result.success, true);
-      assert.match(result.output, /10 \* 5 = 50/);
-    }
-  },
-  {
-    name: "ExecutionFlow persists multi-tool chain state and assistant metadata",
-    fn: async () => {
-      const harness = createHarness();
-      const restoreFetch = mockKimiReply("tool chain reply");
-
-      try {
-        updatePermissions(harness, { external_network: "allow" });
-        harness.secretService.saveProviderApiKey("kimi", "kimi-secret-123");
-
-        const docPath = path.join(harness.tempDir, "tool-chain-knowledge.txt");
-        fs.writeFileSync(docPath, "searchable evidence for calculate 2+3", "utf8");
-        await harness.knowledgeService.ingestFile(docPath);
-
-        const conversation = harness.store.createConversation("default", "Tool chain state");
-        const result = await harness.executionFlow.run({
-          conversationId: conversation.id,
-          mode: "default",
-          text: "search this file and calculate 2+3",
-          enableRetrievalForTurn: true
-        });
-
-        assert.deepEqual(result.state.toolsCalled, ["search", "compute"]);
-        assert.match(result.state.latestToolResult, /2\+3 = 5/);
-        assert.equal(result.assistantMessage.metadata.toolName, null);
-        assert.deepEqual(result.assistantMessage.metadata.toolNames, ["search", "compute"]);
-        assert.equal(result.assistantMessage.metadata.toolResultCount, 2);
-        assert.equal(result.assistantMessage.metadata.toolSummaries.length, 2);
-        assert.match(result.assistantMessage.metadata.toolSummary, /2\+3 = 5/);
-        assert.equal(result.verification.status, "passed");
-        assert.match(result.verification.detail, /tool produced results/);
-        assert.match(result.verification.detail, /tool results succeeded/);
-      } finally {
-        restoreFetch();
-        harness.cleanup();
-      }
-    }
-  },
-  {
-    name: "HostExecService allows expanded read-only commands",
-    fn: async () => {
-      const harness = createHarness();
-
-      try {
-        const hostExecService = new HostExecService(harness.workspaceRoot);
-
-        // 新增的只读命令应该被允许
-        assert.ok(hostExecService.isAllowedCommand("tree"), "tree should be allowed");
-        assert.ok(hostExecService.isAllowedCommand("hostname"), "hostname should be allowed");
-        assert.ok(hostExecService.isAllowedCommand("whoami"), "whoami should be allowed");
-        assert.ok(hostExecService.isAllowedCommand("Get-Date"), "Get-Date should be allowed");
-        assert.ok(hostExecService.isAllowedCommand("Get-Process"), "Get-Process should be allowed");
-        assert.ok(hostExecService.isAllowedCommand("Test-Path ."), "Test-Path should be allowed");
-        assert.ok(hostExecService.isAllowedCommand("Get-FileHash test.txt"), "Get-FileHash should be allowed");
-        assert.ok(hostExecService.isAllowedCommand("Measure-Object"), "Measure-Object should be allowed");
-
-        // Safe git inspection commands
-        assert.ok(hostExecService.isAllowedCommand("git status"), "git status should be allowed");
-        assert.ok(hostExecService.isAllowedCommand("git log --oneline -5"), "git log should be allowed");
-        assert.ok(hostExecService.isAllowedCommand("git diff"), "git diff should be allowed");
-        assert.ok(hostExecService.isAllowedCommand("git show HEAD~1"), "git show should be allowed");
-        assert.ok(hostExecService.isAllowedCommand("git branch"), "git branch listing should be allowed");
-        assert.ok(hostExecService.isAllowedCommand("git branch --show-current"), "git branch --show-current should be allowed");
-        assert.ok(hostExecService.isAllowedCommand("git remote"), "git remote listing should be allowed");
-        assert.ok(hostExecService.isAllowedCommand("git remote -v"), "git remote -v should be allowed");
-
-        // npm/node inspection commands
-        assert.ok(hostExecService.isAllowedCommand("npm list"), "npm list should be allowed");
-        assert.ok(hostExecService.isAllowedCommand("npm outdated"), "npm outdated should be allowed");
-        assert.ok(hostExecService.isAllowedCommand("node --version"), "node --version should be allowed");
-
-        // Unsafe git mutations or file-writing forms must stay blocked
-        assert.ok(!hostExecService.isAllowedCommand("git branch feature-test"), "git branch create should be blocked");
-        assert.ok(!hostExecService.isAllowedCommand("git branch -D feature-test"), "git branch delete should be blocked");
-        assert.ok(
-          !hostExecService.isAllowedCommand("git remote add origin https://example.com/repo.git"),
-          "git remote add should be blocked"
-        );
-        assert.ok(!hostExecService.isAllowedCommand("git remote remove origin"), "git remote remove should be blocked");
-        assert.ok(!hostExecService.isAllowedCommand("git diff --output leaked.patch"), "git diff --output should be blocked");
-        assert.ok(!hostExecService.isAllowedCommand("git show --output leaked.patch"), "git show --output should be blocked");
-
-        // Destructive commands remain blocked
-        assert.ok(!hostExecService.isAllowedCommand("git push origin main"), "git push should be blocked");
-        assert.ok(!hostExecService.isAllowedCommand("git checkout -b foo"), "git checkout should be blocked");
-        assert.ok(!hostExecService.isAllowedCommand("npm install lodash"), "npm install should be blocked");
-        assert.ok(!hostExecService.isAllowedCommand("Remove-Item test.txt"), "Remove-Item should be blocked");
-      } finally {
-        harness.cleanup();
-      }
-    }
-  },
-  {
-    name: "KnowledgeService stopword filtering improves search focus",
-    fn: async () => {
-      const harness = createHarness();
-
-      try {
-        // 导入含有实义词的知识
-        const filePath = path.join(harness.tempDir, "stopword-test.txt");
-        fs.writeFileSync(filePath, "database index optimization strategy guide", "utf8");
-        await harness.knowledgeService.ingestFile(filePath);
-
-        // "the" 和 "is" 是英文停用词，应被过滤，只用 "database" 和 "index" 搜索
-        const results = harness.knowledgeService.retrieve("what is the database index", 5);
-        assert.ok(results.length > 0, "should find results even with stopwords in query");
-        assert.ok(results[0].content.includes("database"), "result should contain real content");
-      } finally {
-        harness.cleanup();
-      }
-    }
-  },
-  {
-    name: "Store snippet extraction centers around matched terms",
-    fn: async () => {
-      const harness = createHarness();
-
-      try {
-        // 创建一个长文本，匹配词在中后部
-        const longText = "A".repeat(400) + " target-keyword " + "B".repeat(400);
-        const filePath = path.join(harness.tempDir, "long-text.txt");
-        fs.writeFileSync(filePath, longText, "utf8");
-        await harness.knowledgeService.ingestFile(filePath);
-
-        const results = harness.knowledgeService.retrieve("target-keyword", 5);
-        assert.ok(results.length > 0, "should find results");
-        // 摘录应包含匹配词，而不是只截取开头
-        assert.ok(
-          results[0].content.includes("target-keyword"),
-          "snippet should include the matched term, not just the beginning of content"
-        );
-      } finally {
-        harness.cleanup();
-      }
-    }
-  },
-  {
-    name: "KnowledgeService jieba segmentation improves Chinese multi-word retrieval",
-    fn: async () => {
-      const harness = createHarness();
-
-      try {
-        const sourceId = harness.store.addKnowledgeSource(
-          "chinese-doc.md",
-          path.join(harness.tempDir, "chinese-doc.md")
-        );
-        // chunk 0：包含"人工智能"这个完整词组
-        harness.store.insertKnowledgeChunk(
-          sourceId,
-          0,
-          "人工智能技术在近年来取得了显著的发展，深度学习和自然语言处理是其中最重要的方向。"
-        );
-        // chunk 1：包含"人工"和"智能"但不是"人工智能"这个词组
-        harness.store.insertKnowledgeChunk(
-          sourceId,
-          1,
-          "这个工厂采用了人工操作和智能设备相结合的方式来提高效率。"
-        );
-        // chunk 2：完全不相关
-        harness.store.insertKnowledgeChunk(
-          sourceId,
-          2,
-          "今天的天气很好，适合出门散步和锻炼身体。"
-        );
-        harness.store.updateKnowledgeSourceChunkCount(sourceId, 3);
-
-        // 查询"人工智能"——jieba 应该把它识别为一个词
-        const snippets = harness.knowledgeService.retrieve("人工智能", 3);
-
-        assert.ok(snippets.length >= 1, "should find at least one result for '人工智能'");
-        // 第一个结果应该是包含"人工智能"完整词组的 chunk
-        assert.ok(
-          snippets[0].content.includes("人工智能"),
-          "top result should contain the exact phrase '人工智能'"
-        );
-      } finally {
-        harness.cleanup();
-      }
-    }
-  },
-  {
-    name: "KnowledgeService jieba handles mixed Chinese-English queries",
-    fn: async () => {
-      const harness = createHarness();
-
-      try {
-        const sourceId = harness.store.addKnowledgeSource(
-          "mixed-doc.md",
-          path.join(harness.tempDir, "mixed-doc.md")
-        );
-        harness.store.insertKnowledgeChunk(
-          sourceId,
-          0,
-          "Enso 是一个本地优先的桌面代理，支持自然语言处理和知识检索功能。"
-        );
-        harness.store.insertKnowledgeChunk(
-          sourceId,
-          1,
-          "React and TypeScript are used for building modern web applications."
-        );
-        harness.store.updateKnowledgeSourceChunkCount(sourceId, 2);
-
-        // 中英混合查询
-        const snippets = harness.knowledgeService.retrieve("Enso 知识检索", 2);
-
-        assert.ok(snippets.length >= 1, "should find results for mixed query");
-        assert.ok(
-          snippets[0].content.includes("Enso"),
-          "top result should contain 'Enso'"
-        );
-      } finally {
-        harness.cleanup();
-      }
-    }
-  },
-  // ---------- 深度对话 toolBias=minimal 测试 ----------
-  {
-    name: "ExecutionFlow deep-dialogue mode suppresses tool trigger for casual tool keywords",
-    fn: async () => {
-      const harness = createHarness();
-      const restoreFetch = mockKimiReply("关于阅读的本质，我认为……");
-
-      try {
-        updatePermissions(harness, { external_network: "allow" });
-        harness.secretService.saveProviderApiKey("kimi", "kimi-secret-123");
-        const conversation = harness.store.createConversation("deep-dialogue", "toolBias test");
-
-        // "阅读是一种享受" 包含工具关键词"阅读"，但在深度对话模式下
-        // toolBias=minimal 应使用严格检测，不触发 tool-assisted
-        const casualResult = await harness.executionFlow.run({
-          conversationId: conversation.id,
-          mode: "deep-dialogue",
-          text: "阅读是一种享受，你怎么看？",
-          enableRetrievalForTurn: false
-        });
-
-        assert.equal(
-          casualResult.classification.handlingClass,
-          "pure-dialogue",
-          "deep-dialogue should NOT trigger tool-assisted for casual '阅读'"
-        );
-
-        // 同样的文本在 default 模式（toolBias=balanced）下应触发 tool-assisted，
-        // 因为宽松检测会匹配到"阅读"这个工具关键词
-        const defaultConv = harness.store.createConversation("default", "toolBias default test");
-        const defaultResult = await harness.executionFlow.run({
-          conversationId: defaultConv.id,
-          mode: "default",
-          text: "阅读是一种享受，你怎么看？",
-          enableRetrievalForTurn: false
-        });
-
-        assert.equal(
-          defaultResult.classification.handlingClass,
-          "tool-assisted",
-          "default mode (balanced) should trigger tool-assisted for '阅读'"
-        );
-
-        // 明确的工具指令在深度对话模式下仍然应该触发
-        const explicitConv = harness.store.createConversation("deep-dialogue", "explicit tool test");
-        const explicitResult = await harness.executionFlow.run({
-          conversationId: explicitConv.id,
-          mode: "deep-dialogue",
-          text: "计算 3+5 的结果",
-          enableRetrievalForTurn: false
-        });
-
-        assert.equal(
-          explicitResult.classification.handlingClass,
-          "tool-assisted",
-          "deep-dialogue should still trigger tool-assisted for explicit '计算 3+5'"
-        );
-      } finally {
-        restoreFetch();
-        harness.cleanup();
-      }
-    }
-  },
-  {
-    name: "ExecutionFlow deep-dialogue mode uses extended history window",
-    fn: async () => {
-      const harness = createHarness();
-
-      try {
-        updatePermissions(harness, { external_network: "allow" });
-        harness.secretService.saveProviderApiKey("kimi", "kimi-secret-123");
-        const conversation = harness.store.createConversation("deep-dialogue", "history window test");
-
-        // 插入 20 条消息（超过 default 的 12 窗口，但在 deep-dialogue 的 24 窗口内）
-        for (let i = 0; i < 20; i++) {
-          harness.store.addMessage(
-            conversation.id,
-            i % 2 === 0 ? "user" : "assistant",
-            `历史消息 ${i + 1}`
-          );
-        }
-
-        // 验证 deep-dialogue 模式下的历史窗口大小
-        const { getHistoryWindow } = require(path.join(DIST_ROOT, "shared/modes.js"));
-        assert.equal(getHistoryWindow("deep-dialogue"), 24, "deep-dialogue historyWindow should be 24");
-        assert.equal(getHistoryWindow("default"), 12, "default historyWindow should be 12");
-        assert.equal(getHistoryWindow("research"), 16, "research historyWindow should be 16");
-      } finally {
-        harness.cleanup();
-      }
-    }
-  },
-  {
-    name: "ExecutionFlow deep-dialogue mode injects mode-specific system prompt",
-    fn: async () => {
-      const harness = createHarness();
-      let capturedMessages = null;
-      const restoreFetch = mockFetchCapture((messages) => {
-        capturedMessages = messages;
-        return "深度对话回复";
-      });
-
-      try {
-        updatePermissions(harness, { external_network: "allow" });
-        harness.secretService.saveProviderApiKey("kimi", "kimi-secret-123");
-        const conversation = harness.store.createConversation("deep-dialogue", "prompt injection test");
-
-        await harness.executionFlow.run({
-          conversationId: conversation.id,
-          mode: "deep-dialogue",
-          text: "聊聊存在主义",
-          enableRetrievalForTurn: false
-        });
-
-        assert.ok(capturedMessages, "should have captured messages sent to model");
-        const systemMsg = capturedMessages.find((m) => m.role === "system");
-        assert.ok(systemMsg, "should have a system message");
-        assert.ok(
-          systemMsg.content.includes("深度对话"),
-          "system prompt should contain deep-dialogue mode instructions"
-        );
-        assert.ok(
-          systemMsg.content.includes("博学而真诚"),
-          "system prompt should contain the conversational tone instruction"
-        );
-      } finally {
-        restoreFetch();
-        harness.cleanup();
-      }
-    }
-  }
 ];
+
+// -- 运行 --
 
 (async () => {
   let passed = 0;
-
+  let failed = 0;
   for (const entry of tests) {
     if (await runTest(entry.name, entry.fn)) {
       passed += 1;
+    } else {
+      failed += 1;
     }
   }
-
-  if (passed !== tests.length) {
-    process.stderr.write(`\n集成测试失败：${passed}/${tests.length} 通过。\n`);
+  const total = passed + failed;
+  process.stdout.write(`\n集成测试通过：${passed}/${total} 通过。\n`);
+  if (failed > 0) {
     process.exit(1);
   }
-
-  process.stdout.write(`\n集成测试通过：${passed}/${tests.length} 通过。\n`);
-  process.exit(0);
 })();

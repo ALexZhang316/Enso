@@ -57,7 +57,7 @@ src/
 ### Main-process services
 
 - `model-adapter.ts`
-  Wraps Vercel AI SDK (`ai`, `@ai-sdk/openai`, `@ai-sdk/anthropic`, `@ai-sdk/google`) for streaming text generation across four providers (OpenAI, Anthropic, Google, Kimi). Injects board-specific system prompts.
+  Wraps Vercel AI SDK (`ai`, `@ai-sdk/openai`, `@ai-sdk/anthropic`, `@ai-sdk/google`, `@ai-sdk/moonshotai`) for streaming text generation across four providers (OpenAI, Anthropic, Google, Kimi). Injects board-specific system prompts.
 - `prompts.ts`
   Board-specific system prompt definitions for dialogue, decision, and research.
 - `config-service.ts`
@@ -150,9 +150,10 @@ CREATE TABLE app_state (
 
 ### Runtime
 - `ai` — Vercel AI SDK core
-- `@ai-sdk/openai` — OpenAI + Kimi (compatible) provider
+- `@ai-sdk/openai` — OpenAI provider
 - `@ai-sdk/anthropic` — Anthropic provider
 - `@ai-sdk/google` — Google Gemini provider
+- `@ai-sdk/moonshotai` — Moonshot (Kimi) provider
 - `better-sqlite3` — SQLite database
 - `@iarna/toml` — TOML config parsing
 - `react`, `react-dom` — UI framework
@@ -162,6 +163,11 @@ CREATE TABLE app_state (
 ### Removed from v1
 - `@langchain/core`, `@langchain/openai`, `langchain`
 - `@node-rs/jieba` (Chinese word segmentation)
+
+## Build contract
+
+- `npm run build` includes a `clean` step that removes `dist/` before compiling, preventing stale v1 artifacts from lingering.
+- `npm run clean` can be run independently to remove `dist/`.
 
 ## Known active issues
 

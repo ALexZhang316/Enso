@@ -80,6 +80,13 @@ export class EnsoStore {
     if (!colNames.has("model")) {
       this.db.exec("ALTER TABLE conversations ADD COLUMN model TEXT NOT NULL DEFAULT ''");
     }
+
+    // messages 表：补充 tool_name 列（旧数据库可能没有）
+    const msgCols = this.db.pragma("table_info(messages)") as Array<{ name: string }>;
+    const msgColNames = new Set(msgCols.map((c) => c.name));
+    if (!msgColNames.has("tool_name")) {
+      this.db.exec("ALTER TABLE messages ADD COLUMN tool_name TEXT");
+    }
   }
 
   // ---- 会话 CRUD ----

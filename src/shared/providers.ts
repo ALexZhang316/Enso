@@ -16,30 +16,30 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
   {
     id: "openai",
     label: "OpenAI",
-    defaultModel: "gpt-4o",
+    defaultModel: "gpt-5.4",
     defaultBaseUrl: "https://api.openai.com/v1",
-    models: ["gpt-4o", "gpt-4o-mini", "gpt-4.1", "gpt-4.1-mini"]
+    models: ["gpt-5.4"]
   },
   {
     id: "anthropic",
     label: "Anthropic",
-    defaultModel: "claude-sonnet-4-20250514",
+    defaultModel: "claude-opus-4-6",
     defaultBaseUrl: "https://api.anthropic.com/v1",
-    models: ["claude-sonnet-4-20250514", "claude-opus-4-20250514", "claude-haiku-4-20250514"]
+    models: ["claude-opus-4-6"]
   },
   {
     id: "google",
     label: "Gemini",
-    defaultModel: "gemini-2.5-pro",
+    defaultModel: "gemini-3.1-pro-preview",
     defaultBaseUrl: "https://generativelanguage.googleapis.com/v1beta",
-    models: ["gemini-2.5-pro", "gemini-2.5-flash"]
+    models: ["gemini-3.1-pro-preview"]
   },
   {
     id: "kimi",
     label: "Kimi",
-    defaultModel: "moonshot-v1-auto",
+    defaultModel: "kimi-k2.5",
     defaultBaseUrl: "https://api.moonshot.cn/v1",
-    models: ["moonshot-v1-auto", "moonshot-v1-128k"]
+    models: ["kimi-k2.5", "moonshot-v1-8k"]
   }
 ];
 

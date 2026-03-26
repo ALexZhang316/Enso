@@ -1,5 +1,23 @@
 # CHANGELOG
 
+## 2026-03-25 - v2 bug fixes, build hardening, test rewrite
+
+### What changed
+1. 修复 `ConfigService.normalize()` 浅拷贝 bug：`{ ...defaults.providers }` 只拷贝第一层，导致外部修改返回配置时污染全局 `DEFAULT_ENSO_CONFIG` 常量。改为逐个深拷贝每个 ProviderConfig。
+2. 修复 `ConfigService.load()` catch 分支的同样浅拷贝问题。
+3. 更新 `config/default.toml` 从 v1 格式（单 `[provider]`、`[expression]`、`[permissions]`、`[modeDefaults]`）到 v2 多 provider 格式。
+4. 添加 `npm run clean` 脚本，`build` 命令前置 clean 步骤，防止 `dist/` 残留 v1 编译产物（core/、providers/、segmenter.js 等）。
+5. 完全重写 `tests/integration.test.cjs`：移除全部 v1 模块引用（ExecutionFlow、KnowledgeService、ToolService 等 45+ 测试），新增 25 个 v2 集成测试覆盖 ConfigService、SecretService、Board/Provider 定义一致性、跨模块集成。
+6. 完全重写 `tests/ui.test.cjs`：移除全部 v1 UI 引用（mode 按钮、知识库、执行流水线、确认流程等），新增 10 个 v2 UI 测试覆盖布局加载、三板块切换、会话创建、API Key 安全。
+7. 更新 `docs/codebase-contract.md` 和 `docs/architecture.md`：Kimi 的 SDK 从 `@ai-sdk/openai` 改为 `@ai-sdk/moonshotai`，新增 build contract 段落。
+
+### Why it changed
+- v2 重写后遗留了 v1 编译产物和测试代码，导致集成测试和 UI 测试无法运行。
+- ConfigService 的浅拷贝 bug 会在跨测试/跨调用场景中导致配置状态泄漏。
+- default.toml 的 v1 格式导致首次加载时 activeProvider 不符合预期。
+
+---
+
 ## 2026-03-24 - Enso v2 ground-up rewrite
 
 ### What changed

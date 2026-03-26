@@ -30,6 +30,7 @@ export interface EnsoBridge {
   saveConfig: (config: EnsoConfig) => Promise<EnsoConfig>;
   hasProviderApiKey: (providerId: ProviderId) => Promise<boolean>;
   clearProviderApiKey: (providerId: ProviderId) => Promise<boolean>;
+  getConfiguredProviders: () => Promise<ProviderId[]>;
 
   // 聊天（流式通过 IPC 事件推送，不在这里返回）
   sendMessage: (params: {
@@ -52,6 +53,9 @@ export interface EnsoBridge {
     callback: (data: { conversationId: string; fullText: string; messageId: string }) => void
   ) => void;
   onStreamError: (callback: (data: { conversationId: string; error: string }) => void) => void;
+
+  // 监听会话列表变化（主进程自动命名等操作后推送）
+  onConversationsChanged: (callback: (conversations: Conversation[]) => void) => void;
 
   // 清除事件监听
   removeAllStreamListeners: () => void;

@@ -3,7 +3,7 @@
 
 import { ipcMain, BrowserWindow } from "electron";
 import { BoardId, DEFAULT_BOARD, getBoardDef } from "../shared/boards";
-import { ProviderId } from "../shared/providers";
+import { ProviderId, PROVIDER_PRESETS } from "../shared/providers";
 import { EnsoConfig, InitializationPayload } from "../shared/types";
 import { ConfigService } from "./services/config-service";
 import { ModelAdapter } from "./services/model-adapter";
@@ -76,16 +76,24 @@ export const registerIpcHandlers = ({
     return store.listConversations();
   });
 
-  // 删除
+  // 删除（允许删到空状态，不自动创建新会话）
   ipcMain.handle("enso:conversation:delete", (_event, conversationId: string) => {
     store.deleteConversation(conversationId);
     const remaining = store.listConversations();
-    const next = remaining.length > 0 ? remaining[0] : store.ensureDefaultConversation(DEFAULT_BOARD);
-    store.setActiveConversationId(next.id);
+    if (remaining.length > 0) {
+      store.setActiveConversationId(remaining[0].id);
+      return {
+        conversations: remaining,
+        activeConversationId: remaining[0].id,
+        messages: store.listMessages(remaining[0].id)
+      };
+    }
+    // 空状态：没有会话
+    store.setActiveConversationId("");
     return {
-      conversations: store.listConversations(),
-      activeConversationId: next.id,
-      messages: store.listMessages(next.id)
+      conversations: [],
+      activeConversationId: "",
+      messages: []
     };
   });
 
@@ -124,6 +132,11 @@ export const registerIpcHandlers = ({
     return true;
   });
 
+  // 查询哪些厂商已配置 API Key
+  ipcMain.handle("enso:provider:configured", () =>
+    PROVIDER_PRESETS.filter((p) => secretService.hasProviderApiKey(p.id)).map((p) => p.id)
+  );
+
   // 发送消息（流式）
   ipcMain.handle(
     "enso:chat:send",
@@ -145,6 +158,16 @@ export const registerIpcHandlers = ({
       store.addMessage(conversationId, "user", text);
       // 记录使用的模型
       store.updateConversationModel(conversationId, model);
+
+      // 首条消息时自动命名会话（把"新会话"改为消息摘要）
+      const conv = store.getConversation(conversationId);
+      if (conv && conv.title === "新会话") {
+        const autoTitle = text.length > 20 ? text.slice(0, 20) + "…" : text;
+        store.renameConversation(conversationId, autoTitle);
+        if (!window.isDestroyed()) {
+          window.webContents.send("enso:conversations:changed", store.listConversations());
+        }
+      }
 
       // 获取历史消息
       const boardDef = getBoardDef(board);

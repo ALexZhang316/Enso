@@ -30,6 +30,8 @@ const bridge: EnsoBridge = {
     ipcRenderer.invoke("enso:provider:key:has", providerId),
   clearProviderApiKey: (providerId: ProviderId) =>
     ipcRenderer.invoke("enso:provider:key:clear", providerId),
+  getConfiguredProviders: () =>
+    ipcRenderer.invoke("enso:provider:configured"),
 
   // 聊天
   sendMessage: (params) => ipcRenderer.invoke("enso:chat:send", params),
@@ -45,10 +47,14 @@ const bridge: EnsoBridge = {
   onStreamError: (callback) => {
     ipcRenderer.on("enso:chat:stream-error", (_event, data) => callback(data));
   },
+  onConversationsChanged: (callback) => {
+    ipcRenderer.on("enso:conversations:changed", (_event, data) => callback(data));
+  },
   removeAllStreamListeners: () => {
     ipcRenderer.removeAllListeners("enso:chat:stream-chunk");
     ipcRenderer.removeAllListeners("enso:chat:stream-end");
     ipcRenderer.removeAllListeners("enso:chat:stream-error");
+    ipcRenderer.removeAllListeners("enso:conversations:changed");
   },
 
   // 应用信息

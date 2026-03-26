@@ -60,8 +60,13 @@ export class ConfigService {
   // 从 TOML 解析结果规范化为 EnsoConfig
   private normalize(raw: any): EnsoConfig {
     const defaults = DEFAULT_ENSO_CONFIG;
+    // 深拷贝 providers，防止外部修改污染默认配置对象
+    const providers = {} as Record<ProviderId, ProviderConfig>;
+    for (const pid of Object.keys(defaults.providers) as ProviderId[]) {
+      providers[pid] = { ...defaults.providers[pid] };
+    }
     const result: EnsoConfig = {
-      providers: { ...defaults.providers },
+      providers,
       activeProvider: defaults.activeProvider
     };
 
@@ -110,7 +115,7 @@ export class ConfigService {
       const parsed = TOML.parse(raw);
       return this.normalize(parsed);
     } catch {
-      return { ...DEFAULT_ENSO_CONFIG };
+      return this.normalize({});
     }
   }
 

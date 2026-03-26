@@ -1,19 +1,21 @@
-[provider]
+activeProvider = "openai"
+
+[providers.openai]
+provider = "openai"
+baseUrl = "https://api.openai.com/v1"
+model = "gpt-5.4"
+
+[providers.anthropic]
+provider = "anthropic"
+baseUrl = "https://api.anthropic.com/v1"
+model = "claude-opus-4-6"
+
+[providers.google]
+provider = "google"
+baseUrl = "https://generativelanguage.googleapis.com/v1beta"
+model = "gemini-3.1-pro-preview"
+
+[providers.kimi]
 provider = "kimi"
 baseUrl = "https://api.moonshot.cn/v1"
 model = "kimi-k2.5"
-
-[expression]
-density = "standard"
-structuredFirst = false
-
-reportingGranularity = "plan-level"
-
-[permissions]
-workspace_write = "confirm"
-host_exec_readonly = "confirm"
-host_exec_destructive = "block"
-external_network = "block"
-
-[modeDefaults]
-defaultMode = "default"

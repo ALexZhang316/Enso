@@ -61,11 +61,6 @@ const LeftPanel = (props: LeftPanelProps): JSX.Element => {
                 type="button"
               >
                 <div className="font-medium">{board.label}</div>
-                <div className={`text-[10px] mt-0.5 ${
-                  activeBoard === board.id ? "text-primary-foreground/70" : "text-muted-foreground/50"
-                }`}>
-                  {board.description}
-                </div>
               </button>
             ))}
           </div>

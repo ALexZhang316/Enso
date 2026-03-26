@@ -32,12 +32,6 @@ const SCANNED_FILES = [
   "docs/codebase-contract.md",
   "docs/architecture.md",
   "docs/environment-and-github-bootstrap.md",
-  "docs/spec/brain.md",
-  "docs/spec/permission.md",
-  "docs/spec/context.md",
-  "docs/spec/tools.md",
-  "docs/spec/ui.md",
-  "docs/spec/audit.md",
   "tasks/TEMPLATE.md",
   "config/default.toml"
 ];
